@@ -5,6 +5,8 @@
 FragNet is an independent, fan-made tracker for **amateur and semi-pro esports**, styled
 like a classic mid-2000s esports portal:
 
+- **Matches today** (front page): today's ESEA matches (Pacific date) - live, finished with
+  scores and upcoming with start times - plus any Valorant results from today.
 - **Counter-Strike 2 / ESEA League**: current season, standings (top 20) for EU and NA
   Advanced, Main and Intermediate, recent results and upcoming matches with per-map
   scoreboards, and top fraggers in Advanced.
@@ -58,6 +60,11 @@ header. Per run it makes 2 list requests per tracked conference (past + upcoming
 plus up to 100 match-stats requests for matches whose stats are not cached yet, hard-capped
 at 150 requests, 0.5 s apart. Without a key (or on HTTP 401/403/429) the match sections keep
 the last good data (STALE) or show MISS - nothing is filled in.
+
+### Backup trigger
+GitHub's `schedule` event is best-effort and can be delayed or skipped. `tools/refresh_if_stale.sh`
+(needs an authenticated `gh`) dispatches `deploy.yml` only when no run is queued/running and the
+last successful run is older than 35 minutes; run it every 30 minutes from any scheduler.
 
 ## Run locally
 

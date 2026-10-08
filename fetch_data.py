@@ -165,7 +165,7 @@ FACEIT_DATA_API = "https://open.faceit.com/data/v4"
 def fetch_faceit(prev):
     prev = prev or {}
     out = {"league": "ESEA League (FACEIT)", "page": ESEA_PAGE, "season": None,
-           "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "upcoming": [],
+           "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "upcoming": [], "live": [],
            "matches_meta": None, "sources": []}
     def reuse_everything(name, url, reason):
         """Seasons/tree failed: keep the previous season data, flagged stale."""
@@ -467,7 +467,7 @@ DATA_API_MAX_REQ = 150      # hard cap per run (lists + match stats)
 MATCH_STATS_MAX = 100       # new /matches/{id}/stats calls per run (finished stats are reused)
 RECENT_PER_DIV = 12         # newest finished matches kept per division (+ tracked teams' matches)
 UPCOMING_PER_DIV = 8        # next scheduled matches kept per division (+ each tracked team's next match)
-KEEP_PER_DIV = 40           # hard cap of stored finished / upcoming matches per division
+KEEP_PER_DIV = 60           # hard cap of stored finished / upcoming matches per division
 HOST_DELAY = {"open.faceit.com": DATA_API_DELAY}
 
 
@@ -579,10 +579,10 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
         for t in d.get("teams", []):
             if t.get("id"):
                 tracked[t["id"]] = (d["region"], d["division"])
-    nreq, errs, fin, upc = 0, [], {}, {}
+    nreq, errs, fin, upc, ong = 0, [], {}, {}, {}
     for region, div, conf, cid in conf_champs:
         key = (region, div)
-        for kind in ("past", "upcoming"):
+        for kind in ("past", "ongoing", "upcoming"):
             if nreq >= DATA_API_MAX_REQ:
                 errs.append("request cap reached")
                 break
@@ -617,23 +617,36 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
                                   "s1": as_int(sc.get("faction1")), "s2": as_int(sc.get("faction2")),
                                   "winner": 1 if res.get("winner") == "faction1" else 2 if res.get("winner") == "faction2" else 0})
                         fin.setdefault(key, []).append(m)
+                    elif kind == "ongoing":           # live now (as of this fetch)
+                        m["t"] = epoch_iso(it.get("started_at")) or epoch_iso(it.get("scheduled_at"))
+                        m["status"] = norm(it.get("status")) or "ONGOING"
+                        ong.setdefault(key, []).append(m)
                     else:
                         m["t"] = epoch_iso(it.get("scheduled_at"))
                         upc.setdefault(key, []).append(m)
                 except Exception:
                     continue
     nlist = nreq
-    if not fin and not upc:
+    if not fin and not upc and not ong:
         return keep_prev("; ".join(errs) or "no matches returned")
 
+    now_ts = datetime.now(timezone.utc).timestamp()
+
+    def near(m):
+        """within ~30 h of now: keeps every match of 'today' (Pacific) for the front-page board."""
+        try:
+            return abs(datetime.fromisoformat(m["t"]).timestamp() - now_ts) < 30 * 3600
+        except (KeyError, TypeError, ValueError):
+            return False
+
     def pick(rows, n, newest_first, per_team):
-        """newest/next n of the division + up to per_team matches of every tracked team."""
+        """newest/next n of the division + every match within ~30 h + up to per_team matches of every tracked team."""
         rows.sort(key=lambda m: m.get("t") or "", reverse=newest_first)
         seen, keep, cnt = set(), [], {}
         for i, m in enumerate(rows):
             if m["id"] in seen:
                 continue
-            want = i < n
+            want = i < n or near(m)
             for tid in (m["t1"]["id"], m["t2"]["id"]):
                 if tid in tracked and cnt.get(tid, 0) < per_team:
                     want = True
@@ -645,6 +658,9 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
         return keep[:KEEP_PER_DIV]
     matches = [m for k in fin for m in pick(fin[k], RECENT_PER_DIV, True, 3)]
     upcoming = [m for k in upc for m in pick(upc[k], UPCOMING_PER_DIV, False, 1)]
+    live_ids = {m["id"] for k in ong for m in ong[k]}
+    live = [m for k in ong for m in ong[k]][:60]
+    upcoming = [m for m in upcoming if m["id"] not in live_ids]
     # match stats: reuse finished-match stats from last-good data, fetch the rest (newest first)
     old = {m["id"]: m.get("maps") for m in (prev.get("matches") or []) if m.get("maps")} if same_season else {}
     # matches that had no published stats >6 h after finishing (forfeits / technical results) are not re-asked
@@ -690,11 +706,12 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
             nmiss += 1
     out["matches"] = matches
     out["upcoming"] = upcoming
+    out["live"] = live
     out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist,
                            "stats_requests": nstats, "stats_reused": nreuse,
-                           "with_maps": sum(1 for m in matches if m.get("maps"))}
+                           "with_maps": sum(1 for m in matches if m.get("maps")), "live": len(live)}
     out["sources"].append(status(lname, lurl, True, len(matches) + len(upcoming), page=season_page,
-                                 note=f"{len(matches)} finished + {len(upcoming)} upcoming kept from {len(conf_champs)} conferences; "
+                                 note=f"{len(matches)} finished + {len(live)} live + {len(upcoming)} upcoming kept from {len(conf_champs)} conferences; "
                                       f"{nlist} list request(s)" + (f"; errors: {'; '.join(errs[:4])}" if errs else "")))
     with_maps = out["matches_meta"]["with_maps"]
     sreason = None if with_maps else ("; ".join(serr[:3]) or "no stats returned")

@@ -1,4 +1,4 @@
-/* FragNet v3.4 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.5 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -367,6 +367,58 @@
       }).join("") + "</tbody></table></div>";
   }
 
+
+  /* ---------- Matches today (v3.5): CS2 (FACEIT) + Valorant (vlr.gg) on today's Pacific date ---------- */
+  function dayKey(d) { var p = ptParts(d); return p.y + "-" + p.m + "-" + p.d; }
+  function hhmm(iso) { var p = ptParts(new Date(iso)); return pad(p.h) + ":" + pad(p.mi); }
+  function todayRows() {
+    var key = dayKey(new Date()), rows = [];
+    function today(iso) { if (!iso) return false; var d = new Date(iso); return !isNaN(d) && dayKey(d) === key; }
+    var liveIds = {};
+    ((D.cs && D.cs.live) || []).forEach(function (m) { liveIds[m.id] = 1; if (today(m.t)) rows.push({ g: "cs", st: "live", m: m }); });
+    csFinished().forEach(function (m) { if (today(m.t) && !liveIds[m.id]) rows.push({ g: "cs", st: "done", m: m }); });
+    csUpcoming().forEach(function (m) { if (today(m.t) && !liveIds[m.id]) rows.push({ g: "cs", st: "up", m: m }); });
+    valResults().forEach(function (m) { if (today(m.ts)) rows.push({ g: "val", st: "done", m: m }); });
+    rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
+    return rows;
+  }
+  function todayBoard() {
+    var all = todayRows(), p = ptParts(new Date()), N = 12;
+    // busy league days have 200+ matches: show every live match, the latest N results and the next N starts
+    var done = all.filter(function (r) { return r.st === "done"; }), up = all.filter(function (r) { return r.st === "up"; });
+    var rows = all.filter(function (r) { return r.st === "live"; }).concat(done.slice(-N), up.slice(0, N));
+    rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
+    var cut = rows.length < all.length;
+    var title = "Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d;
+    var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
+    var meta = upd ? "status as of " + fmt(upd, "short") : "";
+    if (!rows.length) return std(esc(title), meta, '<div class="empty today-empty">No matches scheduled today.</div>', "today-board");
+    var body = '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
+      '<th class="first" title="Pacific Time: start time for upcoming and live matches, finish time for finished CS2 matches">Time (PT)</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division / Event</th><th class="hide-sm">Map</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var m = r.m;
+        if (r.g === "val") {
+          var v1 = m.winner === 0, v2 = m.winner === 1;
+          return '<tr class="g-val"><td class="dim" title="' + esc(fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm ' + (v1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) +
+            '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg"><span class="' + (v1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (v2 ? "w" : "") + '">' + esc(m.score2) + "</span></a></td>" +
+            '<td class="tm ' + (v2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) +
+            '</td><td class="hide-sm dim">&ndash;</td></tr>';
+        }
+        var ru = roomUrl(m), w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2, mid;
+        if (r.st === "done") mid = '<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>";
+        else if (r.st === "live") mid = '<span class="live-b">LIVE</span>';
+        else mid = "vs";
+        var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : "match room on FACEIT";
+        return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) : "TBD") + "</td>" +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + "</td>" +
+          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
+          ilink("cs2/" + divOf(m), m.region + " " + m.division) + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+      }).join("") + "</tbody></table></div>" +
+      '<div class="note">' + all.length + " match" + (all.length === 1 ? "" : "es") + " today" + (cut ? " &middot; showing live matches, the latest " + Math.min(N, done.length) + " results and the next " + Math.min(N, up.length) + ' starts (<a href="#cs2/results">all results &raquo;</a>)' : "") +
+      ". Times in Pacific Time. Click a score for the match room, a map for the scoreboard. LIVE = in progress at the last update.</div>";
+    return std(esc(title), meta, body, "today-board");
+  }
+
   /* ================= VIEWS ================= */
   function vHome() {
     var news = newsItems().slice(0, 16);
@@ -391,7 +443,7 @@
       (s ? "ESEA League <b>" + esc(s.name) + "</b> runs " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT) with " + num(s.team_count).toLocaleString("en-US") + " registered teams. " : "") +
       (raid ? "Current WoW raid: <b>" + esc(raid.name) + "</b>. " : "") +
       "Everything comes from public sources and nothing is guessed: if something isn't available yet, we say so. All times Pacific.</div>";
-    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) +
+    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + todayBoard() +
       '<div class="fp-cols"><div>' + std("Latest Esports News", '<a href="#news">all &raquo;</a>', newsHtml) + "</div><div>" +
       std("ESEA Division Leaders", '<a href="#cs2">standings &raquo;</a>', lead) +
       std("Latest ESEA Results", '<a href="#cs2/results">all &raquo;</a>', csResultsTable(csFinished().slice(0, 6), { compact: true })) +
