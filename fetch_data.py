@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FragNet data fetcher (v3.3).
+"""FragNet data fetcher (v3.4).
 
 Pulls REAL public data (no accounts, no API keys, no logins) and writes
 data.json + data.js (identical content; data.js lets index.html work from
@@ -32,10 +32,10 @@ import requests
 from bs4 import BeautifulSoup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GENERATOR = "FragNet fetch_data.py v3.3"
+GENERATOR = "FragNet fetch_data.py v3.4"
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 FragNet/3.3 (hobby tracker)")
+      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 FragNet/3.4 (hobby tracker)")
 S = requests.Session()
 S.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
 DELAY = 1.2            # minimum seconds between two requests to the same host
@@ -52,7 +52,7 @@ def get(url, **kw):
     """GET with per-host rate limit, timeout and one retry on transient errors."""
     host = urlparse(url).netloc
     for attempt in range(RETRIES + 1):
-        wait = DELAY - (time.monotonic() - _last_hit.get(host, 0))
+        wait = HOST_DELAY.get(host, DELAY) - (time.monotonic() - _last_hit.get(host, 0))
         if wait > 0:
             time.sleep(wait)
         _last_hit[host] = time.monotonic()
@@ -155,9 +155,9 @@ MIN_ROUNDS = 20
 ROSTER_PAGE = 20
 ROSTER_MAX_REQ = 60          # total GETs for rosters across all conferences
 ROSTER_MAX_PAGES_PER_CONF = 10   # 200 teams per conference at most
-# Official FACEIT Data API (open.faceit.com) - NOT used unless a key is present.
-# A later step will store FACEIT_API_KEY as a GitHub Actions secret; until then
-# match results stay MISS. No sign-up / no key creation happens in this script.
+# Official FACEIT Data API (open.faceit.com) - used for match results ONLY when the
+# FACEIT_API_KEY env var is set (GitHub Actions secret). The key is sent solely as the
+# Authorization header and is never printed, logged or written to data files.
 FACEIT_API_KEY = (os.environ.get("FACEIT_API_KEY") or "").strip() or None
 FACEIT_DATA_API = "https://open.faceit.com/data/v4"
 
@@ -165,18 +165,8 @@ FACEIT_DATA_API = "https://open.faceit.com/data/v4"
 def fetch_faceit(prev):
     prev = prev or {}
     out = {"league": "ESEA League (FACEIT)", "page": ESEA_PAGE, "season": None,
-           "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "sources": []}
-    if FACEIT_API_KEY:
-        # Placeholder only: wire official Data API calls here (Authorization: Bearer).
-        # No endpoints are hit yet; match-result parsing lands in a later change.
-        out["sources"].append(status(
-            "FACEIT Data API (open.faceit.com/data/v4)", FACEIT_DATA_API,
-            False, reason="FACEIT_API_KEY is set, but Data API match-result calls are not implemented yet - not fetched"))
-    else:
-        out["sources"].append(status(
-            "FACEIT Data API (open.faceit.com/data/v4)", "https://docs.faceit.com/docs/data-api/data",
-            False, reason="FACEIT Data API requires an API key (set FACEIT_API_KEY to enable later) - not fetched (no sign-up per rules)"))
-
+           "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "upcoming": [],
+           "matches_meta": None, "sources": []}
     def reuse_everything(name, url, reason):
         """Seasons/tree failed: keep the previous season data, flagged stale."""
         if prev.get("season"):
@@ -186,6 +176,10 @@ def fetch_faceit(prev):
             out["divisions"] = [mark_stale(d) for d in prev.get("divisions", [])]
             out["top_players"] = copy.deepcopy(prev.get("top_players", []))
             out["players"] = copy.deepcopy(prev.get("players", []))
+            out["matches"] = copy.deepcopy(prev.get("matches", []))
+            out["upcoming"] = copy.deepcopy(prev.get("upcoming", []))
+            if prev.get("matches_meta"):
+                out["matches_meta"] = mark_stale(prev["matches_meta"])
             if out.get("top_players_meta"):
                 out["top_players_meta"]["stale"] = True
             out["sources"].append(stale_status(name, url, reason, prev["season"].get("fetched_at") or prev.get("fetched_at"),
@@ -450,26 +444,263 @@ def fetch_faceit(prev):
         out["sources"].append(status(pname, purl, False, page=ppage,
                                      reason="; ".join(errs) or f"no players with >= {MIN_ROUNDS} rounds yet"))
 
-    # 4) match results - public web match-list is login-walled; official Data API
-    #    needs FACEIT_API_KEY (not called yet - placeholder only when the key is set).
-    if FACEIT_API_KEY:
-        out["sources"].append(status(
-            "FACEIT ESEA match results", f"{FACEIT_DATA_API}/matches", False, page=season_page,
-            reason="FACEIT_API_KEY is set, but Data API match-result calls are not implemented yet - not fetched"))
-    elif stat_champs:
-        cid = stat_champs[0][2]
-        url = f"{FACEIT_WEB}/api/match/v3/match?entityType=championship&entityId={cid}&offset=0&limit=10"
-        try:
-            r = get(url)
-            if r.status_code in (401, 403):
-                reason = (f"FACEIT match list endpoint returns HTTP {r.status_code} without login - "
-                          "not fetched (no sign-in per rules; set FACEIT_API_KEY later for the Data API)")
-            else:
-                reason = f"HTTP {r.status_code}; parser not implemented for this response - not shown"
-            out["sources"].append(status("FACEIT ESEA match results", url, False, reason=reason, page=season_page))
-        except Exception as e:
-            out["sources"].append(status("FACEIT ESEA match results", url, False, reason=f"request failed: {short_err(e)}"))
+    # 4) match results + upcoming via the official FACEIT Data API (needs FACEIT_API_KEY).
+    #    Without a key (or on 401/403/429) the section is MISS, or STALE with last-good data.
+    conf_champs = []
+    for rg in regions:
+        if rg.get("code") not in WANT_REGIONS:
+            continue
+        for dv in rg.get("divisions", []):
+            if dv.get("name") not in WANT_DIVS:
+                continue
+            stage = next((x for x in dv.get("stages", []) if x.get("phase") == 1), None)
+            for c in (stage or {}).get("conferences") or []:
+                if c.get("championship_id"):
+                    conf_champs.append((rg["code"], dv["name"], c.get("name", ""), c["championship_id"]))
+    fetch_matches(out, prev, conf_champs, season_page, same_season)
     return out
+
+
+# ------------------------------------------------- FACEIT Data API (matches)
+DATA_API_DELAY = 0.5        # s between Data API calls (limit is 20/s; stay far below)
+DATA_API_MAX_REQ = 150      # hard cap per run (lists + match stats)
+MATCH_STATS_MAX = 100       # new /matches/{id}/stats calls per run (finished stats are reused)
+RECENT_PER_DIV = 12         # newest finished matches kept per division (+ tracked teams' matches)
+UPCOMING_PER_DIV = 8        # next scheduled matches kept per division (+ each tracked team's next match)
+KEEP_PER_DIV = 40           # hard cap of stored finished / upcoming matches per division
+HOST_DELAY = {"open.faceit.com": DATA_API_DELAY}
+
+
+class DataApiError(Exception):
+    pass
+
+
+def data_api(path, **params):
+    """GET an official FACEIT Data API path. The key is only ever sent as a header;
+    it is never logged, stored or put into URLs / error messages."""
+    if not FACEIT_API_KEY:
+        raise DataApiError("no FACEIT_API_KEY")
+    url = f"{FACEIT_DATA_API}{path}"
+    r = get(url, params=params or None,
+            headers={"Authorization": "Bearer " + FACEIT_API_KEY, "Accept": "application/json"})
+    if r.status_code in (401, 403):
+        raise DataApiError(f"HTTP {r.status_code} (key rejected or not allowed)")
+    if r.status_code == 429:
+        raise DataApiError("HTTP 429 (rate limited)")
+    if r.status_code == 404:
+        return None
+    if r.status_code != 200:
+        raise DataApiError(f"HTTP {r.status_code}")
+    try:
+        return r.json()
+    except ValueError:
+        raise DataApiError("invalid JSON")
+
+
+def epoch_iso(x):
+    try:
+        x = int(x)
+        return datetime.fromtimestamp(x, timezone.utc).isoformat(timespec="seconds") if x > 0 else None
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def map_name(m):
+    m = norm(m)
+    return re.sub(r"^de_", "", m).replace("_", " ").title() if m else ""
+
+
+def room_url(item):
+    u = http_url((item.get("faceit_url") or "").replace("{lang}", "en"))
+    return u or (f"{FACEIT_WEB}/en/cs2/room/{quote(item['match_id'], safe='')}" if item.get("match_id") else None)
+
+
+def side(team):
+    team = team or {}
+    if team.get("type") == "bye" or team.get("faction_id") in (None, "", "bye"):
+        return None
+    return {"id": team.get("faction_id"), "name": norm(team.get("name")) or "TBD"}
+
+
+def parse_stats(st):
+    """/matches/{id}/stats -> [{map, s1, s2, p1, p2}] in faction order of the match."""
+    maps = []
+    for rd in (st or {}).get("rounds") or []:
+        rs = rd.get("round_stats") or {}
+        teams = rd.get("teams") or []
+        if len(teams) != 2:
+            continue
+        def lines(t):
+            out = []
+            for p in t.get("players") or []:
+                ps = p.get("player_stats") or {}
+                out.append([norm(p.get("nickname")), as_int(ps.get("Kills")), as_int(ps.get("Deaths")),
+                            round(as_float(ps.get("ADR")), 1), as_int(ps.get("Headshots %"))])
+            out.sort(key=lambda x: (x[1], x[3]), reverse=True)
+            return out
+        maps.append({"map": map_name(rs.get("Map")), "tid": [teams[0].get("team_id"), teams[1].get("team_id")],
+                     "fs": [as_int((teams[0].get("team_stats") or {}).get("Final Score")),
+                            as_int((teams[1].get("team_stats") or {}).get("Final Score"))],
+                     "pl": [lines(teams[0]), lines(teams[1])]})
+    return maps
+
+
+def orient(maps, t1id):
+    """Order per-map team data as (team1, team2) of the match listing."""
+    out = []
+    for m in maps:
+        a, b = (0, 1) if m["tid"][0] == t1id or m["tid"][1] != t1id else (1, 0)
+        out.append({"map": m["map"], "s1": m["fs"][a], "s2": m["fs"][b], "p1": m["pl"][a], "p2": m["pl"][b]})
+    return out
+
+
+def fetch_matches(out, prev, conf_champs, season_page, same_season):
+    lname = "FACEIT Data API: ESEA match lists"
+    sname = "FACEIT Data API: match stats (maps, scoreboards)"
+    lurl = f"{FACEIT_DATA_API}/championships/<conference>/matches"
+    surl = f"{FACEIT_DATA_API}/matches/<id>/stats"
+    prev_ok = same_season and (prev.get("matches") or prev.get("upcoming"))
+
+    def keep_prev(reason, name=lname, url=lurl):
+        if prev_ok:
+            out["matches"] = copy.deepcopy(prev.get("matches") or [])
+            out["upcoming"] = copy.deepcopy(prev.get("upcoming") or [])
+            out["matches_meta"] = mark_stale(prev.get("matches_meta") or {"fetched_at": prev.get("fetched_at")})
+            out["sources"].append(stale_status(name, url, reason, out["matches_meta"].get("fetched_at"),
+                                               len(out["matches"]), page=season_page))
+        else:
+            out["sources"].append(status(name, url, False, reason=reason, page=season_page))
+
+    if not FACEIT_API_KEY:
+        keep_prev("FACEIT Data API needs an API key (FACEIT_API_KEY not set) - not fetched (no sign-up per rules)")
+        return
+    tracked = {}   # team id -> (region, division)
+    for d in out["divisions"]:
+        for t in d.get("teams", []):
+            if t.get("id"):
+                tracked[t["id"]] = (d["region"], d["division"])
+    nreq, errs, fin, upc = 0, [], {}, {}
+    for region, div, conf, cid in conf_champs:
+        key = (region, div)
+        for kind in ("past", "upcoming"):
+            if nreq >= DATA_API_MAX_REQ:
+                errs.append("request cap reached")
+                break
+            nreq += 1
+            try:
+                d = data_api(f"/championships/{quote(cid, safe='')}/matches", type=kind, offset=0, limit=100)
+            except DataApiError as e:
+                errs.append(f"{region} {div} {conf} {kind}: {e}")
+                if "401" in str(e) or "403" in str(e) or "429" in str(e):
+                    return keep_prev(str(e))
+                continue
+            except Exception as e:
+                errs.append(f"{region} {div} {conf} {kind}: {short_err(e)}")
+                continue
+            for it in (d or {}).get("items") or []:
+                try:
+                    t1, t2 = side((it.get("teams") or {}).get("faction1")), side((it.get("teams") or {}).get("faction2"))
+                    if not t1 or not t2:
+                        continue                         # byes are not matches
+                    m = {"id": it["match_id"], "region": region, "division": div, "conf": conf,
+                         "round": as_int(it.get("round")), "bo": as_int(it.get("best_of"), 1),
+                         "t1": t1, "t2": t2}
+                    u = room_url(it)          # app.js derives the standard room URL from the id
+                    if u and u != f"{FACEIT_WEB}/en/cs2/room/{it['match_id']}":
+                        m["url"] = u
+                    if kind == "past":
+                        if it.get("status") != "FINISHED":
+                            continue
+                        res = it.get("results") or {}
+                        sc = res.get("score") or {}
+                        m.update({"t": epoch_iso(it.get("finished_at")) or epoch_iso(it.get("started_at")) or epoch_iso(it.get("scheduled_at")),
+                                  "s1": as_int(sc.get("faction1")), "s2": as_int(sc.get("faction2")),
+                                  "winner": 1 if res.get("winner") == "faction1" else 2 if res.get("winner") == "faction2" else 0})
+                        fin.setdefault(key, []).append(m)
+                    else:
+                        m["t"] = epoch_iso(it.get("scheduled_at"))
+                        upc.setdefault(key, []).append(m)
+                except Exception:
+                    continue
+    nlist = nreq
+    if not fin and not upc:
+        return keep_prev("; ".join(errs) or "no matches returned")
+
+    def pick(rows, n, newest_first, per_team):
+        """newest/next n of the division + up to per_team matches of every tracked team."""
+        rows.sort(key=lambda m: m.get("t") or "", reverse=newest_first)
+        seen, keep, cnt = set(), [], {}
+        for i, m in enumerate(rows):
+            if m["id"] in seen:
+                continue
+            want = i < n
+            for tid in (m["t1"]["id"], m["t2"]["id"]):
+                if tid in tracked and cnt.get(tid, 0) < per_team:
+                    want = True
+            if want:
+                seen.add(m["id"])
+                keep.append(m)
+                for tid in (m["t1"]["id"], m["t2"]["id"]):
+                    cnt[tid] = cnt.get(tid, 0) + 1
+        return keep[:KEEP_PER_DIV]
+    matches = [m for k in fin for m in pick(fin[k], RECENT_PER_DIV, True, 3)]
+    upcoming = [m for k in upc for m in pick(upc[k], UPCOMING_PER_DIV, False, 1)]
+    # match stats: reuse finished-match stats from last-good data, fetch the rest (newest first)
+    old = {m["id"]: m.get("maps") for m in (prev.get("matches") or []) if m.get("maps")} if same_season else {}
+    # matches that had no published stats >6 h after finishing (forfeits / technical results) are not re-asked
+    cutoff = (datetime.now(timezone.utc).timestamp() - 6 * 3600)
+    old_nostats = {m["id"] for m in (prev.get("matches") or []) if same_season and m.get("nostats") and m.get("t")
+                   and datetime.fromisoformat(m["t"]).timestamp() < cutoff}
+    nstats, nreuse, serr, nmiss = 0, 0, [], 0
+    matches.sort(key=lambda m: m.get("t") or "", reverse=True)
+    # priority: the newest RECENT_PER_DIV of every division first, then everything else
+    first = set()
+    for k in fin:
+        for m in sorted(fin[k], key=lambda m: m.get("t") or "", reverse=True)[:RECENT_PER_DIV]:
+            first.add(m["id"])
+    for m in sorted(matches, key=lambda m: (m["id"] not in first, -(datetime.fromisoformat(m["t"]).timestamp() if m.get("t") else 0))):
+        if m["id"] in old:
+            m["maps"] = old[m["id"]]
+            nreuse += 1
+            continue
+        if m["id"] in old_nostats:
+            m["nostats"] = True
+            nmiss += 1
+            nreuse += 1
+            continue
+        if nstats >= MATCH_STATS_MAX or nreq >= DATA_API_MAX_REQ:
+            continue
+        nreq += 1
+        nstats += 1
+        try:
+            st = data_api(f"/matches/{quote(m['id'], safe='')}/stats")
+        except DataApiError as e:
+            serr.append(str(e))
+            if "429" in str(e) or "401" in str(e) or "403" in str(e):
+                break
+            continue
+        except Exception as e:
+            serr.append(short_err(e))
+            continue
+        maps = orient(parse_stats(st), m["t1"]["id"]) if st else []
+        if maps:
+            m["maps"] = maps
+        else:
+            m["nostats"] = True
+            nmiss += 1
+    out["matches"] = matches
+    out["upcoming"] = upcoming
+    out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist,
+                           "stats_requests": nstats, "stats_reused": nreuse,
+                           "with_maps": sum(1 for m in matches if m.get("maps"))}
+    out["sources"].append(status(lname, lurl, True, len(matches) + len(upcoming), page=season_page,
+                                 note=f"{len(matches)} finished + {len(upcoming)} upcoming kept from {len(conf_champs)} conferences; "
+                                      f"{nlist} list request(s)" + (f"; errors: {'; '.join(errs[:4])}" if errs else "")))
+    with_maps = out["matches_meta"]["with_maps"]
+    sreason = None if with_maps else ("; ".join(serr[:3]) or "no stats returned")
+    out["sources"].append(status(sname, surl, with_maps > 0, with_maps, page=season_page, reason=sreason,
+                                 note=f"{nstats} fetched, {nreuse} reused from last run" + (f", {nmiss} without published stats" if nmiss else "")
+                                      + (f"; errors: {'; '.join(serr[:3])}" if serr and with_maps else "")))
 
 
 # ---------------------------------------------------------------- VLR.gg

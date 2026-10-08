@@ -1,4 +1,4 @@
-/* FragNet v3.3 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.4 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -56,24 +56,26 @@
   function countryName(cc) { try { return cc && REGION_NAMES ? REGION_NAMES.of(cc) : cc || ""; } catch (e) { return cc || ""; } }
   function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function badge(st) { return st === "OK" ? '<span class="ok">OK</span>' : st === "STALE" ? '<span class="stale-b">STALE</span>' : '<span class="miss-b">MISS</span>'; }
-  function missRow(src, reason) {
-    var r = reason || "not fetched";
-    return '<div class="miss" title="' + esc(src + " - " + r) + '"><span class="miss-b">MISS</span><span class="why"><b>' + esc(src) + "</b> &mdash; " + esc(r) + "</span></div>";
-  }
-  function staleRow(src, reason, ts) {
-    return '<div class="miss stale" title="' + esc(src + " - " + (reason || "")) + '"><span class="stale-b">STALE</span><span class="why"><b>' + esc(src) + "</b> &mdash; latest fetch failed; showing last good data from " + fmt(ts, "short") + (reason ? " (" + esc(reason) + ")" : "") + "</span></div>";
-  }
-  function missesFor(sec) {
-    return ((D[sec] || {}).sources || []).filter(function (s) { return s.status !== "OK"; })
-      .map(function (s) { return s.status === "STALE" ? staleRow(s.source, s.reason, s.data_fetched_at) : missRow(s.source, s.reason); }).join("");
-  }
+  /* Visitor-facing pages never show fetch plumbing (source states, endpoints, error text):
+     missing data -> a short friendly line, kept-old data -> a neutral "Last updated" line.
+     The full per-source table lives on the low-key #status page (footer / About only). */
+  function soon(msg) { return '<div class="empty soon">' + esc(msg || "Not available yet.") + "</div>"; }
+  function missRow() { return soon(); }
+  function staleRow(src, reason, ts) { return ts ? '<div class="note upd-note">Last updated ' + fmt(ts, "short") + ".</div>" : ""; }
+  var CREDIT = { cs: [["FACEIT", "https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8"]],
+    valorant: [["vlr.gg", "https://www.vlr.gg/"]], wow: [["Raider.IO", "https://raider.io/"]] };
   function srcLine(sec) {
-    var s = (D[sec] || {}).sources || [];
-    var ok = s.filter(function (x) { return x.status === "OK" || x.status === "STALE"; });
-    return '<div class="srcline">Source: ' + (ok.length ? ok.map(function (x) { return ext(x.page || x.url, x.source); }).join(" | ") : "none") +
-      " &middot; last updated " + fmt((D[sec] || {}).fetched_at) + "</div>";
+    var cr = CREDIT[sec];
+    if (!cr) {   // news: the publishers whose headlines are shown
+      var seen = {};
+      cr = [];
+      newsItems().forEach(function (n) { if (n.source && !seen[n.source]) { seen[n.source] = 1; try { cr.push([n.source, new URL(n.url).origin + "/"]); } catch (e) { cr.push([n.source, ""]); } } });
+    }
+    var t = (D[sec] || {}).fetched_at;
+    return '<div class="srcline">Data: ' + (cr.length ? cr.map(function (c) { return c[1] ? ext(c[1], c[0]) : esc(c[0]); }).join(", ") : "&ndash;") +
+      (t ? " &middot; Updated " + fmt(t, "short") : "") + "</div>";
   }
-  function staleNote(meta) { return meta && meta.stale ? '<div class="note stale-note">Showing last good data from ' + fmt(meta.fetched_at, "short") + " (latest fetch failed).</div>" : ""; }
+  function staleNote(meta) { return meta && meta.stale ? '<div class="note upd-note">Last updated ' + fmt(meta.fetched_at, "short") + ".</div>" : ""; }
   function medal(rank) { var n = String(rank).match(/^(\d+)(st|nd|rd|th)?$/); n = n ? +n[1] : 0; return n >= 1 && n <= 3 ? "r" + n : ""; }
   function rk(rank) { return '<td class="rk"><span>' + esc(rank) + "</span></td>"; }
   function std(title, meta, inner, id) {
@@ -165,6 +167,107 @@
     return std(esc(title), "", '<div class="empty">' + msg + "</div>") + (back ? '<div class="note">' + back + "</div>" : "");
   }
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  /* ---------- CS2 match results (FACEIT Data API, v3.4) ---------- */
+  function csMeta() { return (D.cs && D.cs.matches_meta) || null; }
+  function csFinished() { return ((D.cs && D.cs.matches) || []).slice().sort(function (a, b) { return String(b.t || "").localeCompare(String(a.t || "")); }); }
+  function csUpcoming() { return ((D.cs && D.cs.upcoming) || []).slice().sort(function (a, b) { return String(a.t || "").localeCompare(String(b.t || "")); }); }
+  function csMatchSrc() {
+    var s = ((D.cs && D.cs.sources) || []).filter(function (x) { return /match lists/.test(x.source) || /match results/.test(x.source); })[0];
+    return s || null;
+  }
+  function roomUrl(m) { return m.url || (/^[0-9a-z-]+$/i.test(String(m.id || "")) ? "https://www.faceit.com/en/cs2/room/" + m.id : ""); }
+  function csSide(sd) { return sd && sd.id && UUID_RE.test(sd.id) ? ilink("team/cs2/" + encodeURIComponent(sd.id), sd.name) : esc(sd ? sd.name : "TBD"); }
+  function divOf(m) { return slug(m.region + "-" + m.division); }
+  function involves(m, id) { return (m.t1 && m.t1.id === id) || (m.t2 && m.t2.id === id); }
+  function mapCell(m) {
+    if (m.maps && m.maps.length) return ilink("match/cs2/" + encodeURIComponent(m.id), m.maps.map(function (x) { return x.map; }).join(", "));
+    if (m.nostats) return '<span class="dim" title="no match stats on FACEIT (e.g. forfeit or technical result)">no stats</span>';
+    return '<span class="dim" title="map and scoreboard coming soon">&ndash;</span>';
+  }
+  function csEmpty(what) {
+    var s = csMatchSrc();
+    if (!s || s.status === "MISS") return soon(/upcoming/.test(what) ? "Upcoming matches coming soon." : "Match results coming soon.");
+    return '<div class="empty">No ' + what + " in the matches FragNet tracks.</div>";
+  }
+  function csResultsTable(rows, opts) {
+    opts = opts || {};
+    if (!rows.length) return csEmpty(opts.what || "finished matches");
+    var showDiv = !!opts.showDiv;
+    return '<div class="rankbox"><table class="tbl res cs-res' + (opts.compact ? " compact" : "") + '"><colgroup>' + (opts.compact ? "" : '<col class="c-date hide-sm">') + '<col class="c-team"><col class="c-score"><col class="c-team"><col class="c-map' + (opts.compact ? " hide-sm" : "") + '">' + (showDiv ? '<col class="c-div hide-sm">' : "") + "</colgroup><thead><tr>" +
+      (opts.compact ? "" : '<th class="first hide-sm" title="match finished, Pacific Time">Date</th>') + '<th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="' + (opts.compact ? "hide-sm" : "") + '" title="map(s) - click for the scoreboard">Map</th>' + (showDiv ? '<th class="hide-sm">Division</th>' : "") + "</tr></thead><tbody>" +
+      rows.map(function (m) {
+        var w1 = m.winner === 1, w2 = m.winner === 2, ru = roomUrl(m);
+        var sc = '<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>";
+        return "<tr>" + (opts.compact ? "" : '<td class="hide-sm dim date" title="' + esc(m.t ? fmt(m.t) : "") + '">' + (m.t ? fmt(m.t, "md") : "?") + "</td>") +
+          '<td class="n tm ' + (w1 ? "win" : "lose") + '">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="match room on FACEIT">' + sc + "</a>" : sc) + "</td>" +
+          '<td class="tm ' + (w2 ? "win" : "lose") + '">' + csSide(m.t2) + '</td><td class="' + (opts.compact ? "hide-sm" : "") + '">' + mapCell(m) + "</td>" +
+          (showDiv ? '<td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '">' + ilink("cs2/" + divOf(m), m.region + " " + m.division) + '<span class="cc">R' + num(m.round) + "</span></td>" : "") + "</tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function csUpcomingTable(rows, opts) {
+    opts = opts || {};
+    if (!rows.length) return csEmpty("upcoming matches");
+    return '<div class="rankbox"><table class="tbl res cs-up"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team">' + (opts.showDiv ? '<col class="c-div hide-sm">' : '<col class="c-rd hide-sm">') + "</colgroup><thead><tr>" +
+      '<th class="first" title="scheduled start, Pacific Time (as listed on FACEIT; may change)">Scheduled (PT)</th><th class="n">Team 1</th><th class="c"></th><th>Team 2</th><th class="hide-sm">' + (opts.showDiv ? "Division" : "Round") + "</th></tr></thead><tbody>" +
+      rows.map(function (m) {
+        var ru = roomUrl(m);
+        return '<tr><td class="dim" title="' + esc(m.t ? fmt(m.t) : "") + '">' + (m.t ? fmt(m.t, "short").replace(/ [A-Z]{3,4}$/, "") : "TBD") + '</td><td class="n tm">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="match room on FACEIT">vs</a>' : "vs") +
+          '</td><td class="tm">' + csSide(m.t2) + '</td><td class="hide-sm rd">' + (opts.showDiv ? ilink("cs2/" + divOf(m), m.region + " " + m.division) + '<span class="cc">R' + num(m.round) + "</span>" : "Round " + num(m.round) + (m.conf ? '<span class="cc">' + esc(m.conf) + "</span>" : "")) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function csMatchNote() {
+    var mm = csMeta();
+    if (!mm) return "";
+    return '<div class="note">Results from FACEIT' + (mm.fetched_at ? ", updated " + fmt(mm.fetched_at, "short") : "") +
+      ". Dates in Pacific Time. Click a score for the FACEIT match room, a map for the scoreboard. Byes are not listed.</div>";
+  }
+  function vMatchCS(id) {
+    var m = null;
+    ((D.cs && D.cs.matches) || []).forEach(function (x) { if (x.id === id) m = x; });
+    if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in FragNet's data.", '<a href="#cs2/results">ESEA results</a>');
+    var ru = roomUrl(m);
+    var info = kv([
+      ["Division", ilink("cs2/" + divOf(m), m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + " &middot; round " + num(m.round) + " &middot; best of " + num(m.bo || 1)],
+      ["Finished", m.t ? fmt(m.t) : "?"],
+      ["Result", csSide(m.t1) + ' <b><span class="' + (m.winner === 1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (m.winner === 2 ? "w" : "") + '">' + num(m.s2) + "</span></b> " + csSide(m.t2)],
+      ["FACEIT", ru ? ext(ru, "Match room on FACEIT") : "-"]
+    ]);
+    function board(lines, side) {
+      return '<div class="rankbox"><table class="tbl sb"><thead><tr><th class="first">' + esc(side.name) + '</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
+        (lines || []).map(function (p) {
+          var kd = num(p[2]) ? num(p[1]) / num(p[2]) : num(p[1]);
+          return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + '</td><td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    }
+    var maps = (m.maps || []).map(function (x, i) {
+      return '<h2 class="subhead">' + (m.maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1) + board(x.p2, m.t2);
+    }).join("");
+    return std(esc(m.t1.name) + " vs " + esc(m.t2.name), "CS2 &middot; ESEA match", info) +
+      (maps || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Match stats not fetched yet; they are added on a later refresh.") + "</div>") +
+      '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT.</div>';
+  }
+  function teamMatchesHtml(id) {
+    var fin = csFinished().filter(function (m) { return involves(m, id); });
+    var up = csUpcoming().filter(function (m) { return involves(m, id); });
+    return '<h2 class="subhead">Recent Results</h2>' + csResultsTable(fin, { what: "finished matches for this team" }) +
+      '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(up) + csMatchNote();
+  }
+  function playerMatchesHtml(nick) {
+    var n = String(nick || "").toLowerCase(), rows = [];
+    csFinished().forEach(function (m) {
+      (m.maps || []).forEach(function (x) {
+        [["p1", m.t1, m.t2], ["p2", m.t2, m.t1]].forEach(function (s) {
+          (x[s[0]] || []).forEach(function (p) { if (String(p[0]).toLowerCase() === n) rows.push({ m: m, x: x, p: p, me: s[1], vs: s[2], won: (s[0] === "p1" ? x.s1 > x.s2 : x.s2 > x.s1) }); });
+        });
+      });
+    });
+    if (!rows.length) return "";
+    return '<h2 class="subhead">Recent Matches</h2><div class="rankbox"><table class="tbl"><thead><tr><th class="first hide-sm">Date</th><th>Opponent</th><th>Map</th><th class="c">Score</th><th class="n">K-D</th><th class="n">ADR</th></tr></thead><tbody>' +
+      rows.slice(0, 10).map(function (r) {
+        return '<tr><td class="hide-sm dim">' + (r.m.t ? fmt(r.m.t, "md") : "?") + '</td><td class="team">' + csSide(r.vs) + "</td><td>" + ilink("match/cs2/" + encodeURIComponent(r.m.id), r.x.map) + '</td><td class="c ' + (r.won ? "w" : "l") + '">' + (r.won ? "W " : "L ") +
+          (r.me === r.m.t1 ? num(r.x.s1) + ":" + num(r.x.s2) : num(r.x.s2) + ":" + num(r.x.s1)) + '</td><td class="n">' + num(r.p[1]) + "-" + num(r.p[2]) + '</td><td class="n">' + num(r.p[3]).toFixed(1) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
   function resDate(m, withTime) { return m.ts ? fmt(m.ts, withTime ? "short" : "md") : esc(String(m.date || "").replace(/^\w+, /, "").replace(/, \d{4}$/, "").replace(/^(\w{3})\w*/, "$1")); }
 
   /* ---------- search index ---------- */
@@ -287,10 +390,11 @@
     var intro = '<div class="infobox">Welcome to <b>FragNet</b>, an amateur &amp; semi-pro league tracker. ' +
       (s ? "ESEA League <b>" + esc(s.name) + "</b> runs " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT) with " + num(s.team_count).toLocaleString("en-US") + " registered teams. " : "") +
       (raid ? "Current WoW raid: <b>" + esc(raid.name) + "</b>. " : "") +
-      'All data comes from public sources; anything we could not fetch is flagged <span class="miss inline"><span class="miss-b">MISS</span></span> (see <a href="#status-box">Data Status</a>). All times Pacific.</div>';
-    return std("FragNet Front Page", "data " + fmt(D.fetched_at, "short"), intro) +
+      "Everything comes from public sources and nothing is guessed: if something isn't available yet, we say so. All times Pacific.</div>";
+    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) +
       '<div class="fp-cols"><div>' + std("Latest Esports News", '<a href="#news">all &raquo;</a>', newsHtml) + "</div><div>" +
       std("ESEA Division Leaders", '<a href="#cs2">standings &raquo;</a>', lead) +
+      std("Latest ESEA Results", '<a href="#cs2/results">all &raquo;</a>', csResultsTable(csFinished().slice(0, 6), { compact: true })) +
       std("Latest Valorant Results", '<a href="#valorant/results">all &raquo;</a>', resultsTable(valResults().slice(0, 6), 0, true)) + "</div></div>" +
       std("Mythic Raid Race :: Top 5", raid ? esc(raid.name) + ' &middot; <a href="#wow">full rankings &raquo;</a>' : "", wt);
   }
@@ -320,13 +424,16 @@
             '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">no player stats</div>';
     } else if (sub === "results") {
-      title = "Match Results";
-      body = (cs.matches || []).length ? "" : '<div class="empty">No ESEA match results: FACEIT\'s match list requires a login, so it was not fetched (see MISS above).</div>';
+      title = "Match Results :: EU + NA";
+      var allF = csFinished(), pg = pageOf(parts), npg = Math.max(1, Math.ceil(allF.length / PER_PAGE)); if (pg > npg) pg = npg;
+      body = csMatchNote() + pager(allF.length, pg, "cs2/results") + csResultsTable(slicePage(allF, pg), { showDiv: true }) + pager(allF.length, pg, "cs2/results") +
+        '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(csUpcoming().slice(0, PER_PAGE), { showDiv: true }) +
+        '<div class="note">Shows the newest finished matches of each tracked division plus the latest matches of every team in the standings; upcoming = next scheduled matches (times as listed on FACEIT).</div>';
     } else {
       var d = divs[ids.indexOf(sub)];
       var multi = (d.conferences || []).length > 1;
       title = d.region + " " + d.division + " :: " + d.stage;
-      if (d.status !== "OK") body = missRow("FACEIT standings", d.reason);
+      if (d.status !== "OK") body = soon("Standings coming soon.");
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
       else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
         d.teams.map(function (t) {
@@ -335,7 +442,13 @@
         }).join("") + '</tbody></table></div><div class="note">Top ' + d.teams.length + " of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
         " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
     }
-    return std("Counter-Strike 2 :: ESEA League", "", toolbar(tabs, sub) + srcLine("cs") + missesFor("cs") + info) +
+    if (sub !== "players" && sub !== "results") {
+      var dsel = divs[ids.indexOf(sub)];
+      var df = csFinished().filter(function (m) { return divOf(m) === sub; }), du = csUpcoming().filter(function (m) { return divOf(m) === sub; });
+      body += '<h2 class="subhead">' + esc(dsel.region + " " + dsel.division) + ' Results <small><a href="#cs2/results">all results &raquo;</a></small></h2>' + csResultsTable(df.slice(0, 10), { what: "finished matches in this division" }) +
+        '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(du.slice(0, 8)) + csMatchNote();
+    }
+    return std("Counter-Strike 2 :: ESEA League", "", toolbar(tabs, sub) + srcLine("cs") + info) +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
   }
 
@@ -372,9 +485,9 @@
         rows.map(function (t) {
           return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
             '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + "</td></tr>";
-        }).join("") + "</tbody></table></div>" : missRow("vlr.gg", e.status_note));
+        }).join("") + "</tbody></table></div>" : soon("Standings not available yet."));
     }
-    return std("Valorant :: Challengers / Game Changers", "", toolbar(tabs, sub) + srcLine("valorant") + missesFor("valorant")) +
+    return std("Valorant :: Challengers / Game Changers", "", toolbar(tabs, sub) + srcLine("valorant")) +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
   }
 
@@ -398,7 +511,7 @@
           '</td><td class="hide-sm">' + esc(g.realm) + '</td><td class="' + (full ? "w" : "") + '">' + esc(g.progress) + '</td><td class="n">' + (g.last_first_kill ? fmt(g.last_first_kill, "md") : "&ndash;") + "</td></tr>";
       }).join("") + "</tbody></table></div>" + pager(rows.length, page, base) +
       '<div class="note">Guild names colored by faction (blue Alliance / red Horde). Dates in Pacific Time. ' + ext(link, "Full rankings on Raider.IO") + "</div>" : '<div class="empty">no rankings</div>';
-    return std("World of Warcraft :: Mythic Raid Progression", "", toolbar(tabs, sub) + srcLine("wow") + missesFor("wow") + info) +
+    return std("World of Warcraft :: Mythic Raid Progression", "", toolbar(tabs, sub) + srcLine("wow") + info) +
       '<h2 class="subhead">' + esc(sub.toUpperCase()) + " Mythic Rankings <small>top " + rows.length + "</small></h2>" + body;
   }
 
@@ -415,7 +528,7 @@
       return '<div class="item' + (n.stale ? " is-stale" : "") + '" data-k="n:' + n._i + '"><span class="tag ' + esc(slug(n.tag)) + '">' + esc(n.tag) + '</span><span class="when">' + (n.date ? fmt(n.date, "short") : "") + "</span>" + ext(n.url, n.title, "ttl") +
         '<span class="src">' + esc(n.source) + "</span></div>";
     }).join("") + "</div>" + pager(shown.length, page, base) : '<div class="empty">no headlines</div>';
-    return std("FragNet News Wire", shown.length + " headlines", toolbar(tabs, sub) + srcLine("news") + missesFor("news")) + body;
+    return std("FragNet News Wire", shown.length + " headlines", toolbar(tabs, sub) + srcLine("news")) + body;
   }
 
   function vSearch(q) {
@@ -449,6 +562,11 @@
     if (!f) {
       var known = csPlayers().filter(function (p) { return p.team_id && p.team_id === id; });
       var nm = known.length ? known[0].team : "";
+      var anyM = csFinished().concat(csUpcoming()).filter(function (m) { return involves(m, id); });
+      if (!nm && anyM.length) nm = anyM[0].t1.id === id ? anyM[0].t1.name : anyM[0].t2.name;
+      if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the top 20 standings FragNet shows, so there is no standings line or roster here." +
+        (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : "") + "</div>") + teamMatchesHtml(id) +
+        '<div class="note">' + (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a></div>';
       return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings FragNet shows (top " + 20 + " of each ESEA division). No standings or roster data for it in the current data." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
         (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
@@ -470,8 +588,8 @@
           '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR only for players ranked in the ESEA Advanced stats (at least ' + num(((D.cs || {}).top_players_meta || {}).min_rounds || 20) + " rounds); &ndash; = not ranked.</div>"
       : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
-    return std(esc(t.name), "CS2 &middot; ESEA League team", info) + '<h2 class="subhead">Roster</h2>' + roster +
-      '<div class="note">' + ext(t.url, "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + " &middot; Match results: not available (FACEIT match list needs a login; see Data Status).</div>";
+    return std(esc(t.name), "CS2 &middot; ESEA League team", info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
+      '<div class="note">' + ext(t.url, "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
 
   function vPlayerCS(nick) {
@@ -492,7 +610,7 @@
       '<div class="note">Season to date in ESEA ' + esc(p.region + " " + p.division) + " (EU + NA Advanced ranked together by K/D, min. " + num(pm.min_rounds || 20) + " rounds). Stats as published on FACEIT" + (pm.fetched_at ? ", fetched " + fmt(pm.fetched_at, "short") : "") + ".</div>"
       : '<div class="empty">No season stats for this player in FragNet\'s data: only ESEA Advanced players with at least ' + num(pm.min_rounds || 20) + " rounds are ranked.</div>";
     var link = (p && p.url) || "https://www.faceit.com/en/players/" + encodeURIComponent(name);
-    return std(esc(name), "CS2 &middot; ESEA League player", info) + '<h2 class="subhead">Season Stats</h2>' + st +
+    return std(esc(name), "CS2 &middot; ESEA League player", info) + '<h2 class="subhead">Season Stats</h2>' + st + playerMatchesHtml(name) +
       '<div class="note">' + ext(link, "Profile on FACEIT") + ' &middot; <a href="#cs2/players">Top fraggers</a></div>';
   }
 
@@ -592,11 +710,35 @@
 
   /* ----- about (static text lives in index.html <template id="about-tpl">) ----- */
   function vAbout() {
-    var tpl = $("#about-tpl"), st = D.status || [];
-    var c = { OK: 0, STALE: 0, MISS: 0 };
+    var tpl = $("#about-tpl");
+    var live = "The data currently shown was updated " + fmt(D.fetched_at) + ".";
+    return tpl ? tpl.innerHTML.replace("{{fetched}}", esc(live)) : std("About FragNet", "", soon());
+  }
+
+  /* ----- site status (low-key page, linked only from the footer and About) ----- */
+  function vStatus() {
+    var secs = [["cs", "Counter-Strike 2 / FACEIT"], ["valorant", "Valorant / vlr.gg"], ["wow", "World of Warcraft / Raider.IO"], ["news", "News (RSS)"]];
+    var st = D.status || [], c = { OK: 0, STALE: 0, MISS: 0 };
     st.forEach(function (s) { c[s.status] = (c[s.status] || 0) + 1; });
-    var live = "The data currently shown was fetched " + fmt(D.fetched_at) + ": " + c.OK + " sources OK, " + c.STALE + " STALE, " + c.MISS + " MISS (details in the Data Status box).";
-    return tpl ? tpl.innerHTML.replace("{{fetched}}", esc(live)) : std("About FragNet", "", missRow("about", "content missing"));
+    var html = '<div class="infobox">Technical status of every data source in the latest update (' + fmt(D.fetched_at) + "): <b>" + c.OK + " OK</b>, <b>" + c.STALE + " STALE</b>, <b>" + c.MISS +
+      " MISS</b>. The rest of the site only shows the data itself; this page is for anyone curious about where it comes from and how fresh it is.</div>";
+    secs.forEach(function (sc) {
+      var list = (D[sc[0]] || {}).sources || [];
+      if (!list.length) return;
+      html += '<h2 class="subhead">' + esc(sc[1]) + ' <small>updated ' + fmt((D[sc[0]] || {}).fetched_at, "short") + "</small></h2>" +
+        '<div class="rankbox"><table class="tbl st-tbl"><colgroup><col class="c-st"><col class="c-src"><col class="c-cnt"><col class="c-when hide-sm"><col class="c-why"></colgroup><thead><tr><th class="first c">Status</th><th>Source</th><th class="n">Records</th><th class="hide-sm">Data from</th><th>Notes</th></tr></thead><tbody>' +
+        list.map(function (s) {
+          var why = s.status === "OK" ? (s.note || "") : (s.reason || "") + (s.note ? " - " + s.note : "");
+          return '<tr><td class="c">' + badge(s.status) + "</td><td>" + ext(s.page || s.url, s.source) + '</td><td class="n">' + (s.status === "MISS" ? "&ndash;" : num(s.count)) + '</td><td class="hide-sm dim">' +
+            fmt(s.status === "STALE" ? s.data_fetched_at : s.fetched_at, "short") + '</td><td class="dim st-why" title="' + esc(why) + '">' + esc(why) + "</td></tr>";
+        }).join("") + "</tbody></table></div>";
+    });
+    html += '<h2 class="subhead">Status labels</h2><div class="rankbox"><table class="tbl about-st"><tbody>' +
+      '<tr><td class="c"><span class="ok">OK</span></td><td>Fetched and read successfully in the latest update.</td></tr>' +
+      '<tr><td class="c"><span class="stale-b">STALE</span></td><td>The latest update for this source failed, so the last good data is still shown (pages say &ldquo;Last updated&rdquo; with its date).</td></tr>' +
+      '<tr><td class="c"><span class="miss-b">MISS</span></td><td>Not available: the source needs a login or key, blocks automated requests, or returned nothing usable. Pages show &ldquo;Not available yet&rdquo; / &ldquo;coming soon&rdquo; instead of guessing.</td></tr>' +
+      "</tbody></table></div>";
+    return std("Site status", "data sources", html) + '<div class="note"><a href="#about">About FragNet</a> &middot; <a href="#home">Front page</a></div>';
   }
 
   /* ================= SIDEBARS / HEADER ================= */
@@ -618,6 +760,7 @@
     $("#gamenav").innerHTML = cs + val + wow + '<div class="gn-sep"></div>' + news + forum + about;
   }
   function renderStatus() {
+    if (!$("#data-status")) return;
     var secs = [["cs", "CS2 / FACEIT"], ["valorant", "Valorant / vlr.gg"], ["wow", "WoW / Raider.IO"], ["news", "News RSS"]];
     var st = D.status || [];
     var c = { OK: 0, STALE: 0, MISS: 0 };
@@ -682,7 +825,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
     try {
@@ -695,19 +838,21 @@
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = vPlayerCS(r.parts.slice(1).join("/")); break;
+        case "match": html = vMatchCS(r.parts.slice(1).join("/")); break;
         case "guild": html = vGuild(r.parts[0] || "", r.parts[1] || "", r.parts.slice(2).join("/")); break;
         case "search": html = vSearch(r.parts.join("/")); break;
-        case "status-box": r.top = "home"; html = vHome(); setTimeout(function () { var sb = $("#status-box"); sb.scrollIntoView(); sb.focus({ preventScroll: true }); }, 0); break;
+        case "status": html = vStatus(); break;
+        case "status-box": r.top = "status"; html = vStatus(); break;
         default: r.top = "home"; html = vHome();
       }
     } catch (e) {
       if (window.console) console.warn("FragNet: could not render view", e);
-      html = std("Page unavailable", "", missRow("view", "this page could not be rendered from the current data.json")) + '<div class="empty"><a href="#home">Back to the front page</a></div>';
+      html = std("Page unavailable", "", soon("This page could not be displayed right now.")) + '<div class="empty"><a href="#home">Back to the front page</a></div>';
     }
     $("#view").innerHTML = html;
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
-    var navTop = r.top === "search" ? "" : r.top === "player" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" ? "valorant" : r.top === "guild" ? "wow" : r.top;
+    var navTop = r.top === "search" ? "" : r.top === "player" || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
     var on = $("#view .toolbar a.on");
@@ -730,10 +875,8 @@
   function boot(data) {
     D = data || {};
     buildIndex();
-    var nMiss = (D.status || []).filter(function (s) { return s.status === "MISS"; }).length;
-    var nStale = (D.status || []).filter(function (s) { return s.status === "STALE"; }).length;
-    $("#hdr-upd").textContent = "data fetched " + fmt(D.fetched_at);
-    $("#foot-fetched").textContent = "data.json fetched " + fmt(D.fetched_at) + " · " + nMiss + " source(s) MISS" + (nStale ? " · " + nStale + " STALE" : "");
+    $("#hdr-upd").textContent = "updated " + fmt(D.fetched_at);
+    $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
     [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("FragNet: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () { clearTimeout(tmr); route(); renderSideForum(); });
@@ -762,7 +905,7 @@
     route();
   }
 
-  function fail() { $("#view").innerHTML = missRow("data.json", "not found - run python3 fetch_data.py"); }
+  function fail() { $("#view").innerHTML = soon("FragNet's data could not be loaded right now. Please try again later."); }
   /* data.js (same content as data.json) is used on file:// where fetch() is not allowed */
   function loadDataJs() {
     if (window.FRAGNET_DATA) return boot(window.FRAGNET_DATA);

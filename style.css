@@ -344,3 +344,22 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .tbl.kv tbody tr:nth-child(even) td{background:#fff}
 .tbl.kv .ally{color:#0E5DA0;font-weight:bold} .tbl.kv .horde{color:#A52A2A;font-weight:bold}
 @media (max-width:480px){.tbl.kv th{width:92px}}
+/* ---------- CS2 results / upcoming (v3.4) ---------- */
+.tbl.res col.c-map{width:17%}
+.tbl.res col.c-div{width:20%}
+.tbl.res col.c-when{width:104px}
+.tbl.res.cs-res col.c-score{width:58px}
+.tbl.res col.c-rd{width:16%}
+.tbl.res.compact col.c-map{width:24%}
+.tbl.cs-up .score a{color:#555;font-weight:normal}
+@media (max-width:480px){.tbl.res col.c-when{width:84px}}
+/* ---------- site status page (v3.4) ---------- */
+.tbl.st-tbl col.c-st{width:58px}
+.tbl.st-tbl col.c-src{width:34%}
+.tbl.st-tbl col.c-cnt{width:62px}
+.tbl.st-tbl col.c-when{width:118px}
+.tbl.st-tbl td.st-why{white-space:normal;word-break:break-word;font-size:11px}
+.tbl.st-tbl td:nth-child(2){white-space:normal;word-break:break-word}
+.subhead small{font-weight:normal;color:#666;font-size:11px}
+.note.upd-note{color:#555}
+.tbl.sb th:first-child,.tbl.sb td:first-child{white-space:normal;overflow-wrap:anywhere}

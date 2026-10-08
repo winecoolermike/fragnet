@@ -6,19 +6,22 @@ FragNet is an independent, fan-made tracker for **amateur and semi-pro esports**
 like a classic mid-2000s esports portal:
 
 - **Counter-Strike 2 / ESEA League**: current season, standings (top 20) for EU and NA
-  Advanced, Main and Intermediate, and top fraggers in Advanced.
+  Advanced, Main and Intermediate, recent results and upcoming matches with per-map
+  scoreboards, and top fraggers in Advanced.
 - **Valorant**: Challengers / VCL and Game Changers calendar, recent final standings and
   tier-2 match results.
 - **World of Warcraft**: Mythic raid progression rankings (top 50, US and EU).
 - **News**: esports headlines that link to the original articles.
 
 Every team, player and guild name opens a detail page (CS2 team with standings and
-registered roster, CS2 player season stats, Valorant team placings and results, WoW guild
+registered roster and recent / upcoming matches, CS2 player season stats and recent matches, Valorant team placings and results, WoW guild
 progress with first Mythic kill dates), each linking back to its source.
 
-It shows only data from public web pages and open, keyless endpoints. Nothing is invented:
-if a source can't be fetched, the page marks it **MISS** (no data) or **STALE** (the
-latest fetch failed, so the last good data is shown with its timestamp). All times are
+It shows only data from public web pages, open endpoints and the official FACEIT Data API. Nothing is invented:
+if something isn't available yet the page says so in plain words, and if an update fails
+the last good data stays up with its "Last updated" date. Per-source details (OK / STALE /
+MISS, record counts, timestamps) are on the low-key **Site status** page (`#status`, linked
+from the footer and the About page). All times are
 shown in Pacific Time. Forums are read-only for now.
 
 ## Data sources
@@ -26,11 +29,13 @@ shown in Pacific Time. Forums are read-only for now.
 | Source | Used for |
 |---|---|
 | [FACEIT - ESEA League](https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8) public pages | season info, standings, league rosters, player stats |
+| [FACEIT Data API](https://docs.faceit.com/docs/data-api/data/) (official, API key) | ESEA match results, upcoming matches, per-map scoreboards |
 | [vlr.gg](https://www.vlr.gg/) | Valorant tier-2 events, standings, results, news (RSS) |
 | [Raider.IO](https://raider.io/) public API | Mythic raid rankings and boss kill dates |
 | [Wowhead](https://www.wowhead.com/news), [Dexerto](https://www.dexerto.com/esports/), [Esports Insider](https://esportsinsider.com/) | headlines (RSS) |
 
-Requests are rate-limited (at least 1.2 s apart per host) and use an identifying User-Agent.
+Requests are rate-limited (at least 1.2 s apart per host; 0.5 s for the FACEIT Data API, well under its
+limit) and use an identifying User-Agent.
 
 ## How the site updates
 
@@ -46,9 +51,13 @@ GitHub may delay scheduled runs). Each run:
    previous data;
 4. checks that `data.js` matches `data.json` and deploys `dist/` to GitHub Pages.
 
-The official FACEIT Data API is not used yet. If a `FACEIT_API_KEY` repository secret is
-added later, the workflow passes it to the fetcher, which currently only records that the
-key is configured (match results remain unavailable until that integration is written).
+The official FACEIT Data API (`https://open.faceit.com/data/v4`) supplies CS2 match results.
+The key lives only in the `FACEIT_API_KEY` repository secret (never in the repo); the workflow
+passes it to the fetch step, and fetch_data.py sends it only as the `Authorization: Bearer`
+header. Per run it makes 2 list requests per tracked conference (past + upcoming, 18 total)
+plus up to 100 match-stats requests for matches whose stats are not cached yet, hard-capped
+at 150 requests, 0.5 s apart. Without a key (or on HTTP 401/403/429) the match sections keep
+the last good data (STALE) or show MISS - nothing is filled in.
 
 ## Run locally
 
