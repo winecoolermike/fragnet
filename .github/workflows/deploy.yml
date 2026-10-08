@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "7,37 * * * *"   # about every 30 min (UTC; GitHub may delay scheduled runs)
+    - cron: "13,43 * * * *"   # about every 30 min, off-peak minutes (GitHub may delay scheduled runs; backup trigger: see README)
 
 permissions:
   contents: read

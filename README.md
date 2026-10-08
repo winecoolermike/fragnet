@@ -40,7 +40,7 @@ limit) and use an identifying User-Agent.
 ## How the site updates
 
 A GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on every push to `main`,
-on demand, and on a schedule about every 30 minutes (at :07 and :37 past the hour;
+on demand, and on a schedule about every 30 minutes (at :13 and :43 past the hour;
 GitHub may delay scheduled runs). Each run:
 
 1. builds `dist/` from the site files (`python build_dist.py`);
