@@ -1,0 +1,126 @@
+name: Build, refresh data and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "7,37 * * * *"   # about every 30 min (UTC; GitHub may delay scheduled runs)
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build dist/ (site files + committed data)
+        run: python build_dist.py
+
+      - name: Restore last-good data from cache
+        id: lastgood
+        uses: actions/cache/restore@v6
+        with:
+          path: .lastgood
+          key: lastgood-${{ github.run_id }}
+          restore-keys: |
+            lastgood-
+
+      - name: Use the newer of cached vs committed data as last-good
+        run: |
+          python - <<'PY'
+          import json, os, shutil
+          def stamp(path):
+              try:
+                  with open(path, encoding="utf-8") as fh:
+                      d = json.load(fh)
+                  return (d.get("fetched_at") or "") if isinstance(d, dict) else ""
+              except (OSError, ValueError):
+                  return ""
+          cached, committed = stamp(".lastgood/data.json"), stamp("dist/data.json")
+          print(f"cached last-good: {cached or 'none'} | committed: {committed or 'none'}")
+          if cached and cached > committed:
+              shutil.copy(".lastgood/data.json", "dist/data.json")
+              print("using cached last-good data")
+          else:
+              print("using committed data")
+          PY
+
+      - name: Fetch fresh data into dist/
+        id: fetch
+        continue-on-error: true
+        run: python fetch_data.py --out dist
+
+      - name: Ensure data.js matches data.json
+        run: |
+          python - <<'PY'
+          import json
+          with open("dist/data.json", encoding="utf-8") as fh:
+              data = json.load(fh)
+          blob = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+          expected = "window.FRAGNET_DATA = " + blob.replace("</", "<\\/") + ";\n"
+          try:
+              with open("dist/data.js", encoding="utf-8") as fh:
+                  current = fh.read()
+          except OSError:
+              current = ""
+          pre = "window.FRAGNET_DATA = "
+          try:
+              same = json.loads(current.strip()[len(pre):-1].replace("<\\/", "</")) == data
+          except ValueError:
+              same = False
+          if not same:
+              with open("dist/data.js", "w", encoding="utf-8") as fh:
+                  fh.write(expected)
+              print("data.js regenerated from data.json")
+          else:
+              print("data.js matches data.json")
+          print("data fetched_at:", data.get("fetched_at"))
+          PY
+          python build_dist.py --check
+
+      - name: Save last-good data to cache
+        if: steps.fetch.outcome == 'success'
+        run: mkdir -p .lastgood && cp dist/data.json .lastgood/data.json
+
+      - name: Upload last-good cache
+        if: steps.fetch.outcome == 'success'
+        uses: actions/cache/save@v6
+        with:
+          path: .lastgood
+          key: lastgood-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

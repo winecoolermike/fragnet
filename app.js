@@ -1,0 +1,607 @@
+/* FragNet v3.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+   by fetch_data.py; data.js is the identical copy used for file://). Missing
+   sources show MISS badges, failed-but-kept sources show STALE. Forums are
+   read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
+   All times are shown in Pacific Time (America/Los_Angeles). */
+(function () {
+  "use strict";
+  var D = null, IDX = [], pendingHL = null, tmr = null;
+  var PER_PAGE = 25, MAX_Q = 100;
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  /* ---------- helpers ---------- */
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  // only absolute http(s) URLs without whitespace/control chars are rendered as links
+  function safeUrl(u) { u = String(u || "").trim(); return /^https?:\/\/[^\s<>"'\u0000-\u001f]+$/i.test(u) ? u : "#"; }
+  function ext(url, text, cls) {
+    var u = safeUrl(url);
+    if (u === "#") return '<span' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(text) + "</span>";
+    return '<a href="' + esc(u) + '" target="_blank" rel="noopener"' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(text) + "</a>";
+  }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  /* Pacific-time parts of a Date (falls back to the browser zone if Intl lacks tz data) */
+  var PTF = null;
+  try { PTF = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", hourCycle: "h23", weekday: "short", timeZoneName: "short" }); } catch (e) { PTF = null; }
+  function ptParts(d) {
+    if (PTF) {
+      var o = {};
+      PTF.formatToParts(d).forEach(function (p) { o[p.type] = p.value; });
+      var wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(o.weekday);
+      return { y: +o.year, m: +o.month - 1, d: +o.day, h: +o.hour % 24, mi: +o.minute, wd: wd, tz: o.timeZoneName || "PT" };
+    }
+    return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate(), h: d.getHours(), mi: d.getMinutes(), wd: d.getDay(), tz: "local" };
+  }
+  function fmt(iso, mode) { // "dt" default | "d" | "short" | "md" ; "...z" variants append the zone (PDT/PST)
+    if (!iso) return "?";
+    var dd = new Date(iso);
+    if (isNaN(dd)) return esc(iso);
+    var p = ptParts(dd), z = /z$/.test(mode || ""), m = (mode || "dt").replace(/z$/, "");
+    var t = pad(p.h) + ":" + pad(p.mi), out;
+    if (m === "d") out = p.y + "-" + pad(p.m + 1) + "-" + pad(p.d);
+    else if (m === "md") out = MON[p.m] + " " + p.d;
+    else if (m === "short") out = MON[p.m] + " " + p.d + ", " + t;
+    else out = MON[p.m] + " " + p.d + " " + p.y + " " + t;
+    return out + (z || m === "dt" || m === "short" ? " " + p.tz : "");
+  }
+  var REGION_NAMES = null;
+  try { REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) { REGION_NAMES = null; }
+  function countryName(cc) { try { return cc && REGION_NAMES ? REGION_NAMES.of(cc) : cc || ""; } catch (e) { return cc || ""; } }
+  function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+  function badge(st) { return st === "OK" ? '<span class="ok">OK</span>' : st === "STALE" ? '<span class="stale-b">STALE</span>' : '<span class="miss-b">MISS</span>'; }
+  function missRow(src, reason) {
+    var r = reason || "not fetched";
+    return '<div class="miss" title="' + esc(src + " - " + r) + '"><span class="miss-b">MISS</span><span class="why"><b>' + esc(src) + "</b> &mdash; " + esc(r) + "</span></div>";
+  }
+  function staleRow(src, reason, ts) {
+    return '<div class="miss stale" title="' + esc(src + " - " + (reason || "")) + '"><span class="stale-b">STALE</span><span class="why"><b>' + esc(src) + "</b> &mdash; latest fetch failed; showing last good data from " + fmt(ts, "short") + (reason ? " (" + esc(reason) + ")" : "") + "</span></div>";
+  }
+  function missesFor(sec) {
+    return ((D[sec] || {}).sources || []).filter(function (s) { return s.status !== "OK"; })
+      .map(function (s) { return s.status === "STALE" ? staleRow(s.source, s.reason, s.data_fetched_at) : missRow(s.source, s.reason); }).join("");
+  }
+  function srcLine(sec) {
+    var s = (D[sec] || {}).sources || [];
+    var ok = s.filter(function (x) { return x.status === "OK" || x.status === "STALE"; });
+    return '<div class="srcline">Source: ' + (ok.length ? ok.map(function (x) { return ext(x.page || x.url, x.source); }).join(" | ") : "none") +
+      " &middot; last updated " + fmt((D[sec] || {}).fetched_at) + "</div>";
+  }
+  function staleNote(meta) { return meta && meta.stale ? '<div class="note stale-note">Showing last good data from ' + fmt(meta.fetched_at, "short") + " (latest fetch failed).</div>" : ""; }
+  function medal(rank) { var n = String(rank).match(/^(\d+)(st|nd|rd|th)?$/); n = n ? +n[1] : 0; return n >= 1 && n <= 3 ? "r" + n : ""; }
+  function rk(rank) { return '<td class="rk"><span>' + esc(rank) + "</span></td>"; }
+  function std(title, meta, inner, id) {
+    return '<div class="std"' + (id ? ' id="' + id + '"' : "") + '><div class="std-header"><h1>' + title + "</h1>" + (meta ? '<span class="meta">' + meta + "</span>" : "") + "</div>" + inner + "</div>";
+  }
+  function toolbar(items, active, cls) {
+    return '<div class="' + (cls || "toolbar") + '">' + items.map(function (it) {
+      if (it.grp) return '<span class="grp">' + esc(it.grp) + "</span>";
+      return '<a href="#' + esc(it.hash) + '" class="' + (it.id === active ? "on" : "") + '"' + (it.id === active ? ' aria-current="page"' : "") + '><span class="bullet" aria-hidden="true">&rsaquo;</span>' + esc(it.label) + "</a>";
+    }).join("") + "</div>";
+  }
+  function pageOf(parts) { var m = (parts || []).join("/").match(/(?:^|\/)p(\d+)$/); return m ? Math.max(1, +m[1]) : 1; }
+  function pager(total, page, base) {
+    var pages = Math.ceil(total / PER_PAGE);
+    if (pages <= 1) return "";
+    var h = '<nav class="pager" aria-label="Pages"><span class="title">Pages:</span>';
+    if (page > 1) h += '<a href="#' + esc(base) + "/p" + (page - 1) + '">&laquo; Prev</a>';
+    for (var i = 1; i <= pages; i++) h += i === page ? '<span class="act" aria-current="page">' + i + "</span>" : '<a href="#' + esc(base) + "/p" + i + '">' + i + "</a>";
+    if (page < pages) h += '<a href="#' + esc(base) + "/p" + (page + 1) + '">Next &raquo;</a>';
+    var a = (page - 1) * PER_PAGE + 1, b = Math.min(total, page * PER_PAGE);
+    return h + '<span class="info">showing ' + a + "&ndash;" + b + " of " + total + "</span></nav>";
+  }
+  function slicePage(arr, page) { return arr.slice((page - 1) * PER_PAGE, page * PER_PAGE); }
+  function num(n) { var x = Number(n); return isFinite(x) ? x : 0; }
+
+  /* ---------- data shortcuts ---------- */
+  function csDivs() { return (D.cs && D.cs.divisions) || []; }
+  function divId(d) { return slug(d.region + "-" + d.division); }
+  function valEvents() { return (D.valorant && D.valorant.events) || []; }
+  function evId(i) { return "event-" + (i + 1); }
+  function shortEv(t) { return String(t || "").replace(/^Challengers 20\d\d: /, "VCL ").replace(/^VCL \d\d: /, "VCL ").replace(/^Game Changers 20\d\d: /, "GC "); }
+  function newsItems() { return (D.news && D.news.items) || []; }
+  function valResults() { return (D.valorant && D.valorant.results) || []; }
+  function rioPage(raid, region) { return raid && raid.slug ? "https://raider.io/" + encodeURIComponent(raid.slug) + "/rankings/" + encodeURIComponent(region || "world") + "/mythic" : "https://raider.io/"; }
+  function resDate(m, withTime) { return m.ts ? fmt(m.ts, withTime ? "short" : "md") : esc(String(m.date || "").replace(/^\w+, /, "").replace(/, \d{4}$/, "").replace(/^(\w{3})\w*/, "$1")); }
+
+  /* ---------- search index ---------- */
+  function buildIndex() {
+    IDX = [];
+    csDivs().forEach(function (d) {
+      (d.teams || []).forEach(function (t) {
+        IDX.push({ g: "CS2 teams (ESEA)", label: t.name + (t.tag ? " [" + t.tag + "]" : ""), where: d.region + " " + d.division + " #" + t.rank,
+          hash: "cs2/" + divId(d), key: "cs:" + divId(d) + ":" + t.name, ext: t.url, text: [t.name, t.tag, t.country, countryName(t.country)].join(" ") });
+      });
+    });
+    ((D.cs && D.cs.top_players) || []).forEach(function (p) {
+      IDX.push({ g: "CS2 players", label: p.nick, where: p.region + " " + p.division + " K/D " + num(p.kd).toFixed(2), hash: "cs2/players", key: "csp:" + p.nick, ext: p.url, text: p.nick });
+    });
+    valResults().forEach(function (m, i) {
+      var pg = Math.floor(i / PER_PAGE) + 1;
+      IDX.push({ g: "Valorant results", label: m.team1 + " " + m.score1 + ":" + m.score2 + " " + m.team2, where: shortEv(m.event), hash: "valorant/results" + (pg > 1 ? "/p" + pg : ""), key: "vr:" + i, ext: m.url, text: [m.team1, m.team2, m.event].join(" ") });
+    });
+    valEvents().forEach(function (e, i) {
+      (e.standings || []).forEach(function (t) {
+        IDX.push({ g: "Valorant teams", label: t.team, where: shortEv(e.title) + " " + t.place, hash: "valorant/" + evId(i), key: "vs:" + i + ":" + t.team, ext: t.url, text: [t.team, t.country, e.title].join(" ") });
+      });
+    });
+    ((D.valorant && D.valorant.event_list) || []).forEach(function (e, i) {
+      IDX.push({ g: "Valorant events", label: e.title, where: e.status + " " + e.dates, hash: "valorant/calendar", key: "vc:" + i, ext: e.url, text: e.title });
+    });
+    var rks = (D.wow && D.wow.rankings) || {};
+    Object.keys(rks).forEach(function (rg) {
+      (rks[rg] || []).forEach(function (g, i) {
+        var pg = Math.floor(i / PER_PAGE) + 1;
+        IDX.push({ g: "WoW guilds", label: g.guild + " - " + g.realm, where: rg.toUpperCase() + " #" + g.rank + " " + g.progress, hash: "wow/" + rg + (pg > 1 ? "/p" + pg : ""), key: "w:" + rg + ":" + g.rank, ext: g.url, text: [g.guild, g.realm].join(" ") });
+      });
+    });
+    newsItems().forEach(function (n, i) {
+      var pg = Math.floor(i / PER_PAGE) + 1;
+      IDX.push({ g: "News", label: n.title, where: n.source + " " + fmt(n.date, "md"), hash: "news/all" + (pg > 1 ? "/p" + pg : ""), key: "n:" + i, ext: n.url, text: [n.title, n.source].join(" ") });
+    });
+  }
+
+  /* ---------- forums: read-only for launch ----------
+     Posting stays off until shared accounts + moderation exist. ForumBackend is the
+     single seam for a future server API: implement topics(forumId) / topic(id) and,
+     once FORUM_POSTING_ENABLED is true, add create/reply/remove plus the posting UI
+     (see renderPostingUI). Nothing is read from or written to browser storage. */
+  var FORUM_POSTING_ENABLED = false;
+  var FORUM_NOTICE = "Forums coming soon. Posting opens once shared accounts and moderation are in place.";
+  var ForumBackend = {
+    postingEnabled: FORUM_POSTING_ENABLED,
+    topics: function (forumId) { return []; },   // -> [{id, forum, subject, views, posts:[{author, body, at}]}]
+    topic: function (id) { return null; }
+  };
+  var FORUMS = [
+    { cat: "Counter-Strike 2 Forums", items: [{ id: "cs2", name: "ESEA League Discussion", desc: "Divisions, standings and teams in the ESEA League on FACEIT." }] },
+    { cat: "Valorant Forums", items: [{ id: "valorant", name: "Challengers & Game Changers", desc: "Tier-2 circuits, Game Changers events and results." }] },
+    { cat: "World of Warcraft Forums", items: [{ id: "wow", name: "Mythic Raid Progression", desc: "Guild progression, raid rankings and boss kills." }] },
+    { cat: "General Forums", items: [{ id: "general", name: "General Discussion & Site Feedback", desc: "Anything else, plus feedback about FragNet." }] }
+  ];
+  function forumById(id) { for (var i = 0; i < FORUMS.length; i++) for (var j = 0; j < FORUMS[i].items.length; j++) if (FORUMS[i].items[j].id === id) return FORUMS[i].items[j]; return null; }
+  function lastPost(t) { return t.posts[t.posts.length - 1]; }
+  function byLast(a, b) { return String(lastPost(b).at).localeCompare(String(lastPost(a).at)); }
+  function forumTopics(fid) {
+    var ts = [];
+    try { ts = ForumBackend.topics(fid) || []; } catch (e) { ts = []; }
+    return ts.filter(function (t) { return t && t.id && t.posts && t.posts.length; });
+  }
+
+  /* ---------- reusable blocks ---------- */
+  function resultsTable(rows, offset, compact) {
+    if (!rows.length) return '<div class="empty">no results</div>';
+    return '<div class="rankbox"><table class="tbl res' + (compact ? " compact" : "") + '"><colgroup>' + (compact ? "" : '<col class="c-date hide-sm">') + '<col class="c-team"><col class="c-score"><col class="c-team">' + (compact ? "" : '<col class="c-ev hide-sm">') + '</colgroup><thead><tr>' + (compact ? "" : '<th class="first hide-sm" title="match start, Pacific Time">Date</th>') + '<th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th>' + (compact ? "" : '<th class="hide-sm">Event</th>') + "</tr></thead><tbody>" +
+      rows.map(function (m, j) {
+        var w1 = m.winner === 0, w2 = m.winner === 1;
+        return '<tr data-k="vr:' + (offset + j) + '">' + (compact ? "" : '<td class="hide-sm dim" title="' + esc(m.ts ? fmt(m.ts) : (m.date + " " + m.time + " (US Central, as listed on vlr.gg)")) + '">' + resDate(m) + "</td>") +
+          '<td class="n ' + (w1 ? "win" : "lose") + '">' + esc(m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
+          '<span class="' + (w1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + esc(m.score2) + "</span></a></td>" +
+          '<td class="' + (w2 ? "win" : "lose") + '">' + esc(m.team2) + "</td>" +
+          (compact ? "" : '<td class="hide-sm" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '">' + esc(shortEv(m.event)) + '<span class="cc">' + esc(m.series) + "</span></td>") + "</tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+
+  /* ================= VIEWS ================= */
+  function vHome() {
+    var news = newsItems().slice(0, 16);
+    var newsHtml = news.length ? '<div class="newsbox">' + news.map(function (n) {
+      return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
+    }).join("") + '<div class="item more"><a href="#news">Read More News</a></div></div>' : '<div class="empty">no headlines</div>';
+    var divs = csDivs().filter(function (d) { return d.teams && d.teams.length; });
+    var lead = divs.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Division</th><th>Leader</th><th class="n" title="wins-losses">W-L</th></tr></thead><tbody>' +
+      divs.map(function (d) {
+        var t = d.teams[0];
+        return '<tr><td><a href="#cs2/' + divId(d) + '">' + esc(d.region + " " + d.division) + '</a></td><td class="team">' + ext(t.url, t.name) + (t.rank !== "1" ? '<span class="cc" title="tied rank">=' + esc(t.rank) + "</span>" : "") +
+          '</td><td class="n"><span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span></td></tr>";
+      }).join("") + "</tbody></table></div>" : '<div class="empty">no ESEA standings</div>';
+    var w = (D.wow && D.wow.rankings) || {}, raid = D.wow && D.wow.raid, s = D.cs && D.cs.season;
+    var wt = Object.keys(w).length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>US Guild</th><th class="hide-sm">Prog</th><th>EU Guild</th><th class="hide-sm">Prog</th></tr></thead><tbody>' +
+      [0, 1, 2, 3, 4].map(function (i) {
+        var u = (w.us || [])[i], e = (w.eu || [])[i];
+        return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + (u ? ext(u.url, u.guild) : "") + '</td><td class="hide-sm">' + (u ? esc(u.progress) : "") +
+          '</td><td class="team">' + (e ? ext(e.url, e.guild) : "") + '</td><td class="hide-sm">' + (e ? esc(e.progress) : "") + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : '<div class="empty">no raid rankings</div>';
+    var intro = '<div class="infobox">Welcome to <b>FragNet</b>, an amateur &amp; semi-pro league tracker. ' +
+      (s ? "ESEA League <b>" + esc(s.name) + "</b> runs " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT) with " + num(s.team_count).toLocaleString("en-US") + " registered teams. " : "") +
+      (raid ? "Current WoW raid: <b>" + esc(raid.name) + "</b>. " : "") +
+      'All data comes from public sources; anything we could not fetch is flagged <span class="miss inline"><span class="miss-b">MISS</span></span> (see <a href="#status-box">Data Status</a>). All times Pacific.</div>';
+    return std("FragNet Front Page", "data " + fmt(D.fetched_at, "short"), intro) +
+      '<div class="fp-cols"><div>' + std("Latest Esports News", '<a href="#news">all &raquo;</a>', newsHtml) + "</div><div>" +
+      std("ESEA Division Leaders", '<a href="#cs2">standings &raquo;</a>', lead) +
+      std("Latest Valorant Results", '<a href="#valorant/results">all &raquo;</a>', resultsTable(valResults().slice(0, 6), 0, true)) + "</div></div>" +
+      std("Mythic Raid Race :: Top 5", raid ? esc(raid.name) + ' &middot; <a href="#wow">full rankings &raquo;</a>' : "", wt);
+  }
+
+  function vCS2(parts) {
+    var sub = parts[0];
+    var cs = D.cs || {}, divs = csDivs(), ids = divs.map(divId);
+    if (!sub || (ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results")) sub = ids[0] || "players";
+    var tabs = [];
+    ["EU", "NA"].forEach(function (rg) {
+      var ds = divs.filter(function (d) { return d.region === rg; });
+      if (!ds.length) return;
+      tabs.push({ grp: rg });
+      ds.forEach(function (d) { tabs.push({ id: divId(d), hash: "cs2/" + divId(d), label: d.division }); });
+    });
+    tabs.push({ grp: "Stats" }, { id: "players", hash: "cs2/players", label: "Top Fraggers" }, { id: "results", hash: "cs2/results", label: "Match Results" });
+    var s = cs.season;
+    var info = s ? '<div class="infobox">' + ext(cs.page, cs.league) + " &raquo; <b>" + esc(s.name) + "</b> &middot; " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT)" +
+      " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
+    var body = "", title = "";
+    if (sub === "players") {
+      title = "Top Fraggers :: EU + NA Advanced";
+      var ps = cs.top_players || [], pm = cs.top_players_meta || {};
+      body = ps.length ? staleNote(pm) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Division</th><th class="n hide-sm" title="matches played">Matches</th><th class="n hide-sm" title="rounds played">Rnds</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
+        ps.map(function (p, i) {
+          return '<tr class="' + medal(i + 1) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(i + 1) + '<td class="team">' + ext(p.url, p.nick) + '</td><td class="hide-sm">' + esc(p.region + " " + p.division) +
+            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">no player stats</div>';
+    } else if (sub === "results") {
+      title = "Match Results";
+      body = (cs.matches || []).length ? "" : '<div class="empty">No ESEA match results: FACEIT\'s match list requires a login, so it was not fetched (see MISS above).</div>';
+    } else {
+      var d = divs[ids.indexOf(sub)];
+      var multi = (d.conferences || []).length > 1;
+      title = d.region + " " + d.division + " :: " + d.stage;
+      if (d.status !== "OK") body = missRow("FACEIT standings", d.reason);
+      else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
+      else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
+        d.teams.map(function (t) {
+          return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + ext(t.url, t.name) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
+            "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n">' + esc(t.rounds) + "</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Top ' + d.teams.length + " of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
+        " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
+    }
+    return std("Counter-Strike 2 :: ESEA League", "", toolbar(tabs, sub) + srcLine("cs") + missesFor("cs") + info) +
+      '<h2 class="subhead">' + esc(title) + "</h2>" + body;
+  }
+
+  function vValorant(parts) {
+    var sub = parts[0], page = pageOf(parts);
+    var v = D.valorant || {}, evs = valEvents();
+    var ids = ["results", "calendar"].concat(evs.map(function (e, i) { return evId(i); }));
+    if (ids.indexOf(sub) < 0) sub = "results";
+    var tabs = [{ grp: "View" }, { id: "results", hash: "valorant/results", label: "Recent Results" }, { id: "calendar", hash: "valorant/calendar", label: "Calendar" }, { grp: "Events" }]
+      .concat(evs.map(function (e, i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(e.title) }; }));
+    var body = "", title = "", r;
+    if (sub === "results") {
+      r = valResults();
+      var pages = Math.max(1, Math.ceil(r.length / PER_PAGE)); if (page > pages) page = pages;
+      var evNames = Array.from(new Set(r.map(function (m) { return shortEv(m.event); })));
+      var rm = v.results_meta || {};
+      var excl = (rm.excluded_events || []).map(shortEv);
+      title = "Recent Results (Challengers / Game Changers / tier-2)";
+      body = staleNote(rm) + '<div class="note">' + r.length + " results from " + evNames.length + " events: " + esc(evNames.join(", ")) + ". Winner highlighted; click a score for the vlr.gg match page. Dates in Pacific Time." +
+        (rm.scanned ? " Scanned the latest " + num(rm.scanned) + " vlr.gg results; excluded " + num(rm.excluded_international) + " from international events (Champions/Masters) and " + num(rm.excluded_partner) + " from tier-1 VCT partner leagues" + (excl.length ? " (" + esc(excl.join(", ")) + ")" : "") + "." : "") + "</div>" +
+        pager(r.length, page, "valorant/results") + resultsTable(slicePage(r, page), (page - 1) * PER_PAGE, false) + pager(r.length, page, "valorant/results");
+    } else if (sub === "calendar") {
+      title = "Ongoing & Upcoming Events";
+      var cal = v.event_list || [];
+      body = staleNote(v.event_list_meta) + (cal.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Status</th><th>Event</th><th class="hide-sm">Circuit</th><th>Dates</th></tr></thead><tbody>' +
+        cal.map(function (e, i) {
+          var st = String(e.status || "");
+          return '<tr data-k="vc:' + i + '"><td class="' + (st === "ongoing" ? "w" : "") + '">' + esc(st.toUpperCase()) + '</td><td class="team">' + ext(e.url, e.title) + '</td><td class="hide-sm">' + esc(e.circuit) + "</td><td>" + esc(e.dates) + "</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Dates as listed on vlr.gg.</div>' : '<div class="empty">no ongoing/upcoming events listed</div>');
+    } else {
+      var i = ids.indexOf(sub) - 2, e = evs[i], rows = e.standings || [];
+      title = e.title + " :: Final Standings";
+      body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
+        rows.map(function (t) {
+          return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ext(t.url, t.team) + '<span class="cc">' + esc(t.country) +
+            '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + "</td></tr>";
+        }).join("") + "</tbody></table></div>" : missRow("vlr.gg", e.status_note));
+    }
+    return std("Valorant :: Challengers / Game Changers", "", toolbar(tabs, sub) + srcLine("valorant") + missesFor("valorant")) +
+      '<h2 class="subhead">' + esc(title) + "</h2>" + body;
+  }
+
+  function vWow(parts) {
+    var sub = parts[0], page = pageOf(parts);
+    var w = D.wow || {}, rks = w.rankings || {}, regs = Object.keys(rks);
+    if (regs.indexOf(sub) < 0) sub = regs[0] || "us";
+    var tabs = [{ grp: "Region" }].concat(regs.map(function (r) { return { id: r, hash: "wow/" + r, label: r.toUpperCase() + " Mythic" }; }));
+    var raid = w.raid;
+    var info = raid ? '<div class="infobox">Current raid: <b>' + esc(raid.name) + "</b> &middot; " + (raid.bosses || []).length + " bosses &middot; opened " + fmt(raid.starts_us, "md") +
+      ' (US)<br><span class="dim">' + esc((raid.bosses || []).join(" / ")) + "</span></div>" : "";
+    var rows = rks[sub] || [];
+    var pages = Math.max(1, Math.ceil(rows.length / PER_PAGE)); if (page > pages) page = pages;
+    var link = rioPage(raid, sub);
+    var base = "wow/" + sub;
+    var body = rows.length ? staleNote((w.rankings_meta || {})[sub]) + pager(rows.length, page, base) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="Raider.IO mythic progress rank">#</th><th>Guild</th><th class="hide-sm">Realm</th><th title="mythic bosses killed">Progress</th><th class="n" title="date of the most recent new Mythic boss kill (PT)">Last New Kill</th></tr></thead><tbody>' +
+      slicePage(rows, page).map(function (g) {
+        var full = raid && g.kills === (raid.bosses || []).length;
+        var fac = g.faction === "alliance" ? "ally" : g.faction === "horde" ? "horde" : "";
+        return '<tr class="' + medal(g.rank) + '" data-k="' + esc("w:" + sub + ":" + g.rank) + '">' + rk(g.rank) + '<td class="team ' + fac + '">' + ext(g.url, g.guild) +
+          '</td><td class="hide-sm">' + esc(g.realm) + '</td><td class="' + (full ? "w" : "") + '">' + esc(g.progress) + '</td><td class="n">' + (g.last_first_kill ? fmt(g.last_first_kill, "md") : "&ndash;") + "</td></tr>";
+      }).join("") + "</tbody></table></div>" + pager(rows.length, page, base) +
+      '<div class="note">Guild names colored by faction (blue Alliance / red Horde). Dates in Pacific Time. ' + ext(link, "Full rankings on Raider.IO") + "</div>" : '<div class="empty">no rankings</div>';
+    return std("World of Warcraft :: Mythic Raid Progression", "", toolbar(tabs, sub) + srcLine("wow") + missesFor("wow") + info) +
+      '<h2 class="subhead">' + esc(sub.toUpperCase()) + " Mythic Rankings <small>top " + rows.length + "</small></h2>" + body;
+  }
+
+  function vNews(parts) {
+    var sub = parts[0], page = pageOf(parts);
+    var items = newsItems().map(function (n, i) { n._i = i; return n; });
+    var tags = ["all"].concat(Array.from(new Set(items.map(function (i) { return String(i.tag || "").toLowerCase(); }))));
+    if (tags.indexOf(sub) < 0) sub = "all";
+    var tabs = [{ grp: "Filter" }].concat(tags.map(function (t) { return { id: t, hash: "news/" + t, label: t === "all" ? "All News" : t.toUpperCase() }; }));
+    var shown = items.filter(function (n) { return sub === "all" || String(n.tag || "").toLowerCase() === sub; });
+    var pages = Math.max(1, Math.ceil(shown.length / PER_PAGE)); if (page > pages) page = pages;
+    var base = "news/" + sub;
+    var body = shown.length ? pager(shown.length, page, base) + '<div class="listbox">' + slicePage(shown, page).map(function (n) {
+      return '<div class="item' + (n.stale ? " is-stale" : "") + '" data-k="n:' + n._i + '"><span class="tag ' + esc(slug(n.tag)) + '">' + esc(n.tag) + '</span><span class="when">' + (n.date ? fmt(n.date, "short") : "") + "</span>" + ext(n.url, n.title, "ttl") +
+        '<span class="src">' + esc(n.source) + "</span></div>";
+    }).join("") + "</div>" + pager(shown.length, page, base) : '<div class="empty">no headlines</div>';
+    return std("FragNet News Wire", shown.length + " headlines", toolbar(tabs, sub) + srcLine("news") + missesFor("news")) + body;
+  }
+
+  function vSearch(q) {
+    q = (q || "").trim().slice(0, MAX_Q);
+    if ($("#q").value.trim() !== q && document.activeElement !== $("#q")) $("#q").value = q;
+    var ql = q.toLowerCase();
+    var hits = ql ? IDX.filter(function (x) { return String(x.text).toLowerCase().indexOf(ql) >= 0; }) : [];
+    var groups = {};
+    hits.forEach(function (h) { (groups[h.g] = groups[h.g] || []).push(h); });
+    // highlight on the raw text, escaping each piece (never regex over escaped HTML)
+    function hl(s) {
+      s = String(s);
+      if (!ql) return esc(s);
+      var low = s.toLowerCase(), out = "", i = 0, j;
+      while ((j = low.indexOf(ql, i)) >= 0) { out += esc(s.slice(i, j)) + "<mark>" + esc(s.slice(j, j + ql.length)) + "</mark>"; i = j + ql.length; }
+      return out + esc(s.slice(i));
+    }
+    var body = !ql ? '<div class="empty">Type in the SEARCH FRAGNET box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' :
+      !hits.length ? '<div class="empty">No matches for &ldquo;' + esc(q) + "&rdquo;.</div>" :
+      Object.keys(groups).map(function (g) {
+        return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + groups[g].length + ')</div><ul class="sr-list">' + groups[g].slice(0, 40).map(function (h) {
+          return '<li><a href="#' + esc(h.hash) + '" data-hl="' + esc(h.key) + '">' + hl(h.label) + '</a><span class="where">' + esc(h.where) + (h.ext && safeUrl(h.ext) !== "#" ? " &middot; " + ext(h.ext, "source") : "") + "</span></li>";
+        }).join("") + (groups[g].length > 40 ? '<li class="empty">&hellip; ' + (groups[g].length - 40) + " more, refine your search</li>" : "") + "</ul></div>";
+      }).join("");
+    return std("Search Results", ql ? hits.length + " match" + (hits.length === 1 ? "" : "es") + " for &ldquo;" + esc(q) + "&rdquo;" : "", '<div class="std-cap"></div>') + body;
+  }
+
+  /* ----- forums (board index / topic list / topic view) ----- */
+  function forumNote() {
+    return '<div class="local-note forum-note" role="status"><span class="lbl">COMING SOON</span><span>' + esc(FORUM_NOTICE) + "</span></div>";
+  }
+  function renderPostingUI() {
+    // New topic / reply / delete forms plug in here once a real backend exists
+    // (only when FORUM_POSTING_ENABLED and ForumBackend implement posting).
+    return "";
+  }
+  function vForums(parts) {
+    var mode = parts[0] || "", id = parts[1] || "";
+    if (mode === "t") return vTopic(id);
+    if (mode === "f" && forumById(id)) return vForum(id);
+    var total = 0;
+    var rows = FORUMS.map(function (c) {
+      return '<tr class="row-header"><td><span class="ic"></span>' + esc(c.cat) + '</td><td class="c">Topics</td><td class="c">Posts</td><td class="lastc">Last Post</td></tr>' + c.items.map(function (fo) {
+        var ts = forumTopics(fo.id).sort(byLast);
+        var posts = ts.reduce(function (n, t) { return n + t.posts.length; }, 0);
+        var lp = ts[0] && lastPost(ts[0]);
+        total += ts.length;
+        return '<tr class="row-item"><td class="title"><a class="name" href="#forums/f/' + fo.id + '">' + esc(fo.name) + '</a><div class="description">' + esc(fo.desc) +
+          '</div></td><td class="num">' + ts.length + '</td><td class="num">' + posts + '</td><td class="lastpost">' + (lp ? '<a href="#forums/t/' + esc(ts[0].id) + '">' + esc(lp.author) + '</a><div class="time">' + fmt(lp.at, "short") + "</div>" : '<span class="time">No posts yet</span>') + "</td></tr>";
+      }).join("");
+    }).join("");
+    return std("FragNet eSports Forums", total + " topics", "") + forumNote() +
+      '<div class="crumbs"><a href="#forums">Board Index</a></div><table class="forum-table">' + rows + "</table>";
+  }
+  function vForum(fid) {
+    var fo = forumById(fid);
+    var ts = forumTopics(fid).sort(byLast);
+    var rows = ts.length ? ts.map(function (t) {
+      var lp = lastPost(t);
+      return '<tr class="row-item"><td class="title"><a class="name" href="#forums/t/' + esc(t.id) + '">' + esc(t.subject) + '</a><div class="description">by ' + esc(t.posts[0].author) + " &middot; " + fmt(t.posts[0].at, "short") +
+        '</div></td><td class="num">' + (t.posts.length - 1) + '</td><td class="num">' + num(t.views) + '</td><td class="lastpost">' + esc(lp.author) + '<div class="time">' + fmt(lp.at, "short") + "</div></td></tr>";
+    }).join("") : '<tr class="row-item"><td colspan="4" class="emptyrow">No topics yet.</td></tr>';
+    return std(esc(fo.name), ts.length + " topics", "") + forumNote() +
+      '<div class="crumbs"><a href="#forums">Board Index</a> &raquo; <span>' + esc(fo.name) + "</span></div>" +
+      '<table class="forum-table"><tr class="row-header"><td><span class="ic"></span>Topics</td><td class="c">Replies</td><td class="c">Views</td><td class="lastc">Last Post</td></tr>' + rows + "</table>" + renderPostingUI();
+  }
+  function vTopic(tid) {
+    var t = null;
+    try { t = ForumBackend.topic(tid); } catch (e) { t = null; }
+    if (!t || !t.posts || !t.posts.length) return std("Topic not available", "", "") + forumNote() + '<div class="empty">There are no forum topics yet. <a href="#forums">Back to the board index</a></div>';
+    var fo = forumById(t.forum) || { name: "General", id: "general" };
+    var posts = t.posts.map(function (p, i) {
+      return '<div class="post"><div class="ubox"><div class="av" aria-hidden="true">' + esc(String(p.author || "?").charAt(0).toUpperCase()) + '</div><div><div class="uname">' + esc(p.author) + '</div><div class="urank">' + (i === 0 ? "Topic Starter" : "Member") +
+        '</div></div></div><div class="pc"><div class="phead"><b>#' + (i + 1) + "</b> &middot; " + (i === 0 ? "<b>" + esc(t.subject) + "</b>" : "Re: " + esc(t.subject)) + " &middot; posted " + fmt(p.at) +
+        '</div><div class="pbody">' + esc(p.body) + "</div></div></div>";
+    }).join("");
+    return std(esc(t.subject), (t.posts.length - 1) + " replies", "") + forumNote() +
+      '<div class="crumbs"><a href="#forums">Board Index</a> &raquo; <a href="#forums/f/' + fo.id + '">' + esc(fo.name) + '</a> &raquo; <span class="subj">' + esc(t.subject) + "</span></div>" + posts + renderPostingUI();
+  }
+
+  /* ----- about (static text lives in index.html <template id="about-tpl">) ----- */
+  function vAbout() {
+    var tpl = $("#about-tpl"), st = D.status || [];
+    var c = { OK: 0, STALE: 0, MISS: 0 };
+    st.forEach(function (s) { c[s.status] = (c[s.status] || 0) + 1; });
+    var live = "The data currently shown was fetched " + fmt(D.fetched_at) + ": " + c.OK + " sources OK, " + c.STALE + " STALE, " + c.MISS + " MISS (details in the Data Status box).";
+    return tpl ? tpl.innerHTML.replace("{{fetched}}", esc(live)) : std("About FragNet", "", missRow("about", "content missing"));
+  }
+
+  /* ================= SIDEBARS / HEADER ================= */
+  function renderGameNav() {
+    function sl(hash, label) { return '<a href="#' + esc(hash) + '" data-sel="' + esc(hash) + '">' + esc(label) + "</a>"; }
+    var cs = '<div class="gn-item" data-gn="cs2"><a href="#cs2">Counter-Strike 2</a><div class="gn-sub">';
+    ["EU", "NA"].forEach(function (rg) {
+      var ds = csDivs().filter(function (d) { return d.region === rg; });
+      if (ds.length) cs += '<div><span class="rg">' + rg + "</span> " + ds.map(function (d) { return sl("cs2/" + divId(d), d.division.slice(0, d.division === "Main" ? 4 : 3).toLowerCase()); }).join(' <span class="sep">|</span> ') + "</div>";
+    });
+    cs += "<div>" + sl("cs2/players", "top fraggers") + "</div></div></div>";
+    var val = '<div class="gn-item" data-gn="valorant"><a href="#valorant">Valorant</a><div class="gn-sub"><div>' + sl("valorant/results", "results") + ' <span class="sep">|</span> ' + sl("valorant/calendar", "calendar") + "</div>" +
+      valEvents().map(function (e, i) { return "<div>" + sl("valorant/" + evId(i), shortEv(e.title).toLowerCase()) + "</div>"; }).join("") + "</div></div>";
+    var wr = Object.keys((D.wow && D.wow.rankings) || {});
+    var wow = '<div class="gn-item" data-gn="wow"><a href="#wow">World of Warcraft</a><div class="gn-sub"><div>' + wr.map(function (r) { return sl("wow/" + r, r + " mythic"); }).join(' <span class="sep">|</span> ') + "</div></div></div>";
+    var news = '<div class="gn-item" data-gn="news"><a href="#news">News</a></div>';
+    var forum = '<div class="gn-item" data-gn="forums"><a href="#forums">Forums</a></div>';
+    var about = '<div class="gn-item" data-gn="about"><a href="#about">About</a></div>';
+    $("#gamenav").innerHTML = cs + val + wow + '<div class="gn-sep"></div>' + news + forum + about;
+  }
+  function renderStatus() {
+    var secs = [["cs", "CS2 / FACEIT"], ["valorant", "Valorant / vlr.gg"], ["wow", "WoW / Raider.IO"], ["news", "News RSS"]];
+    var st = D.status || [];
+    var c = { OK: 0, STALE: 0, MISS: 0 };
+    st.forEach(function (s) { c[s.status] = (c[s.status] || 0) + 1; });
+    var html = '<div class="st-upd"><b>' + c.OK + " OK</b>" + (c.STALE ? ' / <b class="t-stale">' + c.STALE + " STALE</b>" : "") + ' / <b class="t-miss">' + c.MISS + " MISS</b> &middot; fetched " + fmt(D.fetched_at, "short") + "</div>";
+    secs.forEach(function (sc) {
+      var list = (D[sc[0]] || {}).sources || [];
+      if (!list.length) return;
+      html += '<div class="st-sec">' + esc(sc[1]) + '</div><ul class="side-menu">' + list.map(function (s) {
+        var isOk = s.status === "OK";
+        var name = s.source.replace(/\s*\((public web JSON|pages 1-\d+, [^)]*)\)/, "").replace(/^FACEIT ESEA /, "ESEA ").replace(/^vlr\.gg /, "vlr ");
+        var tip = s.source + " - " + s.status + " - " + (isOk ? s.count + " records" : s.reason || "") + (s.note ? " - " + s.note : "") +
+          (s.status === "STALE" ? " - data from " + fmt(s.data_fetched_at) : "") + " - checked " + fmt(s.fetched_at);
+        return '<li class="st" title="' + esc(tip) + '">' + badge(s.status) + ext(s.page || s.url, name) + '<span class="cnt">' + (s.status === "MISS" ? "" : num(s.count)) + "</span>" +
+          (isOk ? "" : '<span class="st-why">' + esc(s.reason || "") + "</span>") + "</li>";
+      }).join("") + '</ul><div class="st-upd">updated ' + fmt((D[sc[0]] || {}).fetched_at, "short") + "</div>";
+    });
+    $("#data-status").innerHTML = html;
+  }
+  function renderSideNews() {
+    var items = newsItems().slice(0, 12);
+    $("#side-news").innerHTML = items.length ? items.map(function (n) {
+      return '<li title="' + esc(n.title + " (" + n.source + ")") + '">' + ext(n.url, n.title) + '<span class="cnt">' + (n.date ? fmt(n.date, "md") : "") + "</span></li>";
+    }).join("") : '<li class="empty">no headlines</li>';
+  }
+  function renderSideForum() {
+    var ts = [];
+    FORUMS.forEach(function (c) { c.items.forEach(function (fo) { ts = ts.concat(forumTopics(fo.id)); }); });
+    ts = ts.sort(byLast).slice(0, 8);
+    $("#side-forum").innerHTML = (ts.length ? ts.map(function (t) {
+      return '<li title="' + esc(t.subject) + '"><a href="#forums/t/' + esc(t.id) + '">' + esc(t.subject) + '</a><span class="cnt" title="replies">' + (t.posts.length - 1) + "</span></li>";
+    }).join("") : '<li class="empty">No topics yet.</li>') + '<li class="note">' + esc(FORUM_NOTICE) + "</li>";
+  }
+  function renderTicker() {
+    var bits = [];
+    newsItems().slice(0, 10).forEach(function (i) { bits.push('<span class="it"><b>' + esc(i.source) + ":</b> " + ext(i.url, i.title) + "</span>"); });
+    valResults().slice(0, 5).forEach(function (m) { bits.push('<span class="it"><b>VAL:</b> ' + esc(m.team1) + " " + esc(m.score1) + "-" + esc(m.score2) + " " + esc(m.team2) + "</span>"); });
+    var w = D.wow && D.wow.rankings;
+    if (w && w.us && w.us[0]) bits.push('<span class="it"><b>WoW:</b> US #1 ' + esc(w.us[0].guild) + " " + esc(w.us[0].progress) + "</span>");
+    if (w && w.eu && w.eu[0]) bits.push('<span class="it"><b>WoW:</b> EU #1 ' + esc(w.eu[0].guild) + " " + esc(w.eu[0].progress) + "</span>");
+    csDivs().filter(function (d) { return d.teams && d.teams.length; }).forEach(function (d) {
+      bits.push('<span class="it"><b>ESEA ' + esc(d.region + " " + d.division) + ":</b> " + esc(d.teams[0].name) + (d.teams[0].rank === "1" ? " leads" : " tied for the lead") + " (" + num(d.teams[0].w) + "-" + num(d.teams[0].l) + ")</span>");
+    });
+    var html = bits.length ? bits.join("") : '<span class="it">no live data</span>';
+    // second copy only exists for the seamless loop: hide it from screen readers and the tab order
+    $("#tk").innerHTML = '<span class="tk-copy">' + html + '</span><span class="tk-copy" aria-hidden="true">' + html.replace(/<a /g, '<a tabindex="-1" ') + "</span>";
+  }
+
+  /* add a tooltip to any text that is visibly cut off with an ellipsis */
+  var TRUNC = ".tbl td, .tbl td a, .newsbox .item a, .listbox .ttl, .listbox .src, .side-menu li a, .side-menu .st-why, .miss .why, .std-header h1, .sb-upd, .crumbs .subj, .sr-list .where";
+  function autoTitles() {
+    $$(TRUNC).forEach(function (el) {
+      if (el.scrollWidth > el.clientWidth + 1) { if (!el.title) { el.title = el.textContent.trim(); el.dataset.autoTitle = "1"; } }
+      else if (el.dataset.autoTitle) { el.removeAttribute("title"); delete el.dataset.autoTitle; }
+    });
+  }
+
+  /* ================= ROUTER ================= */
+  function parseHash() {
+    var h = (location.hash || "").replace(/^#/, "");
+    try { h = decodeURIComponent(h); } catch (e) {}
+    var parts = h.split("/");
+    return { top: parts[0] || "home", parts: parts.slice(1) };
+  }
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About" };
+  function route() {
+    var r = parseHash(), html;
+    try {
+      switch (r.top) {
+        case "cs2": html = vCS2(r.parts); break;
+        case "valorant": html = vValorant(r.parts); break;
+        case "wow": html = vWow(r.parts); break;
+        case "news": html = vNews(r.parts); break;
+        case "forums": html = vForums(r.parts); break;
+        case "about": html = vAbout(); break;
+        case "search": html = vSearch(r.parts.join("/")); break;
+        case "status-box": r.top = "home"; html = vHome(); setTimeout(function () { var sb = $("#status-box"); sb.scrollIntoView(); sb.focus({ preventScroll: true }); }, 0); break;
+        default: r.top = "home"; html = vHome();
+      }
+    } catch (e) {
+      if (window.console) console.warn("FragNet: could not render view", e);
+      html = std("Page unavailable", "", missRow("view", "this page could not be rendered from the current data.json")) + '<div class="empty"><a href="#home">Back to the front page</a></div>';
+    }
+    $("#view").innerHTML = html;
+    var h1 = $("#view .std-header h1");
+    document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
+    var navTop = r.top === "search" ? "" : r.top;
+    $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+    $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
+    var on = $("#view .toolbar a.on");
+    var sel = on ? on.getAttribute("href").slice(1) : "";
+    $$("[data-sel]").forEach(function (a) { a.classList.toggle("on", a.dataset.sel === sel); });
+    autoTitles();
+    if (pendingHL) {
+      var row = $('[data-k="' + (window.CSS && CSS.escape ? CSS.escape(pendingHL) : pendingHL.replace(/["\\]/g, "\\$&")) + '"]', $("#view"));
+      pendingHL = null;
+      if (row) { row.classList.add("flash"); row.scrollIntoView({ block: "center" }); return; }
+    }
+    if (r.top !== "home" && window.scrollY > $("#mesh").offsetTop) $("#mesh").scrollIntoView();
+  }
+
+  function today() {
+    var p = ptParts(new Date());
+    $("#today").textContent = DAYS[p.wd] + " " + MONTHS[p.m] + " " + p.d + " " + p.y + " " + pad(p.h) + ":" + pad(p.mi) + " " + p.tz;
+  }
+
+  function boot(data) {
+    D = data || {};
+    buildIndex();
+    var nMiss = (D.status || []).filter(function (s) { return s.status === "MISS"; }).length;
+    var nStale = (D.status || []).filter(function (s) { return s.status === "STALE"; }).length;
+    $("#hdr-upd").textContent = "data fetched " + fmt(D.fetched_at);
+    $("#foot-fetched").textContent = "data.json fetched " + fmt(D.fetched_at) + " · " + nMiss + " source(s) MISS" + (nStale ? " · " + nStale + " STALE" : "");
+    var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("FragNet: sidebar render failed", e); } });
+    window.addEventListener("hashchange", function () { clearTimeout(tmr); route(); renderSideForum(); });
+    var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(autoTitles, 200); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(autoTitles);
+    window.addEventListener("load", autoTitles);
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("[data-hl]");
+      if (a && a.dataset.hl) pendingHL = a.dataset.hl;
+    });
+    $("#hsearch").addEventListener("submit", function (e) {
+      e.preventDefault(); clearTimeout(tmr);
+      location.hash = "#search/" + encodeURIComponent($("#q").value.trim().slice(0, MAX_Q));
+      if (parseHash().top === "search") route();
+    });
+    $("#q").addEventListener("input", function () {
+      clearTimeout(tmr);
+      tmr = setTimeout(function () {
+        var q = $("#q").value.trim().slice(0, MAX_Q);
+        if (!q && parseHash().top !== "search") return;
+        var target = "#search/" + encodeURIComponent(q);
+        if (parseHash().top === "search") { history.replaceState(null, "", target); route(); }
+        else if (q.length >= 2) location.hash = target;
+      }, 300);
+    });
+    route();
+  }
+
+  function fail() { $("#view").innerHTML = missRow("data.json", "not found - run python3 fetch_data.py"); }
+  /* data.js (same content as data.json) is used on file:// where fetch() is not allowed */
+  function loadDataJs() {
+    if (window.FRAGNET_DATA) return boot(window.FRAGNET_DATA);
+    var s = document.createElement("script");
+    s.src = "data.js";
+    s.onload = function () { if (window.FRAGNET_DATA) boot(window.FRAGNET_DATA); else fail(); };
+    s.onerror = fail;
+    document.body.appendChild(s);
+  }
+
+  today(); setInterval(today, 30000);
+  if (location.protocol === "file:" || !window.fetch) loadDataJs();
+  else fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(boot, loadDataJs);
+})();

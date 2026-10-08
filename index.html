@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FragNet eSports League Tracker</title>
+<meta name="description" content="FragNet: a retro esports league tracker with ESEA League (CS2) standings, Valorant Challengers and Game Changers results, WoW Mythic raid rankings and esports news, all from public sources.">
+<meta name="theme-color" content="#191919">
+<meta name="color-scheme" content="light">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="FragNet">
+<meta property="og:url" content="https://winecoolermike.github.io/fragnet/">
+<meta property="og:title" content="FragNet eSports League Tracker">
+<meta property="og:description" content="ESEA League standings, Valorant tier-2 results, WoW Mythic raid race and esports news in a 2007-portal style. Public data only.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#pane-middle">Skip to content</a>
+<div id="container">
+
+  <!-- level one: utility bar -->
+  <div id="utilbar">
+    <ul class="menu">
+      <li><a href="#home"><span class="bullet">&raquo;</span> Home</a></li>
+      <li><a href="#cs2"><span class="bullet">&raquo;</span> CS2</a></li>
+      <li><a href="#valorant"><span class="bullet">&raquo;</span> Valorant</a></li>
+      <li><a href="#wow"><span class="bullet">&raquo;</span> WoW</a></li>
+      <li><a href="#news"><span class="bullet">&raquo;</span> News</a></li>
+      <li><a href="#forums"><span class="bullet">&raquo;</span> Forums</a></li>
+      <li><a href="#search"><span class="bullet">&raquo;</span> Search</a></li>
+      <li><a href="#about"><span class="bullet">&raquo;</span> About</a></li>
+    </ul>
+    <div class="date" id="today"></div>
+  </div>
+
+  <!-- level two: banner -->
+  <div id="banner">
+    <a href="#home" class="logo" aria-label="FragNet home">
+      <span class="logo-main">FRAG<span class="logo-net">NET</span></span>
+      <span class="logo-sub">eSports League Tracker</span>
+    </a>
+    <form id="hsearch" role="search" class="searchbox">
+      <div class="sb-label">SEARCH FRAGNET</div>
+      <div class="sb-row">
+        <input id="q" type="search" placeholder="team, player, guild, headline" autocomplete="off" maxlength="100" aria-label="Search FragNet">
+        <button type="submit">GO</button>
+      </div>
+      <div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>
+    </form>
+  </div>
+
+  <!-- level four: section nav -->
+  <div id="secnav">
+    <ul class="menu" id="topnav">
+      <li><a href="#home" data-nav="home"><span class="bullet">&bull;</span> Home</a></li>
+      <li><a href="#cs2" data-nav="cs2"><span class="bullet">&bull;</span> Counter-Strike 2</a></li>
+      <li><a href="#valorant" data-nav="valorant"><span class="bullet">&bull;</span> Valorant</a></li>
+      <li><a href="#wow" data-nav="wow"><span class="bullet">&bull;</span> World of Warcraft</a></li>
+      <li><a href="#news" data-nav="news"><span class="bullet">&bull;</span> News</a></li>
+      <li><a href="#forums" data-nav="forums"><span class="bullet">&bull;</span> Forums</a></li>
+      <li><a href="#about" data-nav="about"><span class="bullet">&bull;</span> About</a></li>
+    </ul>
+  </div>
+  <div id="ticker" role="region" aria-label="Latest headlines ticker"><span class="tk-label">LATEST &raquo;</span><div class="tk-viewport"><div class="tk-track" id="tk"></div></div></div>
+
+  <!-- mesh: 3 panes -->
+  <div id="mesh">
+    <aside id="pane-left">
+      <div id="gamenav" class="gamenav"></div>
+      <div class="sidebox">
+        <div class="side-header"><span class="dash">-</span> Quick Links</div>
+        <ul class="side-menu">
+          <li><a href="https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8" target="_blank" rel="noopener">FACEIT ESEA League</a></li>
+          <li><a href="https://www.vlr.gg/events" target="_blank" rel="noopener">vlr.gg events</a></li>
+          <li><a href="https://www.vlr.gg/matches/results" target="_blank" rel="noopener">vlr.gg results</a></li>
+          <li><a id="ql-rio" href="https://raider.io/" target="_blank" rel="noopener">Raider.IO rankings</a></li>
+          <li><a href="https://www.wowhead.com/news" target="_blank" rel="noopener">Wowhead news</a></li>
+          <li><a href="https://www.dexerto.com/esports/" target="_blank" rel="noopener">Dexerto esports</a></li>
+          <li><a href="https://esportsinsider.com/" target="_blank" rel="noopener">Esports Insider</a></li>
+        </ul>
+        <div class="side-footer"></div>
+      </div>
+      <div class="sidebox" id="status-box" tabindex="-1">
+        <div class="side-header"><span class="dash">-</span> Data Status</div>
+        <div id="data-status"></div>
+        <div class="side-footer"></div>
+      </div>
+    </aside>
+
+    <main id="pane-middle" tabindex="-1">
+      <div id="view" aria-live="polite"></div>
+    </main>
+
+    <aside id="pane-right">
+      <div class="sidebox">
+        <div class="side-header"><span class="dash">-</span> Latest News</div>
+        <ul class="side-menu counts" id="side-news"></ul>
+        <div class="side-footer"><a href="#news" class="sf-btn">MORE</a></div>
+      </div>
+      <div class="sidebox">
+        <div class="side-header"><span class="dash">-</span> Forum Threads</div>
+        <ul class="side-menu counts" id="side-forum"></ul>
+        <div class="side-footer"><a href="#forums" class="sf-btn">MORE</a></div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="footer">
+    <ul class="menu">
+      <li><a href="#home"><span class="bullet">&raquo;</span> FragNet Home</a></li>
+      <li><a href="#news"><span class="bullet">&raquo;</span> News</a></li>
+      <li><a href="#forums"><span class="bullet">&raquo;</span> Forums</a></li>
+      <li><a href="#status-box"><span class="bullet">&raquo;</span> Data Status</a></li>
+      <li><a href="#about"><span class="bullet">&raquo;</span> About</a></li>
+    </ul>
+    <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles &middot; <a href="#about">About FragNet</a></div>
+    <div class="foot-note">FragNet v3.2 &middot; data from public pages / unauthenticated APIs only (FACEIT web JSON, vlr.gg, Raider.IO, RSS) &middot; no accounts, no keys &middot; every row links to its source &middot; times in Pacific Time &middot; <span id="foot-fetched"></span></div>
+  </div>
+</div>
+<template id="about-tpl">
+<div class="std"><div class="std-header"><h1>About FragNet</h1><span class="meta">independent fan project</span></div>
+<div class="infobox about-intro"><b>FragNet</b> is an independent, fan-made tracker for <b>amateur and semi-pro esports</b>: the ESEA League for Counter-Strike 2, Valorant Challengers / Game Changers and other tier-2 events, the World of Warcraft Mythic raid race, and esports headlines. It shows only data that is published on public web pages or open, keyless endpoints. Nothing is invented or estimated: when something could not be fetched, the page says so instead of filling the gap.</div></div>
+
+<h2 class="subhead">Data sources</h2>
+<div class="rankbox"><table class="tbl about-src"><thead><tr><th class="first">Source</th><th>What FragNet shows from it</th></tr></thead><tbody>
+<tr><td class="team"><a href="https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8" target="_blank" rel="noopener">FACEIT &ndash; ESEA League</a></td><td>Public ESEA League pages: current season dates, registered teams, prize pool and map pool; standings (top 20) for EU and NA Advanced, Main and Intermediate; top fraggers in the Advanced divisions.</td></tr>
+<tr><td class="team"><a href="https://www.vlr.gg/events" target="_blank" rel="noopener">vlr.gg</a></td><td>Valorant Challengers / VCL and Game Changers event calendar, final standings of recent events, and recent tier-2 match results (international Champions / Masters and partner-league matches are left out).</td></tr>
+<tr><td class="team"><a href="https://www.vlr.gg/news" target="_blank" rel="noopener">vlr.gg news</a></td><td>Valorant headlines (RSS).</td></tr>
+<tr><td class="team"><a href="https://raider.io/" target="_blank" rel="noopener">Raider.IO</a></td><td>Current raid and Mythic raid progress rankings (top 50, US and EU), via the public API.</td></tr>
+<tr><td class="team"><a href="https://www.wowhead.com/news" target="_blank" rel="noopener">Wowhead</a></td><td>World of Warcraft headlines (RSS).</td></tr>
+<tr><td class="team"><a href="https://www.dexerto.com/esports/" target="_blank" rel="noopener">Dexerto</a></td><td>Esports headlines (RSS).</td></tr>
+<tr><td class="team"><a href="https://esportsinsider.com/" target="_blank" rel="noopener">Esports Insider</a></td><td>Esports industry headlines (RSS).</td></tr>
+</tbody></table></div>
+<div class="note">Also checked but currently shown as MISS: FACEIT Data API and ESEA match results (need an API key or login), Valorant Premier (Riot API key required), HLTV (blocks automated requests) and Dot Esports (no RSS feed). These stay empty rather than being filled with guessed data.</div>
+<div class="note">Every standings row, result and guild links back to its page on the source site. News headlines link to the original articles; FragNet shows only the headline, source and date, never article text.</div>
+
+<h2 class="subhead">Updates and times</h2>
+<div class="about-p">Data is refreshed periodically. All dates and times on FragNet are shown in <b>Pacific Time</b> (PT: PDT in summer, PST in winter). {{fetched}}</div>
+
+<h2 class="subhead">Status labels</h2>
+<div class="rankbox"><table class="tbl about-st"><tbody>
+<tr><td class="c"><span class="ok">OK</span></td><td>Fetched and read successfully in the latest update.</td></tr>
+<tr><td class="c"><span class="stale-b">STALE</span></td><td>The latest update for this source failed, so the last good data is still shown, with the time it was fetched.</td></tr>
+<tr><td class="c"><span class="miss-b">MISS</span></td><td>Not available: the source needs a login or API key, blocks automated requests, or returned nothing usable. FragNet leaves the section empty and shows the reason instead of guessing.</td></tr>
+</tbody></table></div>
+
+<h2 class="subhead">Forums</h2>
+<div class="about-p">Forums are coming soon. Posting opens once shared accounts and moderation are in place.</div>
+
+<h2 class="subhead">Disclaimer</h2>
+<div class="about-p disclaimer">FragNet is an independent fan project. It is <b>not affiliated with, endorsed by, or sponsored by</b> FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg, Wowhead, Dexerto or Esports Insider. Counter-Strike, Valorant, World of Warcraft and all other trademarks, game names and logos belong to their respective owners.</div>
+</template>
+<noscript><div class="noscript">FragNet needs JavaScript to render data.json.</div></noscript>
+<script src="app.js"></script>
+</body>
+</html>

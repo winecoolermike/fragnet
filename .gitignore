@@ -1,0 +1,14 @@
+# build output (GitHub Actions builds and deploys dist/)
+dist/
+.lastgood/
+# local only
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.tmp
+*.zip
+shots/
+tests/
+.banned-terms
+.DS_Store
