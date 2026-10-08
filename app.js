@@ -1,4 +1,4 @@
-/* FragNet v3.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.3 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -108,6 +108,63 @@
   function newsItems() { return (D.news && D.news.items) || []; }
   function valResults() { return (D.valorant && D.valorant.results) || []; }
   function rioPage(raid, region) { return raid && raid.slug ? "https://raider.io/" + encodeURIComponent(raid.slug) + "/rankings/" + encodeURIComponent(region || "world") + "/mythic" : "https://raider.io/"; }
+  /* ---------- detail-page links + lookups (v3.3) ---------- */
+  function ilink(hash, text, cls) { return '<a href="#' + esc(hash) + '"' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(text) + "</a>"; }
+  function csTeamId(t) { if (!t) return ""; if (t.id) return t.id; var m = String(t.url || "").match(/\/teams\/([0-9a-f-]{36})$/i); return m ? m[1] : ""; }   // older data.json: id only in url
+  function teamHash(t) { var id = csTeamId(t); return id ? "team/cs2/" + encodeURIComponent(id) : ""; }
+  function playerHash(nick) { return "player/cs2/" + encodeURIComponent(nick); }
+  function valHash(name) { return "team/val/" + slug(name); }
+  function guildRealm(g) { return g.realm_slug || slug(g.realm); }
+  function guildHash(region, g) { return "guild/" + region + "/" + encodeURIComponent(guildRealm(g)) + "/" + encodeURIComponent(g.guild); }
+  function csTeamLink(t) { var h = teamHash(t); return h ? ilink(h, t.name) : ext(t.url, t.name); }
+  function csPlayers() { return (D.cs && (D.cs.players && D.cs.players.length ? D.cs.players : D.cs.top_players)) || []; }
+  function findCsTeam(id) {
+    var ds = csDivs();
+    for (var i = 0; i < ds.length; i++) for (var j = 0; j < (ds[i].teams || []).length; j++) if (csTeamId(ds[i].teams[j]) === id && id) return { t: ds[i].teams[j], d: ds[i] };
+    return null;
+  }
+  function findCsPlayer(nick) {
+    var n = String(nick || "").toLowerCase(), ps = csPlayers();
+    for (var i = 0; i < ps.length; i++) if (String(ps[i].nick).toLowerCase() === n) return ps[i];
+    return null;
+  }
+  function findRosterSpot(nick) {
+    var n = String(nick || "").toLowerCase(), ds = csDivs();
+    for (var i = 0; i < ds.length; i++) for (var j = 0; j < (ds[i].teams || []).length; j++) {
+      var t = ds[i].teams[j], r = t.roster || [];
+      for (var k = 0; k < r.length; k++) if (String(r[k].nick).toLowerCase() === n) return { t: t, d: ds[i], m: r[k] };
+    }
+    return null;
+  }
+  function valTeamData(sl) {
+    var out = { name: "", url: null, country: "", placings: [], results: [] };
+    valEvents().forEach(function (e, i) {
+      (e.standings || []).forEach(function (t) {
+        if (slug(t.team) !== sl) return;
+        out.name = out.name || t.team; out.country = out.country || t.country;
+        if (!out.url && safeUrl(t.url) !== "#") out.url = t.url;
+        out.placings.push({ ev: e, i: i, t: t });
+      });
+    });
+    valResults().forEach(function (m) {
+      if (slug(m.team1) === sl || slug(m.team2) === sl) { out.results.push(m); out.name = out.name || (slug(m.team1) === sl ? m.team1 : m.team2); }
+    });
+    return out;
+  }
+  function findGuild(region, realm, name) {
+    var rows = ((D.wow && D.wow.rankings) || {})[region] || [], n = String(name || "").toLowerCase();
+    for (var i = 0; i < rows.length; i++) if (guildRealm(rows[i]) === realm && String(rows[i].guild).toLowerCase() === n) return rows[i];
+    return null;
+  }
+  function kv(rows) {
+    return '<div class="rankbox"><table class="tbl kv"><tbody>' + rows.filter(Boolean).map(function (r) {
+      return '<tr><th scope="row">' + esc(r[0]) + "</th><td>" + r[1] + "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+  }
+  function notFound(title, msg, back) {
+    return std(esc(title), "", '<div class="empty">' + msg + "</div>") + (back ? '<div class="note">' + back + "</div>" : "");
+  }
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function resDate(m, withTime) { return m.ts ? fmt(m.ts, withTime ? "short" : "md") : esc(String(m.date || "").replace(/^\w+, /, "").replace(/, \d{4}$/, "").replace(/^(\w{3})\w*/, "$1")); }
 
   /* ---------- search index ---------- */
@@ -116,19 +173,38 @@
     csDivs().forEach(function (d) {
       (d.teams || []).forEach(function (t) {
         IDX.push({ g: "CS2 teams (ESEA)", label: t.name + (t.tag ? " [" + t.tag + "]" : ""), where: d.region + " " + d.division + " #" + t.rank,
-          hash: "cs2/" + divId(d), key: "cs:" + divId(d) + ":" + t.name, ext: t.url, text: [t.name, t.tag, t.country, countryName(t.country)].join(" ") });
+          hash: teamHash(t) || "cs2/" + divId(d), key: teamHash(t) ? "" : "cs:" + divId(d) + ":" + t.name, ext: t.url, text: [t.name, t.tag, t.country, countryName(t.country)].join(" ") });
       });
     });
-    ((D.cs && D.cs.top_players) || []).forEach(function (p) {
-      IDX.push({ g: "CS2 players", label: p.nick, where: p.region + " " + p.division + " K/D " + num(p.kd).toFixed(2), hash: "cs2/players", key: "csp:" + p.nick, ext: p.url, text: p.nick });
+    var seenP = {};
+    csPlayers().forEach(function (p) {
+      seenP[String(p.nick).toLowerCase()] = 1;
+      IDX.push({ g: "CS2 players", label: p.nick, where: (p.team ? p.team + " · " : "") + p.region + " " + p.division + " K/D " + num(p.kd).toFixed(2), hash: playerHash(p.nick), key: "", ext: p.url, text: p.nick + " " + (p.team || "") });
+    });
+    csDivs().forEach(function (d) {
+      (d.teams || []).forEach(function (t) {
+        (t.roster || []).forEach(function (m) {
+          if (seenP[String(m.nick).toLowerCase()]) return;
+          seenP[String(m.nick).toLowerCase()] = 1;
+          IDX.push({ g: "CS2 players", label: m.nick, where: t.name + " · " + d.region + " " + d.division, hash: playerHash(m.nick), key: "", ext: "", text: m.nick + " " + t.name });
+        });
+      });
     });
     valResults().forEach(function (m, i) {
       var pg = Math.floor(i / PER_PAGE) + 1;
       IDX.push({ g: "Valorant results", label: m.team1 + " " + m.score1 + ":" + m.score2 + " " + m.team2, where: shortEv(m.event), hash: "valorant/results" + (pg > 1 ? "/p" + pg : ""), key: "vr:" + i, ext: m.url, text: [m.team1, m.team2, m.event].join(" ") });
     });
+    var seenV = {};
     valEvents().forEach(function (e, i) {
       (e.standings || []).forEach(function (t) {
-        IDX.push({ g: "Valorant teams", label: t.team, where: shortEv(e.title) + " " + t.place, hash: "valorant/" + evId(i), key: "vs:" + i + ":" + t.team, ext: t.url, text: [t.team, t.country, e.title].join(" ") });
+        var sl = slug(t.team); if (!sl || seenV[sl]) return; seenV[sl] = 1;
+        IDX.push({ g: "Valorant teams", label: t.team, where: shortEv(e.title) + " " + t.place, hash: valHash(t.team), key: "", ext: t.url, text: [t.team, t.country, e.title].join(" ") });
+      });
+    });
+    valResults().forEach(function (m) {
+      [m.team1, m.team2].forEach(function (n) {
+        var sl = slug(n); if (!sl || seenV[sl]) return; seenV[sl] = 1;
+        IDX.push({ g: "Valorant teams", label: n, where: shortEv(m.event), hash: valHash(n), key: "", ext: "", text: n });
       });
     });
     ((D.valorant && D.valorant.event_list) || []).forEach(function (e, i) {
@@ -138,7 +214,7 @@
     Object.keys(rks).forEach(function (rg) {
       (rks[rg] || []).forEach(function (g, i) {
         var pg = Math.floor(i / PER_PAGE) + 1;
-        IDX.push({ g: "WoW guilds", label: g.guild + " - " + g.realm, where: rg.toUpperCase() + " #" + g.rank + " " + g.progress, hash: "wow/" + rg + (pg > 1 ? "/p" + pg : ""), key: "w:" + rg + ":" + g.rank, ext: g.url, text: [g.guild, g.realm].join(" ") });
+        IDX.push({ g: "WoW guilds", label: g.guild + " - " + g.realm, where: rg.toUpperCase() + " #" + g.rank + " " + g.progress, hash: guildHash(rg, g), key: "", ext: g.url, text: [g.guild, g.realm].join(" ") });
       });
     });
     newsItems().forEach(function (n, i) {
@@ -175,15 +251,15 @@
   }
 
   /* ---------- reusable blocks ---------- */
-  function resultsTable(rows, offset, compact) {
+  function resultsTable(rows, offset, compact, noKeys) {
     if (!rows.length) return '<div class="empty">no results</div>';
     return '<div class="rankbox"><table class="tbl res' + (compact ? " compact" : "") + '"><colgroup>' + (compact ? "" : '<col class="c-date hide-sm">') + '<col class="c-team"><col class="c-score"><col class="c-team">' + (compact ? "" : '<col class="c-ev hide-sm">') + '</colgroup><thead><tr>' + (compact ? "" : '<th class="first hide-sm" title="match start, Pacific Time">Date</th>') + '<th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th>' + (compact ? "" : '<th class="hide-sm">Event</th>') + "</tr></thead><tbody>" +
       rows.map(function (m, j) {
         var w1 = m.winner === 0, w2 = m.winner === 1;
-        return '<tr data-k="vr:' + (offset + j) + '">' + (compact ? "" : '<td class="hide-sm dim" title="' + esc(m.ts ? fmt(m.ts) : (m.date + " " + m.time + " (US Central, as listed on vlr.gg)")) + '">' + resDate(m) + "</td>") +
-          '<td class="n ' + (w1 ? "win" : "lose") + '">' + esc(m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
+        return "<tr" + (noKeys ? "" : ' data-k="vr:' + (offset + j) + '"') + ">" + (compact ? "" : '<td class="hide-sm dim" title="' + esc(m.ts ? fmt(m.ts) : (m.date + " " + m.time + " (US Central, as listed on vlr.gg)")) + '">' + resDate(m) + "</td>") +
+          '<td class="n ' + (w1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
           '<span class="' + (w1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + esc(m.score2) + "</span></a></td>" +
-          '<td class="' + (w2 ? "win" : "lose") + '">' + esc(m.team2) + "</td>" +
+          '<td class="' + (w2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + "</td>" +
           (compact ? "" : '<td class="hide-sm" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '">' + esc(shortEv(m.event)) + '<span class="cc">' + esc(m.series) + "</span></td>") + "</tr>";
       }).join("") + "</tbody></table></div>";
   }
@@ -198,15 +274,15 @@
     var lead = divs.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Division</th><th>Leader</th><th class="n" title="wins-losses">W-L</th></tr></thead><tbody>' +
       divs.map(function (d) {
         var t = d.teams[0];
-        return '<tr><td><a href="#cs2/' + divId(d) + '">' + esc(d.region + " " + d.division) + '</a></td><td class="team">' + ext(t.url, t.name) + (t.rank !== "1" ? '<span class="cc" title="tied rank">=' + esc(t.rank) + "</span>" : "") +
+        return '<tr><td><a href="#cs2/' + divId(d) + '">' + esc(d.region + " " + d.division) + '</a></td><td class="team">' + csTeamLink(t) + (t.rank !== "1" ? '<span class="cc" title="tied rank">=' + esc(t.rank) + "</span>" : "") +
           '</td><td class="n"><span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span></td></tr>";
       }).join("") + "</tbody></table></div>" : '<div class="empty">no ESEA standings</div>';
     var w = (D.wow && D.wow.rankings) || {}, raid = D.wow && D.wow.raid, s = D.cs && D.cs.season;
     var wt = Object.keys(w).length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>US Guild</th><th class="hide-sm">Prog</th><th>EU Guild</th><th class="hide-sm">Prog</th></tr></thead><tbody>' +
       [0, 1, 2, 3, 4].map(function (i) {
         var u = (w.us || [])[i], e = (w.eu || [])[i];
-        return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + (u ? ext(u.url, u.guild) : "") + '</td><td class="hide-sm">' + (u ? esc(u.progress) : "") +
-          '</td><td class="team">' + (e ? ext(e.url, e.guild) : "") + '</td><td class="hide-sm">' + (e ? esc(e.progress) : "") + "</td></tr>";
+        return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + (u ? ilink(guildHash("us", u), u.guild) : "") + '</td><td class="hide-sm">' + (u ? esc(u.progress) : "") +
+          '</td><td class="team">' + (e ? ilink(guildHash("eu", e), e.guild) : "") + '</td><td class="hide-sm">' + (e ? esc(e.progress) : "") + "</td></tr>";
       }).join("") + "</tbody></table></div>" : '<div class="empty">no raid rankings</div>';
     var intro = '<div class="infobox">Welcome to <b>FragNet</b>, an amateur &amp; semi-pro league tracker. ' +
       (s ? "ESEA League <b>" + esc(s.name) + "</b> runs " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT) with " + num(s.team_count).toLocaleString("en-US") + " registered teams. " : "") +
@@ -240,7 +316,7 @@
       var ps = cs.top_players || [], pm = cs.top_players_meta || {};
       body = ps.length ? staleNote(pm) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Division</th><th class="n hide-sm" title="matches played">Matches</th><th class="n hide-sm" title="rounds played">Rnds</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
         ps.map(function (p, i) {
-          return '<tr class="' + medal(i + 1) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(i + 1) + '<td class="team">' + ext(p.url, p.nick) + '</td><td class="hide-sm">' + esc(p.region + " " + p.division) +
+          return '<tr class="' + medal(i + 1) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + esc(p.region + " " + p.division) +
             '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">no player stats</div>';
     } else if (sub === "results") {
@@ -254,7 +330,7 @@
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
       else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
         d.teams.map(function (t) {
-          return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + ext(t.url, t.name) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
+          return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + csTeamLink(t) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
             "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n">' + esc(t.rounds) + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Top ' + d.teams.length + " of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
         " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
@@ -294,7 +370,7 @@
       title = e.title + " :: Final Standings";
       body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
         rows.map(function (t) {
-          return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ext(t.url, t.team) + '<span class="cc">' + esc(t.country) +
+          return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
             '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + "</td></tr>";
         }).join("") + "</tbody></table></div>" : missRow("vlr.gg", e.status_note));
     }
@@ -318,7 +394,7 @@
       slicePage(rows, page).map(function (g) {
         var full = raid && g.kills === (raid.bosses || []).length;
         var fac = g.faction === "alliance" ? "ally" : g.faction === "horde" ? "horde" : "";
-        return '<tr class="' + medal(g.rank) + '" data-k="' + esc("w:" + sub + ":" + g.rank) + '">' + rk(g.rank) + '<td class="team ' + fac + '">' + ext(g.url, g.guild) +
+        return '<tr class="' + medal(g.rank) + '" data-k="' + esc("w:" + sub + ":" + g.rank) + '">' + rk(g.rank) + '<td class="team ' + fac + '">' + ilink(guildHash(sub, g), g.guild) +
           '</td><td class="hide-sm">' + esc(g.realm) + '</td><td class="' + (full ? "w" : "") + '">' + esc(g.progress) + '</td><td class="n">' + (g.last_first_kill ? fmt(g.last_first_kill, "md") : "&ndash;") + "</td></tr>";
       }).join("") + "</tbody></table></div>" + pager(rows.length, page, base) +
       '<div class="note">Guild names colored by faction (blue Alliance / red Horde). Dates in Pacific Time. ' + ext(link, "Full rankings on Raider.IO") + "</div>" : '<div class="empty">no rankings</div>';
@@ -361,10 +437,104 @@
       !hits.length ? '<div class="empty">No matches for &ldquo;' + esc(q) + "&rdquo;.</div>" :
       Object.keys(groups).map(function (g) {
         return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + groups[g].length + ')</div><ul class="sr-list">' + groups[g].slice(0, 40).map(function (h) {
-          return '<li><a href="#' + esc(h.hash) + '" data-hl="' + esc(h.key) + '">' + hl(h.label) + '</a><span class="where">' + esc(h.where) + (h.ext && safeUrl(h.ext) !== "#" ? " &middot; " + ext(h.ext, "source") : "") + "</span></li>";
+          return '<li><a href="#' + esc(h.hash) + '"' + (h.key ? ' data-hl="' + esc(h.key) + '"' : "") + ">" + hl(h.label) + '</a><span class="where">' + esc(h.where) + (h.ext && safeUrl(h.ext) !== "#" ? " &middot; " + ext(h.ext, "source") : "") + "</span></li>";
         }).join("") + (groups[g].length > 40 ? '<li class="empty">&hellip; ' + (groups[g].length - 40) + " more, refine your search</li>" : "") + "</ul></div>";
       }).join("");
     return std("Search Results", ql ? hits.length + " match" + (hits.length === 1 ? "" : "es") + " for &ldquo;" + esc(q) + "&rdquo;" : "", '<div class="std-cap"></div>') + body;
+  }
+
+  /* ----- detail pages: CS2 team / CS2 player / Valorant team / WoW guild ----- */
+  function vTeamCS(id) {
+    var f = findCsTeam(id), s = (D.cs && D.cs.season) || {};
+    if (!f) {
+      var known = csPlayers().filter(function (p) { return p.team_id && p.team_id === id; });
+      var nm = known.length ? known[0].team : "";
+      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings FragNet shows (top " + 20 + " of each ESEA division). No standings or roster data for it in the current data." +
+        (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
+        (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
+    }
+    var t = f.t, d = f.d, r = t.roster || [];
+    var line = '<b>#' + esc(t.rank) + "</b> in " + esc(d.region + " " + d.division) + " " + esc(d.stage) + " &middot; " + '<span class="w">' + num(t.w) + 'W</span> <span class="l">' + num(t.l) + "L</span>" + (num(t.t) ? " " + num(t.t) + "T" : "") + " &middot; " + num(t.pts) + " pts &middot; rounds " + esc(t.rounds) + (t.dq ? ' &middot; <span class="cc dq">DQ</span>' : "");
+    var info = kv([
+      ["Tag", esc(t.tag || "-")],
+      ["Country", esc(t.country ? countryName(t.country) + " (" + t.country + ")" : "-")],
+      ["Division", ilink("cs2/" + divId(d), d.region + " " + d.division) + (t.conf ? " &middot; " + esc(t.conf) + " conference" : (d.conferences || []).length === 1 ? " &middot; " + esc(d.conferences[0]) + " conference" : "")],
+      ["Season", esc(s.name || "?") + (s.start ? " (" + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + ")" : "")],
+      ["Standings", line]
+    ]);
+    var stats = {}; csPlayers().forEach(function (p) { stats[String(p.nick).toLowerCase()] = p; });
+    var roster = r.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Player</th><th>Country</th><th>Role</th><th class="n" title="kills per death (ranked ESEA Advanced players only)">K/D</th><th class="n hide-sm" title="average damage per round">ADR</th></tr></thead><tbody>' +
+      r.map(function (m) {
+        var p = stats[String(m.nick).toLowerCase()];
+        return "<tr><td class=\"team\">" + ilink(playerHash(m.nick), m.nick) + '</td><td title="' + esc(countryName(m.country)) + '">' + esc(m.country || "") + "</td><td>" + (m.sub ? "Substitute" : "Player") + (t.leader === m.nick ? " &middot; Captain" : "") +
+          '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+      }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR only for players ranked in the ESEA Advanced stats (at least ' + num(((D.cs || {}).top_players_meta || {}).min_rounds || 20) + " rounds); &ndash; = not ranked.</div>"
+      : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
+    return std(esc(t.name), "CS2 &middot; ESEA League team", info) + '<h2 class="subhead">Roster</h2>' + roster +
+      '<div class="note">' + ext(t.url, "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + " &middot; Match results: not available (FACEIT match list needs a login; see Data Status).</div>";
+  }
+
+  function vPlayerCS(nick) {
+    var p = findCsPlayer(nick), spot = findRosterSpot(nick), pm = (D.cs && D.cs.top_players_meta) || {};
+    if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in FragNet's data (rosters of the ESEA teams shown and ranked ESEA Advanced players).", '<a href="#cs2/players">Top fraggers</a>');
+    var name = p ? p.nick : spot.m.nick;
+    var teamCell = spot ? csTeamLink(spot.t) + ' <span class="dim">(' + esc(spot.d.region + " " + spot.d.division) + ")</span>" :
+      p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : '<span class="dim">not found in the public rosters</span>';
+    var info = kv([
+      ["Team", teamCell],
+      spot ? ["Role", spot.m.sub ? "Substitute" : "Player" + (spot.t.leader === spot.m.nick ? " &middot; Captain" : "")] : null,
+      spot && spot.m.country ? ["Country", esc(countryName(spot.m.country) + " (" + spot.m.country + ")")] : null,
+      p ? ["Stats group", esc(p.region + " " + p.division)] : null
+    ]);
+    var st = p ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank by K/D among ranked players">Rank</th><th class="n">Matches</th><th class="n">Rounds</th><th class="n">K</th><th class="n">D</th><th class="n">K/D</th><th class="n">ADR</th><th class="n">HS%</th></tr></thead><tbody><tr>' +
+      '<td class="c"><b>#' + num(p.rank || 0) + "</b>" + (pm.pool ? '<span class="cc">of ' + num(pm.pool) + "</span>" : "") + '</td><td class="n">' + num(p.matches) + '</td><td class="n">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) +
+      '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n">' + Math.round(num(p.hs)) + "%</td></tr></tbody></table></div>" +
+      '<div class="note">Season to date in ESEA ' + esc(p.region + " " + p.division) + " (EU + NA Advanced ranked together by K/D, min. " + num(pm.min_rounds || 20) + " rounds). Stats as published on FACEIT" + (pm.fetched_at ? ", fetched " + fmt(pm.fetched_at, "short") : "") + ".</div>"
+      : '<div class="empty">No season stats for this player in FragNet\'s data: only ESEA Advanced players with at least ' + num(pm.min_rounds || 20) + " rounds are ranked.</div>";
+    var link = (p && p.url) || "https://www.faceit.com/en/players/" + encodeURIComponent(name);
+    return std(esc(name), "CS2 &middot; ESEA League player", info) + '<h2 class="subhead">Season Stats</h2>' + st +
+      '<div class="note">' + ext(link, "Profile on FACEIT") + ' &middot; <a href="#cs2/players">Top fraggers</a></div>';
+  }
+
+  function vTeamVal(sl) {
+    var v = valTeamData(sl);
+    if (!v.name) return notFound("Team not tracked", "No Valorant team &ldquo;" + esc(sl) + "&rdquo; in the current results or event standings.", '<a href="#valorant">Valorant</a>');
+    var w = 0, l = 0;
+    v.results.forEach(function (m) { var me = slug(m.team1) === sl ? 0 : 1; if (m.winner === me) w++; else if (m.winner === 0 || m.winner === 1) l++; });
+    var info = kv([
+      v.country ? ["Country / region", esc(v.country)] : null,
+      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["vlr.gg", v.url ? ext(v.url, "Team page on vlr.gg") : '<span class="dim">no team link in the scraped data</span> &middot; ' + ext("https://www.vlr.gg/search/?q=" + encodeURIComponent(v.name), "search vlr.gg")]
+    ]);
+    var pl = v.placings.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Event</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
+      v.placings.map(function (x) {
+        return '<tr class="' + medal(x.t.place) + '">' + rk(x.t.place) + '<td class="team">' + ilink("valorant/" + evId(x.i), x.ev.title) + '<span class="cc">' + esc(x.ev.dates) + '</span></td><td class="n">' + esc(x.t.prize) + '</td><td class="hide-sm">' + esc([x.t.points, x.t.note].filter(Boolean).join(" ")) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : '<div class="empty">No final placings in the events FragNet tracks.</div>';
+    return std(esc(v.name), "Valorant &middot; team", info) + '<h2 class="subhead">Event Placings</h2>' + pl +
+      '<h2 class="subhead">Recent Results</h2>' + (v.results.length ? resultsTable(v.results, 0, false, true) : '<div class="empty">No results for this team in the tracked tier-2 results.</div>') +
+      '<div class="note">Results and placings as listed on vlr.gg; dates in Pacific Time.</div>';
+  }
+
+  function vGuild(region, realm, name) {
+    var g = findGuild(region, realm, name), raid = (D.wow && D.wow.raid) || {};
+    if (!g) return notFound("Guild not tracked", "No guild &ldquo;" + esc(name) + "&rdquo; (" + esc(region.toUpperCase()) + " " + esc(realm) + ") in the current top " + (((D.wow || {}).rankings || {})[region] || []).length + " Mythic rankings.", '<a href="#wow">Raid rankings</a>');
+    var fac = g.faction === "alliance" ? "Alliance" : g.faction === "horde" ? "Horde" : "-";
+    var full = (raid.bosses || []).length && g.kills === raid.bosses.length;
+    var info = kv([
+      ["Realm", esc(g.realm)],
+      ["Region", esc(region.toUpperCase())],
+      ["Faction", '<span class="' + (g.faction === "alliance" ? "ally" : g.faction === "horde" ? "horde" : "") + '">' + esc(fac) + "</span>"],
+      ["Progress", '<span class="' + (full ? "w" : "") + '"><b>' + esc(g.progress) + "</b></span> " + esc(raid.name || "")],
+      ["Rank", "#" + num(g.rank) + " " + esc(region.toUpperCase()) + " Mythic (" + ilink("wow/" + region + (Math.ceil(num(g.rank) / PER_PAGE) > 1 ? "/p" + Math.ceil(num(g.rank) / PER_PAGE) : ""), "rankings") + ")"],
+      ["Last new kill", g.last_first_kill ? fmt(g.last_first_kill) : "&ndash;"]
+    ]);
+    var kd = g.kill_dates, bosses = raid.bosses || [];
+    var tbl = kd && kd.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Boss (Mythic)</th><th class="n" title="first Mythic kill, Pacific Time">First kill</th></tr></thead><tbody>' +
+      bosses.map(function (b, i) {
+        return '<tr><td class="c">' + (i + 1) + '</td><td class="' + (kd[i] ? "w" : "dim") + '">' + esc(b) + '</td><td class="n">' + (kd[i] ? fmt(kd[i]) : '<span class="dim">not yet</span>') + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : '<div class="empty">No boss kill dates in the current data.</div>';
+    return std(esc(g.guild), "WoW &middot; Mythic raid guild", info) + '<h2 class="subhead">' + esc(raid.name || "Current raid") + " :: Boss Kills</h2>" + tbl +
+      '<div class="note">' + ext(g.url, "Guild profile on Raider.IO") + " &middot; kill dates from Raider.IO raid rankings, Pacific Time.</div>";
   }
 
   /* ----- forums (board index / topic list / topic view) ----- */
@@ -512,7 +682,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild" };
   function route() {
     var r = parseHash(), html;
     try {
@@ -523,6 +693,9 @@
         case "news": html = vNews(r.parts); break;
         case "forums": html = vForums(r.parts); break;
         case "about": html = vAbout(); break;
+        case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
+        case "player": html = vPlayerCS(r.parts.slice(1).join("/")); break;
+        case "guild": html = vGuild(r.parts[0] || "", r.parts[1] || "", r.parts.slice(2).join("/")); break;
         case "search": html = vSearch(r.parts.join("/")); break;
         case "status-box": r.top = "home"; html = vHome(); setTimeout(function () { var sb = $("#status-box"); sb.scrollIntoView(); sb.focus({ preventScroll: true }); }, 0); break;
         default: r.top = "home"; html = vHome();
@@ -534,7 +707,7 @@
     $("#view").innerHTML = html;
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
-    var navTop = r.top === "search" ? "" : r.top;
+    var navTop = r.top === "search" ? "" : r.top === "player" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
     var on = $("#view .toolbar a.on");

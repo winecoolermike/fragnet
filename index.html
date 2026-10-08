@@ -116,7 +116,7 @@
       <li><a href="#about"><span class="bullet">&raquo;</span> About</a></li>
     </ul>
     <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles &middot; <a href="#about">About FragNet</a></div>
-    <div class="foot-note">FragNet v3.2 &middot; data from public pages / unauthenticated APIs only (FACEIT web JSON, vlr.gg, Raider.IO, RSS) &middot; no accounts, no keys &middot; every row links to its source &middot; times in Pacific Time &middot; <span id="foot-fetched"></span></div>
+    <div class="foot-note">FragNet v3.3 &middot; data from public pages / unauthenticated APIs only (FACEIT web JSON, vlr.gg, Raider.IO, RSS) &middot; no accounts, no keys &middot; every team, player and guild page links to its source &middot; times in Pacific Time &middot; <span id="foot-fetched"></span></div>
   </div>
 </div>
 <template id="about-tpl">
@@ -125,16 +125,16 @@
 
 <h2 class="subhead">Data sources</h2>
 <div class="rankbox"><table class="tbl about-src"><thead><tr><th class="first">Source</th><th>What FragNet shows from it</th></tr></thead><tbody>
-<tr><td class="team"><a href="https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8" target="_blank" rel="noopener">FACEIT &ndash; ESEA League</a></td><td>Public ESEA League pages: current season dates, registered teams, prize pool and map pool; standings (top 20) for EU and NA Advanced, Main and Intermediate; top fraggers in the Advanced divisions.</td></tr>
+<tr><td class="team"><a href="https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8" target="_blank" rel="noopener">FACEIT &ndash; ESEA League</a></td><td>Public ESEA League pages: current season dates, registered teams, prize pool and map pool; standings (top 20) for EU and NA Advanced, Main and Intermediate with each listed team's registered league roster; player stats for the Advanced divisions.</td></tr>
 <tr><td class="team"><a href="https://www.vlr.gg/events" target="_blank" rel="noopener">vlr.gg</a></td><td>Valorant Challengers / VCL and Game Changers event calendar, final standings of recent events, and recent tier-2 match results (international Champions / Masters and partner-league matches are left out).</td></tr>
 <tr><td class="team"><a href="https://www.vlr.gg/news" target="_blank" rel="noopener">vlr.gg news</a></td><td>Valorant headlines (RSS).</td></tr>
-<tr><td class="team"><a href="https://raider.io/" target="_blank" rel="noopener">Raider.IO</a></td><td>Current raid and Mythic raid progress rankings (top 50, US and EU), via the public API.</td></tr>
+<tr><td class="team"><a href="https://raider.io/" target="_blank" rel="noopener">Raider.IO</a></td><td>Current raid and Mythic raid progress rankings (top 50, US and EU) with each guild's first Mythic boss kill dates, via the public API.</td></tr>
 <tr><td class="team"><a href="https://www.wowhead.com/news" target="_blank" rel="noopener">Wowhead</a></td><td>World of Warcraft headlines (RSS).</td></tr>
 <tr><td class="team"><a href="https://www.dexerto.com/esports/" target="_blank" rel="noopener">Dexerto</a></td><td>Esports headlines (RSS).</td></tr>
 <tr><td class="team"><a href="https://esportsinsider.com/" target="_blank" rel="noopener">Esports Insider</a></td><td>Esports industry headlines (RSS).</td></tr>
 </tbody></table></div>
 <div class="note">Also checked but currently shown as MISS: FACEIT Data API and ESEA match results (need an API key or login), Valorant Premier (Riot API key required), HLTV (blocks automated requests) and Dot Esports (no RSS feed). These stay empty rather than being filled with guessed data.</div>
-<div class="note">Every standings row, result and guild links back to its page on the source site. News headlines link to the original articles; FragNet shows only the headline, source and date, never article text.</div>
+<div class="note">Team, player and guild names open a FragNet detail page, and every detail page links back to its page on the source site (FACEIT, vlr.gg, Raider.IO); match scores link to the vlr.gg match page. News headlines link to the original articles; FragNet shows only the headline, source and date, never article text.</div>
 
 <h2 class="subhead">Updates and times</h2>
 <div class="about-p">Data is refreshed periodically. All dates and times on FragNet are shown in <b>Pacific Time</b> (PT: PDT in summer, PST in winter). {{fetched}}</div>

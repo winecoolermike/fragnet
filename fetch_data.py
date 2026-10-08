@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FragNet data fetcher (v3.2).
+"""FragNet data fetcher (v3.3).
 
 Pulls REAL public data (no accounts, no API keys, no logins) and writes
 data.json + data.js (identical content; data.js lets index.html work from
@@ -32,10 +32,10 @@ import requests
 from bs4 import BeautifulSoup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GENERATOR = "FragNet fetch_data.py v3.2"
+GENERATOR = "FragNet fetch_data.py v3.3"
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 FragNet/3.2 (hobby tracker)")
+      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 FragNet/3.3 (hobby tracker)")
 S = requests.Session()
 S.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
 DELAY = 1.2            # minimum seconds between two requests to the same host
@@ -150,15 +150,32 @@ PLAYER_PAGE_SIZE = 100
 PLAYER_MAX_PAGES = 5      # conferences have ~100-250 players; stop early when a page is short
 TOP_PLAYERS = 15
 MIN_ROUNDS = 20
+# Roster pages (championship subscription, public): limit=20 per page. Cap total
+# requests so a slow FACEIT day cannot blow the Actions 10-minute timeout.
+ROSTER_PAGE = 20
+ROSTER_MAX_REQ = 60          # total GETs for rosters across all conferences
+ROSTER_MAX_PAGES_PER_CONF = 10   # 200 teams per conference at most
+# Official FACEIT Data API (open.faceit.com) - NOT used unless a key is present.
+# A later step will store FACEIT_API_KEY as a GitHub Actions secret; until then
+# match results stay MISS. No sign-up / no key creation happens in this script.
+FACEIT_API_KEY = (os.environ.get("FACEIT_API_KEY") or "").strip() or None
+FACEIT_DATA_API = "https://open.faceit.com/data/v4"
 
 
 def fetch_faceit(prev):
     prev = prev or {}
     out = {"league": "ESEA League (FACEIT)", "page": ESEA_PAGE, "season": None,
-           "divisions": [], "top_players": [], "top_players_meta": None, "matches": [], "sources": []}
-    out["sources"].append(status(
-        "FACEIT Data API (open.faceit.com/data/v4)", "https://docs.faceit.com/docs/data-api/data",
-        False, reason="FACEIT Data API requires an API key from a developer account - not fetched (no sign-up per rules)"))
+           "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "sources": []}
+    if FACEIT_API_KEY:
+        # Placeholder only: wire official Data API calls here (Authorization: Bearer).
+        # No endpoints are hit yet; match-result parsing lands in a later change.
+        out["sources"].append(status(
+            "FACEIT Data API (open.faceit.com/data/v4)", FACEIT_DATA_API,
+            False, reason="FACEIT_API_KEY is set, but Data API match-result calls are not implemented yet - not fetched"))
+    else:
+        out["sources"].append(status(
+            "FACEIT Data API (open.faceit.com/data/v4)", "https://docs.faceit.com/docs/data-api/data",
+            False, reason="FACEIT Data API requires an API key (set FACEIT_API_KEY to enable later) - not fetched (no sign-up per rules)"))
 
     def reuse_everything(name, url, reason):
         """Seasons/tree failed: keep the previous season data, flagged stale."""
@@ -168,6 +185,7 @@ def fetch_faceit(prev):
                     out[k] = mark_stale(prev[k])
             out["divisions"] = [mark_stale(d) for d in prev.get("divisions", [])]
             out["top_players"] = copy.deepcopy(prev.get("top_players", []))
+            out["players"] = copy.deepcopy(prev.get("players", []))
             if out.get("top_players_meta"):
                 out["top_players_meta"]["stale"] = True
             out["sources"].append(stale_status(name, url, reason, prev["season"].get("fetched_at") or prev.get("fetched_at"),
@@ -258,15 +276,17 @@ def fetch_faceit(prev):
                         tb = t.get("tie_breakers") or {}
                         rs, re_ = t.get("rank_start"), t.get("rank_end")
                         rank = str(rs) if rs == re_ else f"{rs}-{re_}"
+                        tid = t.get("premade_team_id")
                         entry["teams"].append({
-                            "rank": rank, "name": norm(t.get("name")), "tag": norm(t.get("nickname")),
+                            "id": tid, "rank": rank, "name": norm(t.get("name")), "tag": norm(t.get("nickname")),
                             "country": (t.get("country_code") or "").upper()[:3],
-                            "conf": conf_of.get(t.get("premade_team_id")),
+                            "conf": conf_of.get(tid),
                             "w": as_int(t.get("won")), "l": as_int(t.get("lost")), "t": as_int(t.get("tied")),
                             "pts": as_int(t.get("points")),
                             "rounds": f"{as_int(tb.get('rounds_won'))}-{as_int(tb.get('rounds_lost'))}",
                             "dq": bool(t.get("is_disqualified", False)),
-                            "url": f"{FACEIT_WEB}/en/teams/{t['premade_team_id']}" if t.get("premade_team_id") else None})
+                            "roster": [],
+                            "url": f"{FACEIT_WEB}/en/teams/{tid}" if tid else None})
                     except Exception:
                         continue  # skip one malformed row, keep the rest
                 entry["status"] = "OK"
@@ -301,6 +321,77 @@ def fetch_faceit(prev):
                                      reason=("no standings for " + ", ".join(miss_divs)) if miss_divs else
                                      (None if n_fresh else "no standings rows returned")))
 
+
+    # 2b) conference rosters (public championship subscription JSON) - attach to
+    #     standings teams we already have; never invent members for missing teams.
+    by_id = {t["id"]: t for d in out["divisions"] for t in d.get("teams", []) if t.get("id")}
+    nick_team = {}      # lower(nick) -> {"id", "name"} for every team seen (players' team lookup)
+    roster_n, roster_req, roster_err = 0, 0, []
+    for dname in WANT_DIVS:                      # Advanced first, so the cap hits lower tiers last
+        for rg in regions:
+            if rg.get("code") not in WANT_REGIONS:
+                continue
+            dv = next((x for x in rg.get("divisions", []) if x.get("name") == dname), None)
+            stage = next((x for x in (dv or {}).get("stages", []) if x.get("phase") == 1), None)
+            if not stage:
+                continue
+            want = {t["id"] for d in out["divisions"] if d["region"] == rg.get("code") and d["division"] == dname
+                    for t in d.get("teams", []) if t.get("id")}
+            found = set()
+            for c in stage.get("conferences") or []:
+                cid = c.get("championship_id")
+                pages = 0
+                while cid and roster_req < ROSTER_MAX_REQ and pages < ROSTER_MAX_PAGES_PER_CONF:
+                    if dname != "Advanced" and want and want <= found:
+                        break                    # all shown teams found; Advanced keeps paging for player->team
+                    rurl = (f"{FACEIT_WEB}/api/championships/v1/championship/{cid}/subscription"
+                            f"?limit={ROSTER_PAGE}&offset={pages * ROSTER_PAGE}")
+                    roster_req += 1
+                    pages += 1
+                    try:
+                        items = (get_json(rurl).get("payload") or {}).get("items") or []
+                    except Exception as e:
+                        roster_err.append(f"{rg.get('code')} {dname} {c.get('name')}: {short_err(e)}")
+                        break
+                    for it in items:
+                        try:
+                            team = it.get("team") or {}
+                            tid = team.get("id")
+                            members = team.get("members") or []
+                            roster_ids = set(it.get("roster") or [])
+                            sub_ids = set(it.get("substitutes") or [])
+                            rows = []
+                            for m in members:
+                                nick = norm(m.get("nickname"))
+                                mid = m.get("id")
+                                if not nick or (mid not in roster_ids and mid not in sub_ids):
+                                    continue             # FACEIT team members not registered for this league
+                                rows.append({"nick": nick, "country": (m.get("country") or "").upper()[:3],
+                                             "sub": mid in sub_ids, "_id": mid})
+                                nick_team.setdefault(nick.lower(), {"id": tid, "name": norm(team.get("name"))})
+                            if tid in by_id:
+                                by_id[tid]["leader"] = next((m["nick"] for m in rows if m["_id"] == it.get("leader")), None)
+                                by_id[tid]["roster"] = [{k: v for k, v in m.items() if k != "_id"} for m in rows]
+                                found.add(tid)
+                                roster_n += 1
+                        except Exception:
+                            continue
+                    if len(items) < ROSTER_PAGE:
+                        break
+    rname = "FACEIT ESEA conference rosters (public web JSON)"
+    rpage = f"{season_page}/standings"
+    if roster_n:
+        out["sources"].append(status(rname, f"{FACEIT_WEB}/api/championships/v1/championship/<id>/subscription",
+                                     True, roster_n, page=rpage,
+                                     note=f"{roster_req} request(s)" + (f"; partial: {'; '.join(roster_err)}" if roster_err else "")))
+    elif roster_err:
+        # leave teams with empty roster lists; detail pages show an honest empty state
+        out["sources"].append(status(rname, f"{FACEIT_WEB}/api/championships/v1/championship/<id>/subscription",
+                                     False, page=rpage, reason="; ".join(roster_err)))
+    else:
+        out["sources"].append(status(rname, f"{FACEIT_WEB}/api/championships/v1/championship/<id>/subscription",
+                                     False, page=rpage, reason="no roster rows matched standings teams"))
+
     # 3) top players (Advanced divisions) from public competition stats JSON (paged)
     players, errs = [], []
     for region, div, cid, link in stat_champs:
@@ -319,23 +410,31 @@ def fetch_faceit(prev):
                     if rounds < MIN_ROUNDS or not p.get("nickname"):
                         continue
                     players.append({
-                        "nick": norm(p["nickname"]), "region": region, "division": div,
+                        "nick": norm(p["nickname"]), "id": p.get("id"),
+                        "region": region, "division": div,
                         "matches": as_int(st.get("m1")), "kills": as_int(st.get("m3")),
                         "deaths": as_int(st.get("m4")), "kd": as_float(st.get("k5")),
                         "adr": as_float(st.get("k17")), "hs": as_float(st.get("k8")),
-                        "rounds": rounds,
-                        "url": f"{FACEIT_WEB}/en/players/{quote(p['nickname'], safe='')}",
-                        "link": link})
+                        "rounds": rounds, "team_id": None, "team": None,
+                        "url": f"{FACEIT_WEB}/en/players/{quote(p['nickname'], safe='')}"})
                 except Exception:
                     continue
             if len(batch) < PLAYER_PAGE_SIZE:
                 break
     players.sort(key=lambda p: (p["kd"], p["adr"]), reverse=True)
+    # attach team from the public rosters (case-insensitive nick match)
+    for p in players:
+        t = nick_team.get((p.get("nick") or "").lower())
+        if t:
+            p["team_id"] = t.get("id")
+            p["team"] = t.get("name")
     purl = f"{FACEIT_WEB}/api/stats/v1/competitions/<championship>/players"
     pname = "FACEIT ESEA Advanced player stats (public web JSON)"
     ppage = stat_champs[0][3] if stat_champs else f"{season_page}/stats"
     if players:
-        out["top_players"] = players[:TOP_PLAYERS]
+        out["players"] = [dict(p, rank=i + 1) for i, p in enumerate(players)]   # whole ranked pool (detail pages)
+        out["stats_links"] = {rg_: lk for rg_, _dv, _cid, lk in stat_champs}
+        out["top_players"] = out["players"][:TOP_PLAYERS]
         out["top_players_meta"] = {"fetched_at": now_iso(), "stale": False, "pool": len(players),
                                    "min_rounds": MIN_ROUNDS}
         out["sources"].append(status(pname, purl, True, len(out["top_players"]), page=ppage,
@@ -343,6 +442,7 @@ def fetch_faceit(prev):
                                           + (f"; errors: {'; '.join(errs)}" if errs else "")))
     elif same_season and prev.get("top_players"):
         out["top_players"] = copy.deepcopy(prev["top_players"])
+        out["players"] = copy.deepcopy(prev.get("players", []))
         out["top_players_meta"] = mark_stale(prev.get("top_players_meta") or {"fetched_at": prev.get("fetched_at")})
         out["sources"].append(stale_status(pname, purl, "; ".join(errs) or "no player stats returned",
                                            out["top_players_meta"].get("fetched_at"), len(out["top_players"]), page=ppage))
@@ -350,15 +450,20 @@ def fetch_faceit(prev):
         out["sources"].append(status(pname, purl, False, page=ppage,
                                      reason="; ".join(errs) or f"no players with >= {MIN_ROUNDS} rounds yet"))
 
-    # 4) match results - the match list JSON the site uses is login-walled
-    if stat_champs:
+    # 4) match results - public web match-list is login-walled; official Data API
+    #    needs FACEIT_API_KEY (not called yet - placeholder only when the key is set).
+    if FACEIT_API_KEY:
+        out["sources"].append(status(
+            "FACEIT ESEA match results", f"{FACEIT_DATA_API}/matches", False, page=season_page,
+            reason="FACEIT_API_KEY is set, but Data API match-result calls are not implemented yet - not fetched"))
+    elif stat_champs:
         cid = stat_champs[0][2]
         url = f"{FACEIT_WEB}/api/match/v3/match?entityType=championship&entityId={cid}&offset=0&limit=10"
         try:
             r = get(url)
             if r.status_code in (401, 403):
                 reason = (f"FACEIT match list endpoint returns HTTP {r.status_code} without login - "
-                          "not fetched (no sign-in per rules)")
+                          "not fetched (no sign-in per rules; set FACEIT_API_KEY later for the Data API)")
             else:
                 reason = f"HTTP {r.status_code}; parser not implemented for this response - not shown"
             out["sources"].append(status("FACEIT ESEA match results", url, False, reason=reason, page=season_page))
@@ -665,10 +770,12 @@ def fetch_raiderio(prev):
     raid = max(pool, key=lambda r: (len(r["encounters"]), (r.get("starts") or {}).get("us") or ""))
     out["raid"] = {"slug": raid["slug"], "name": raid.get("name", raid["slug"]), "expansion_id": exp_id,
                    "bosses": [e.get("name", "?") for e in raid["encounters"]],
+                   "boss_slugs": [e.get("slug") for e in raid["encounters"]],
                    "starts_us": (raid.get("starts") or {}).get("us"), "fetched_at": now_iso()}
     out["sources"].append(status("Raider.IO static-data", f"{RIO}/raiding/static-data?expansion_id={exp_id}",
                                  True, len(raids), page=rio_page(raid["slug"], "world"), note=f"current raid auto-selected: {out['raid']['name']} ({raid['slug']})"))
     nboss = len(raid["encounters"])
+    boss_slugs = [e.get("slug") for e in raid["encounters"]]
     same_raid = (prev.get("raid") or {}).get("slug") == raid["slug"]
     for region in ("us", "eu"):
         url = f"{RIO}/raiding/raid-rankings?raid={raid['slug']}&difficulty=mythic&region={region}"
@@ -680,10 +787,13 @@ def fetch_raiderio(prev):
                     kills = g.get("encountersDefeated") or []
                     last = max((k.get("firstDefeated") or "" for k in kills), default="") or None
                     gd = g["guild"]
+                    first = {k.get("slug"): k.get("firstDefeated") for k in kills if k.get("slug")}
+                    kill_dates = [(first.get(sl) or "").replace(".000Z", "Z") or None for sl in boss_slugs]
                     rows.append({"rank": g["rank"], "guild": norm(gd["name"]),
                                  "realm": norm((gd.get("realm") or {}).get("name", "")),
+                                 "realm_slug": (gd.get("realm") or {}).get("slug") or slug_txt((gd.get("realm") or {}).get("name", "")),
                                  "faction": gd.get("faction"), "progress": f"{len(kills)}/{nboss} M",
-                                 "kills": len(kills), "last_first_kill": last,
+                                 "kills": len(kills), "last_first_kill": last, "kill_dates": kill_dates,
                                  "url": "https://raider.io" + gd["path"] if gd.get("path") else None})
                 except Exception:
                     continue

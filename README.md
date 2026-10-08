@@ -12,6 +12,10 @@ like a classic mid-2000s esports portal:
 - **World of Warcraft**: Mythic raid progression rankings (top 50, US and EU).
 - **News**: esports headlines that link to the original articles.
 
+Every team, player and guild name opens a detail page (CS2 team with standings and
+registered roster, CS2 player season stats, Valorant team placings and results, WoW guild
+progress with first Mythic kill dates), each linking back to its source.
+
 It shows only data from public web pages and open, keyless endpoints. Nothing is invented:
 if a source can't be fetched, the page marks it **MISS** (no data) or **STALE** (the
 latest fetch failed, so the last good data is shown with its timestamp). All times are
@@ -21,9 +25,9 @@ shown in Pacific Time. Forums are read-only for now.
 
 | Source | Used for |
 |---|---|
-| [FACEIT - ESEA League](https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8) public pages | season info, standings, player stats |
+| [FACEIT - ESEA League](https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8) public pages | season info, standings, league rosters, player stats |
 | [vlr.gg](https://www.vlr.gg/) | Valorant tier-2 events, standings, results, news (RSS) |
-| [Raider.IO](https://raider.io/) public API | Mythic raid rankings |
+| [Raider.IO](https://raider.io/) public API | Mythic raid rankings and boss kill dates |
 | [Wowhead](https://www.wowhead.com/news), [Dexerto](https://www.dexerto.com/esports/), [Esports Insider](https://esportsinsider.com/) | headlines (RSS) |
 
 Requests are rate-limited (at least 1.2 s apart per host) and use an identifying User-Agent.
@@ -41,6 +45,10 @@ GitHub may delay scheduled runs). Each run:
    and flagged STALE, and if the whole fetch fails the site is still deployed with the
    previous data;
 4. checks that `data.js` matches `data.json` and deploys `dist/` to GitHub Pages.
+
+The official FACEIT Data API is not used yet. If a `FACEIT_API_KEY` repository secret is
+added later, the workflow passes it to the fetcher, which currently only records that the
+key is configured (match results remain unavailable until that integration is written).
 
 ## Run locally
 

@@ -72,6 +72,9 @@ jobs:
       - name: Fetch fresh data into dist/
         id: fetch
         continue-on-error: true
+        env:
+          # optional; empty until the repo secret exists (fetch_data.py then skips the Data API)
+          FACEIT_API_KEY: ${{ secrets.FACEIT_API_KEY }}
         run: python fetch_data.py --out dist
 
       - name: Ensure data.js matches data.json

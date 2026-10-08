@@ -337,3 +337,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
   .forum-table td.lastpost,.forum-table tr.row-header td.lastc{display:none}
   .side-menu li{font-size:12.5px;padding:5px 6px}
 }
+/* ---------- detail pages (v3.3) ---------- */
+.tbl .lose a{color:#555}
+.tbl.kv th{width:130px;text-align:left;font:bold 12px var(--head);color:var(--navy);background:#F2F2F2;padding:4px 6px;border-top:1px dotted var(--dotted);white-space:nowrap;vertical-align:top}
+.tbl.kv td{white-space:normal;max-width:none;overflow:visible;overflow-wrap:anywhere}
+.tbl.kv tbody tr:nth-child(even) td{background:#fff}
+.tbl.kv .ally{color:#0E5DA0;font-weight:bold} .tbl.kv .horde{color:#A52A2A;font-weight:bold}
+@media (max-width:480px){.tbl.kv th{width:92px}}
