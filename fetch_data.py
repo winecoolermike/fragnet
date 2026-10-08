@@ -145,7 +145,10 @@ ESEA_PAGE = f"{FACEIT_WEB}/en/cs2/league/ESEA%20League/{ESEA_LEAGUE_ID}"
 # Advanced > Main > Intermediate > Entry (EU) > Open*)
 WANT_REGIONS = ["NA", "EU"]
 WANT_DIVS = ["Advanced", "Main", "Intermediate"]
-STANDINGS_LIMIT = 20
+STANDINGS_PAGE = 100       # FACEIT standings JSON caps limit at 100 -> page through the full table
+STANDINGS_MAX_PAGES = 5    # per stage / conference (500 teams)
+TOP_INLINE = 20            # top N per division keep roster + FACEIT url inline in data.json;
+                           # every other team's roster + match lines go to the lazy teams.json
 PLAYER_PAGE_SIZE = 100
 PLAYER_MAX_PAGES = 5      # conferences have ~100-250 players; stop early when a page is short
 TOP_PLAYERS = 15
@@ -153,8 +156,8 @@ MIN_ROUNDS = 20
 # Roster pages (championship subscription, public): limit=20 per page. Cap total
 # requests so a slow FACEIT day cannot blow the Actions 10-minute timeout.
 ROSTER_PAGE = 20
-ROSTER_MAX_REQ = 60          # total GETs for rosters across all conferences
-ROSTER_MAX_PAGES_PER_CONF = 10   # 200 teams per conference at most
+ROSTER_MAX_REQ = 80          # total GETs for rosters across all conferences (~45 needed in Oct 2026)
+ROSTER_MAX_PAGES_PER_CONF = 12   # 240 teams per conference at most
 # Official FACEIT Data API (open.faceit.com) - used for match results ONLY when the
 # FACEIT_API_KEY env var is set (GitHub Actions secret). The key is sent solely as the
 # Authorization header and is never printed, logged or written to data files.
@@ -166,7 +169,7 @@ def fetch_faceit(prev):
     prev = prev or {}
     out = {"league": "ESEA League (FACEIT)", "page": ESEA_PAGE, "season": None,
            "divisions": [], "top_players": [], "players": [], "top_players_meta": None, "matches": [], "upcoming": [], "live": [],
-           "matches_meta": None, "sources": []}
+           "matches_meta": None, "sources": [], "_extra": {"rosters": {}, "matches": [], "upcoming": []}}
     def reuse_everything(name, url, reason):
         """Seasons/tree failed: keep the previous season data, flagged stale."""
         if prev.get("season"):
@@ -248,18 +251,24 @@ def fetch_faceit(prev):
                      "link": f"{season_page}/standings{qs(confs[0])}",
                      "conf_links": [{"name": c.get("name", ""), "url": f"{season_page}/standings{qs(c)}"} for c in confs],
                      "teams": [], "fetched_at": now_iso()}
-            surl = (f"{FACEIT_WEB}/api/team-leagues/v2/standings?entityId={stage['id']}"
-                    f"&entityType=stage&userId=&offset=0&limit={STANDINGS_LIMIT}")
+            def all_rows(eid, etype):
+                rows_ = []
+                for pg_ in range(STANDINGS_MAX_PAGES):
+                    u_ = (f"{FACEIT_WEB}/api/team-leagues/v2/standings?entityId={eid}"
+                          f"&entityType={etype}&userId=&offset={pg_ * STANDINGS_PAGE}&limit={STANDINGS_PAGE}")
+                    part = get_json(u_)["payload"]["standings"] or []
+                    rows_ += part
+                    if len(part) < STANDINGS_PAGE:
+                        break
+                return rows_
             try:
-                rows = get_json(surl)["payload"]["standings"]
+                rows = all_rows(stage["id"], "stage")
                 # team -> conference (only needed when the stage has >1 conference)
                 conf_of = {}
                 if len(confs) > 1:
                     for c in confs:
                         try:
-                            cu = (f"{FACEIT_WEB}/api/team-leagues/v2/standings?entityId={c['id']}"
-                                  f"&entityType=conference&userId=&offset=0&limit=100")
-                            for t in get_json(cu)["payload"]["standings"]:
+                            for t in all_rows(c["id"], "conference"):
                                 conf_of[t.get("premade_team_id")] = c.get("name")
                         except Exception:
                             pass  # conference labels are optional
@@ -271,16 +280,18 @@ def fetch_faceit(prev):
                         rs, re_ = t.get("rank_start"), t.get("rank_end")
                         rank = str(rs) if rs == re_ else f"{rs}-{re_}"
                         tid = t.get("premade_team_id")
-                        entry["teams"].append({
-                            "id": tid, "rank": rank, "name": norm(t.get("name")), "tag": norm(t.get("nickname")),
-                            "country": (t.get("country_code") or "").upper()[:3],
-                            "conf": conf_of.get(tid),
-                            "w": as_int(t.get("won")), "l": as_int(t.get("lost")), "t": as_int(t.get("tied")),
-                            "pts": as_int(t.get("points")),
-                            "rounds": f"{as_int(tb.get('rounds_won'))}-{as_int(tb.get('rounds_lost'))}",
-                            "dq": bool(t.get("is_disqualified", False)),
-                            "roster": [],
-                            "url": f"{FACEIT_WEB}/en/teams/{tid}" if tid else None})
+                        row = {"id": tid, "rank": rank, "name": norm(t.get("name")), "tag": norm(t.get("nickname")),
+                               "country": (t.get("country_code") or "").upper()[:3],
+                               "conf": conf_of.get(tid),
+                               "w": as_int(t.get("won")), "l": as_int(t.get("lost")), "t": as_int(t.get("tied")),
+                               "pts": as_int(t.get("points")),
+                               "rounds": f"{as_int(tb.get('rounds_won'))}-{as_int(tb.get('rounds_lost'))}",
+                               "dq": bool(t.get("is_disqualified", False))}
+                        if len(entry["teams"]) < TOP_INLINE:
+                            row.update(roster=[], url=f"{FACEIT_WEB}/en/teams/{tid}" if tid else None)
+                        else:                      # compact row: app.js derives the FACEIT link from the id
+                            row = {k: v for k, v in row.items() if v not in (None, False) and not (k == "t" and v == 0)}
+                        entry["teams"].append(row)
                     except Exception:
                         continue  # skip one malformed row, keep the rest
                 entry["status"] = "OK"
@@ -318,7 +329,9 @@ def fetch_faceit(prev):
 
     # 2b) conference rosters (public championship subscription JSON) - attach to
     #     standings teams we already have; never invent members for missing teams.
-    by_id = {t["id"]: t for d in out["divisions"] for t in d.get("teams", []) if t.get("id")}
+    by_id = {t["id"]: t for d in out["divisions"] for t in d.get("teams", [])[:TOP_INLINE] if t.get("id")}
+    all_ids = {t["id"] for d in out["divisions"] for t in d.get("teams", []) if t.get("id")}
+    extra_r = out["_extra"]["rosters"]
     nick_team = {}      # lower(nick) -> {"id", "name"} for every team seen (players' team lookup)
     roster_n, roster_req, roster_err = 0, 0, []
     for dname in WANT_DIVS:                      # Advanced first, so the cap hits lower tiers last
@@ -366,6 +379,12 @@ def fetch_faceit(prev):
                             if tid in by_id:
                                 by_id[tid]["leader"] = next((m["nick"] for m in rows if m["_id"] == it.get("leader")), None)
                                 by_id[tid]["roster"] = [{k: v for k, v in m.items() if k != "_id"} for m in rows]
+                                found.add(tid)
+                                roster_n += 1
+                            elif tid in all_ids and tid not in extra_r:
+                                # compact: [nick, country, sub(0/1)], leader nick
+                                extra_r[tid] = {"r": [[m["nick"], m["country"], 1 if m["sub"] else 0] for m in rows],
+                                                "lead": next((m["nick"] for m in rows if m["_id"] == it.get("leader")), None)}
                                 found.add(tid)
                                 roster_n += 1
                         except Exception:
@@ -574,9 +593,9 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     if not FACEIT_API_KEY:
         keep_prev("FACEIT Data API needs an API key (FACEIT_API_KEY not set) - not fetched (no sign-up per rules)")
         return
-    tracked = {}   # team id -> (region, division)
+    tracked = {}   # team id -> (region, division); the top TOP_INLINE of each division
     for d in out["divisions"]:
-        for t in d.get("teams", []):
+        for t in d.get("teams", [])[:TOP_INLINE]:
             if t.get("id"):
                 tracked[t["id"]] = (d["region"], d["division"])
     nreq, errs, fin, upc, ong = 0, [], {}, {}, {}
@@ -706,6 +725,11 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
             nmiss += 1
     out["matches"] = matches
     out["upcoming"] = upcoming
+    # every other listed match (no stats; no extra requests) -> lazy teams.json for all team pages
+    kept = {m["id"] for m in matches} | {m["id"] for m in upcoming} | live_ids
+    out.setdefault("_extra", {"rosters": {}})
+    out["_extra"]["matches"] = sorted((m for k in fin for m in fin[k] if m["id"] not in kept), key=lambda m: m.get("t") or "", reverse=True)
+    out["_extra"]["upcoming"] = sorted((m for k in upc for m in upc[k] if m["id"] not in kept), key=lambda m: m.get("t") or "")
     out["live"] = live
     out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist,
                            "stats_requests": nstats, "stats_reused": nreuse,
@@ -1194,6 +1218,18 @@ def main(argv=None):
             else:
                 data[key] = {"sources": [status(key, "", False, reason=reason)], "fetched_at": now_iso()}
     data["status"] = [s for k, _ in SECTIONS for s in data[k].get("sources", [])]
+    # lazy side file for team pages beyond the top 20: rosters + all listed matches.
+    # Only replaced when this run produced something (a failed run keeps the previous file).
+    extra = (data.get("cs") or {}).pop("_extra", None) or {}
+    if extra.get("rosters") or extra.get("matches") or extra.get("upcoming"):
+        extra = {"fetched_at": now_iso(), **extra}
+        tblob = json.dumps(extra, ensure_ascii=False, separators=(",", ":"))
+        t3 = write_atomic(os.path.join(out_dir, "teams.json"), tblob + "\n")
+        t4 = write_atomic(os.path.join(out_dir, "teams.js"), "window.FRAGNET_TEAMS = " + tblob.replace("</", "<\\/") + ";\n")
+        os.replace(t3, os.path.join(out_dir, "teams.json"))
+        os.replace(t4, os.path.join(out_dir, "teams.js"))
+        print(f"[fragnet] teams.json: {len(extra.get('rosters', {}))} rosters, {len(extra.get('matches', []))} + "
+              f"{len(extra.get('upcoming', []))} extra matches")
     blob = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     # write both files from the same serialized object, then swap them in
     t1 = write_atomic(out_json, blob + "\n")   # compact: smaller page weight (pipe through `python -m json.tool` to read)

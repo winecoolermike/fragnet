@@ -23,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
 VERSION = "3.2"
 FILES = ["index.html", "style.css", "app.js", "favicon.svg", "data.json", "data.js"]
+OPTIONAL = ["teams.json", "teams.js"]   # lazy team rosters / match lines (v3.6); copied when present
 FONT_PATTERNS = ["*.woff2", "LICENSE*", "README.txt"]
 BANNED_TERMS_FILE = os.path.join(HERE, ".banned-terms")   # optional, untracked: one term per line
 FORBIDDEN = ["shots", "tests", "v1-backup", "v2-backup", ".venv", "fetch_data.py", "build_dist.py",
@@ -38,6 +39,9 @@ def build():
         if not os.path.isfile(src):
             sys.exit(f"[build] missing {f} (run fetch_data.py first for data files)")
         shutil.copy2(src, os.path.join(DIST, f))
+    for f in OPTIONAL:
+        if os.path.isfile(os.path.join(HERE, f)):
+            shutil.copy2(os.path.join(HERE, f), os.path.join(DIST, f))
     for f in sorted(os.listdir(os.path.join(HERE, "fonts"))):
         if any(fnmatch.fnmatch(f, p) for p in FONT_PATTERNS):
             shutil.copy2(os.path.join(HERE, "fonts", f), os.path.join(DIST, "fonts", f))
@@ -78,6 +82,17 @@ def verify():
     pre = "window.FRAGNET_DATA = "
     if not (js.startswith(pre) and js.endswith(";")) or json.loads(js[len(pre):-1].replace("<\\/", "</")) != dj:
         problems.append("data.js does not match data.json")
+    if "teams.json" in files or "teams.js" in files:
+        try:
+            with open(os.path.join(DIST, "teams.json"), encoding="utf-8") as fh:
+                tj = json.load(fh)
+            with open(os.path.join(DIST, "teams.js"), encoding="utf-8") as fh:
+                tjs = fh.read().strip()
+            tpre = "window.FRAGNET_TEAMS = "
+            if not (tjs.startswith(tpre) and tjs.endswith(";")) or json.loads(tjs[len(tpre):-1].replace("<\\/", "</")) != tj:
+                problems.append("teams.js does not match teams.json")
+        except (OSError, ValueError) as e:
+            problems.append(f"teams.json/teams.js unreadable: {e}")
     for need in FILES + ["fonts/LICENSE-DejaVu.txt", "fonts/LICENSE-Liberation.txt"]:
         if need not in files:
             problems.append(f"missing {need}")

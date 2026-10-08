@@ -372,3 +372,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .tbl.today col.c-div{width:20%}
 .tbl.today col.c-map{width:12%}
 .tbl.today col.c-score{width:58px}
+/* ---------- full standings paging (v3.6) ---------- */
+.pager .show-all{margin-left:8px;font-weight:bold}
+.pager-wrap .pager{flex-wrap:wrap}
+.empty.loading{font-style:italic;color:#777}

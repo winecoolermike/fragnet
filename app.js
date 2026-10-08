@@ -1,4 +1,4 @@
-/* FragNet v3.5 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.6 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -125,6 +125,25 @@
     for (var i = 0; i < ds.length; i++) for (var j = 0; j < (ds[i].teams || []).length; j++) if (csTeamId(ds[i].teams[j]) === id && id) return { t: ds[i].teams[j], d: ds[i] };
     return null;
   }
+  /* ----- lazy teams.js (v3.6): rosters + extra match lines for every team outside the top 20 ----- */
+  var TX_STATE = "";
+  function teamsX() { return window.FRAGNET_TEAMS || null; }
+  function loadTeams() {
+    if (window.FRAGNET_TEAMS) { TX_STATE = "ok"; return; }
+    if (TX_STATE) return;
+    TX_STATE = "loading";
+    var sc = document.createElement("script");
+    sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
+    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#(team|player)\/cs2\//.test(location.hash)) route(); }
+    sc.onload = function () { done(true); };
+    sc.onerror = function () { done(false); };
+    document.head.appendChild(sc);
+  }
+  function teamFaceitUrl(t) { var id = csTeamId(t); return t.url || (UUID_RE.test(id) ? "https://www.faceit.com/en/teams/" + id : ""); }
+  function xMatches(key, id) {
+    var x = teamsX();
+    return x ? (x[key] || []).filter(function (m) { return involves(m, id); }) : [];
+  }
   function findCsPlayer(nick) {
     var n = String(nick || "").toLowerCase(), ps = csPlayers();
     for (var i = 0; i < ps.length; i++) if (String(ps[i].nick).toLowerCase() === n) return ps[i];
@@ -135,6 +154,15 @@
     for (var i = 0; i < ds.length; i++) for (var j = 0; j < (ds[i].teams || []).length; j++) {
       var t = ds[i].teams[j], r = t.roster || [];
       for (var k = 0; k < r.length; k++) if (String(r[k].nick).toLowerCase() === n) return { t: t, d: ds[i], m: r[k] };
+    }
+    var x = window.FRAGNET_TEAMS, rs = (x && x.rosters) || {};   // lazy rosters of teams outside the top 20
+    for (var tid in rs) {
+      if (!Object.prototype.hasOwnProperty.call(rs, tid)) continue;
+      var rr = rs[tid].r || [];
+      for (var q = 0; q < rr.length; q++) if (String(rr[q][0]).toLowerCase() === n) {
+        var f = findCsTeam(tid);
+        if (f) return { t: f.t, d: f.d, m: { nick: rr[q][0], country: rr[q][1], sub: !!rr[q][2] } };
+      }
     }
     return null;
   }
@@ -247,8 +275,12 @@
       '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT.</div>';
   }
   function teamMatchesHtml(id) {
-    var fin = csFinished().filter(function (m) { return involves(m, id); });
-    var up = csUpcoming().filter(function (m) { return involves(m, id); });
+    var seen = {};
+    function uniq(m) { if (seen[m.id]) return false; seen[m.id] = 1; return true; }
+    var fin = csFinished().filter(function (m) { return involves(m, id); }).concat(xMatches("matches", id)).filter(uniq)
+      .sort(function (a, b) { return String(b.t || "").localeCompare(String(a.t || "")); });
+    var up = csUpcoming().filter(function (m) { return involves(m, id); }).concat(xMatches("upcoming", id)).filter(uniq)
+      .sort(function (a, b) { return String(a.t || "").localeCompare(String(b.t || "")); });
     return '<h2 class="subhead">Recent Results</h2>' + csResultsTable(fin, { what: "finished matches for this team" }) +
       '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(up) + csMatchNote();
   }
@@ -485,13 +517,18 @@
       var d = divs[ids.indexOf(sub)];
       var multi = (d.conferences || []).length > 1;
       title = d.region + " " + d.division + " :: " + d.stage;
+      var showAll = parts[1] === "all", spg = pageOf(parts), base = "cs2/" + divId(d), nT = (d.teams || []).length;
+      var npgT = Math.max(1, Math.ceil(nT / PER_PAGE)); if (spg > npgT) spg = npgT;
+      var shown = showAll ? d.teams : slicePage(d.teams || [], spg);
+      var pnav = nT > PER_PAGE ? '<div class="pager-wrap">' + (showAll ? '<nav class="pager"><span class="title">All ' + nT + ' teams</span><a href="#' + esc(base) + '">show pages</a></nav>' :
+        pager(nT, spg, base).replace("</nav>", ' <a class="show-all" href="#' + esc(base) + '/all">show all ' + nT + "</a></nav>")) + "</div>" : "";
       if (d.status !== "OK") body = soon("Standings coming soon.");
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
-      else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
-        d.teams.map(function (t) {
+      else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + pnav + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
+        shown.map(function (t) {
           return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + csTeamLink(t) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
             "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n">' + esc(t.rounds) + "</td></tr>";
-        }).join("") + '</tbody></table></div><div class="note">Top ' + d.teams.length + " of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
+        }).join("") + "</tbody></table></div>" + pnav + '<div class="note">All ' + nT + " teams of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
         " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
     }
     if (sub !== "players" && sub !== "results") {
@@ -611,19 +648,23 @@
   /* ----- detail pages: CS2 team / CS2 player / Valorant team / WoW guild ----- */
   function vTeamCS(id) {
     var f = findCsTeam(id), s = (D.cs && D.cs.season) || {};
+    loadTeams();
     if (!f) {
       var known = csPlayers().filter(function (p) { return p.team_id && p.team_id === id; });
       var nm = known.length ? known[0].team : "";
       var anyM = csFinished().concat(csUpcoming()).filter(function (m) { return involves(m, id); });
       if (!nm && anyM.length) nm = anyM[0].t1.id === id ? anyM[0].t1.name : anyM[0].t2.name;
-      if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the top 20 standings FragNet shows, so there is no standings line or roster here." +
+      if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the current ESEA standings FragNet shows, so there is no standings line or roster here." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : "") + "</div>") + teamMatchesHtml(id) +
         '<div class="note">' + (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a></div>';
-      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings FragNet shows (top " + 20 + " of each ESEA division). No standings or roster data for it in the current data." +
+      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings FragNet shows (EU and NA Advanced, Main and Intermediate). No standings or roster data for it in the current data." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
         (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
     }
-    var t = f.t, d = f.d, r = t.roster || [];
+    var t = f.t, d = f.d, r = t.roster, lead = t.leader, x = teamsX(), xr = x && x.rosters && x.rosters[csTeamId(t)];
+    if (!r && xr) { r = (xr.r || []).map(function (a) { return { nick: a[0], country: a[1], sub: !!a[2] }; }); lead = xr.lead; }
+    var rosterPending = !r && TX_STATE !== "ok" && TX_STATE !== "fail";
+    r = r || [];
     var line = '<b>#' + esc(t.rank) + "</b> in " + esc(d.region + " " + d.division) + " " + esc(d.stage) + " &middot; " + '<span class="w">' + num(t.w) + 'W</span> <span class="l">' + num(t.l) + "L</span>" + (num(t.t) ? " " + num(t.t) + "T" : "") + " &middot; " + num(t.pts) + " pts &middot; rounds " + esc(t.rounds) + (t.dq ? ' &middot; <span class="cc dq">DQ</span>' : "");
     var info = kv([
       ["Tag", esc(t.tag || "-")],
@@ -636,16 +677,18 @@
     var roster = r.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Player</th><th>Country</th><th>Role</th><th class="n" title="kills per death (ranked ESEA Advanced players only)">K/D</th><th class="n hide-sm" title="average damage per round">ADR</th></tr></thead><tbody>' +
       r.map(function (m) {
         var p = stats[String(m.nick).toLowerCase()];
-        return "<tr><td class=\"team\">" + ilink(playerHash(m.nick), m.nick) + '</td><td title="' + esc(countryName(m.country)) + '">' + esc(m.country || "") + "</td><td>" + (m.sub ? "Substitute" : "Player") + (t.leader === m.nick ? " &middot; Captain" : "") +
+        return "<tr><td class=\"team\">" + ilink(playerHash(m.nick), m.nick) + '</td><td title="' + esc(countryName(m.country)) + '">' + esc(m.country || "") + "</td><td>" + (m.sub ? "Substitute" : "Player") + (lead === m.nick ? " &middot; Captain" : "") +
           '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR only for players ranked in the ESEA Advanced stats (at least ' + num(((D.cs || {}).top_players_meta || {}).min_rounds || 20) + " rounds); &ndash; = not ranked.</div>"
-      : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
+      : rosterPending ? '<div class="empty loading">Loading roster&hellip;</div>' : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
     return std(esc(t.name), "CS2 &middot; ESEA League team", info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
-      '<div class="note">' + ext(t.url, "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
+      '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
 
   function vPlayerCS(nick) {
     var p = findCsPlayer(nick), spot = findRosterSpot(nick), pm = (D.cs && D.cs.top_players_meta) || {};
+    if (!p && !spot) loadTeams();
+    if (!p && !spot && TX_STATE === "loading") return std(esc(nick), "CS2 &middot; ESEA League player", '<div class="empty loading">Loading player&hellip;</div>');
     if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in FragNet's data (rosters of the ESEA teams shown and ranked ESEA Advanced players).", '<a href="#cs2/players">Top fraggers</a>');
     var name = p ? p.nick : spot.m.nick;
     var teamCell = spot ? csTeamLink(spot.t) + ' <span class="dim">(' + esc(spot.d.region + " " + spot.d.division) + ")</span>" :
