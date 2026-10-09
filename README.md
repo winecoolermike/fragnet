@@ -10,8 +10,9 @@ like a classic mid-2000s esports portal:
 - **Counter-Strike 2 / ESEA League**: current season, full standings (every team, paged with
   "show all") for EU and NA Advanced, Main and Intermediate, recent results and upcoming matches with per-map
   scoreboards, season stats for every player in those divisions and top fraggers per division.
-- **Valorant**: Challengers / VCL and Game Changers calendar, recent final standings and
-  tier-2 match results.
+- **Valorant**: Challengers / VCL and Game Changers calendar, final standings for the latest
+  event in each circuit, tier-2 match results and upcoming matches, player stats (rating, ACS,
+  K/D, KAST, ADR, HS%, agents), top players, player pages and team rosters.
 - **World of Warcraft**: Mythic raid progression rankings (top 50, US and EU).
 - **News**: esports headlines that link to the original articles.
 

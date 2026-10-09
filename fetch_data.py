@@ -865,10 +865,48 @@ def get_html(url):
     return r.text
 
 
+VAL_CH_EVENTS = 10        # latest completed main event per Challengers / VCL circuit (region)
+VAL_GC_EVENTS = 4         # ... and per Game Changers circuit
+VAL_STATS_REQ_MAX = 30    # event stats pages per run (completed events are cached -> ~0 after the first run)
+VAL_TEAM_REQ_MAX = 20     # vlr.gg team pages (rosters) per run
+VAL_TEAM_TTL_H = 72       # refresh a cached roster after this many hours
+VAL_MIN_RND = 100         # rounds needed for the Valorant top players ranking
+VAL_REQ = {}              # request counters (reported in the source notes)
+PREV_VAL = {}             # previous val.json (last-good lazy Valorant players/teams), set by main()
+_SKIP_EV = re.compile(r"Cash Cup|Last Chance|Qualifier|Showmatch", re.I)
+
+
+def val_circuit(title):
+    """'Challengers 2026: North America ACE Stage 3' -> 'North America ACE' (one event per circuit)."""
+    t = re.sub(r"^(Challengers 20\d\d|VCL \d\d|Game Changers 20\d\d):\s*", "", title)
+    t = re.sub(r"\s*\b(Stage \d+|Split \d+|Season Finals|Finals|Main Event|Masters|Playoffs|Kickoff|Championship)\b.*$", "", t)
+    return t.strip().lower() or title.lower()
+
+
+def pick_val_events(evs):
+    picks = []
+    for pat, n in ((r"^(Challengers 20\d\d|VCL \d\d):", VAL_CH_EVENTS), (r"^Game Changers 20\d\d:", VAL_GC_EVENTS)):
+        seen = set()
+        for e in evs:                       # vlr.gg lists completed events newest-first
+            if e["status"] != "completed" or not re.search(pat, e["title"]) or _SKIP_EV.search(e["title"]):
+                continue
+            c = val_circuit(e["title"])
+            if c in seen:
+                continue
+            seen.add(c)
+            picks.append(dict(e, region=c))
+            if len(seen) >= n:
+                break
+    return picks
+
+
 def vlr_event_standings(ev):
     s = BeautifulSoup(get_html(ev["url"]), "lxml")
     tbl = s.select_one(".wf-ptable--standings")
     rows = []
+    # every team linked on the event page (group tables, bracket, placements) -> rosters
+    ev["team_ids"] = sorted({m.group(1) for a in s.select('a[href^="/team/"]')
+                             for m in [re.match(r"^/team/(\d+)/", a.get("href") or "")] if m}, key=int)
     if not tbl:
         return rows
     for row in tbl.select(".row")[1:]:
@@ -965,15 +1003,18 @@ def fetch_vlr(prev):
         out["event_list_meta"] = {"fetched_at": now_iso(), "stale": False}
 
     # final standings: most recent completed official Challengers/VCL + Game Changers events
-    picks = []
-    skip = re.compile(r"Cash Cup|Last Chance|Qualifier|Showmatch", re.I)
-    for pat, n in ((r"^(Challengers 20\d\d|VCL \d\d):", 2), (r"^Game Changers 20\d\d:", 2)):
-        cands = [e for e in evs if e["status"] == "completed" and re.search(pat, e["title"]) and not skip.search(e["title"])]
-        picks += cands[:n]   # vlr.gg lists completed events newest-first
+    picks = pick_val_events(evs)
     prev_ev = {e.get("url"): e for e in prev.get("events", []) if e.get("standings")}
     n_rows, n_stale = 0, 0
+    VAL_REQ["events"] = 0
     for ev in picks:
+        pe_ = prev_ev.get(ev["url"])
+        if pe_ and pe_.get("team_ids") is not None and not pe_.get("stale"):
+            out["events"].append({**pe_, **ev, "cached": True})        # completed event: final standings do not change
+            n_rows += len(pe_.get("standings") or [])
+            continue
         try:
+            VAL_REQ["events"] += 1
             rows = vlr_event_standings(ev)
             out["events"].append({**ev, "standings": rows, "fetched_at": now_iso(),
                                   "status_note": "OK" if rows else "no final standings table on page"})
@@ -1047,9 +1088,272 @@ def fetch_vlr(prev):
         out["sources"].append(status(rname, url, False, reason="no tier-2 results parsed"
                                      + (f" ({'; '.join(page_errs)})" if page_errs else "")))
     out["results_events"] = sorted({m["event"] for m in out["results"]})
+    fetch_vlr_depth(out, prev)
     out["sources"].append(status("Valorant Premier (in-game Riot ladder)", "https://playvalorant.com/",
                                  False, reason="Premier standings live in the Riot client / Riot API (key required) - no public page; not fetched"))
     return out
+
+
+def vlr_event_stats(ev):
+    """Player stats table of a vlr.gg event (/event/stats/<id>): one row per player."""
+    m = re.search(r"/event/(\d+)/", ev["url"])
+    if not m:
+        return []
+    s = BeautifulSoup(get_html(f"{VLR}/event/stats/{m.group(1)}"), "lxml")
+    rows = []
+    for tr in s.select("table.st-table tbody tr"):
+        try:
+            a = tr.select_one('a[href^="/player/"]')
+            nm = tr.select_one(".st-pl-name")
+            if not a or not nm:
+                continue
+            pid = re.match(r"^/player/(\d+)/", a["href"])
+            tag = tr.select_one(".st-pl-country")
+            flag = tr.select_one("i.flag")
+            cc = next((c[4:] for c in (flag.get("class") or []) if c.startswith("mod-")), "") if flag else ""
+
+            def col(c):
+                td = tr.select_one(f'td[data-col="{c}"]')
+                return td.get_text(" ", strip=True) if td else ""
+            agents = []
+            for ag in tr.select(".st-agent"):
+                img = ag.select_one("img")
+                n = re.search(r"/agents/([a-z0-9_-]+)\.png", (img.get("src") or "") if img else "")
+                if n:
+                    agents.append(n.group(1))
+            rnd = as_int(col("rnd"))
+            if not rnd:
+                continue
+            rows.append({"name": norm(nm.get_text(" ", strip=True)), "pid": pid.group(1) if pid else None,
+                         "tag": norm(tag.get_text(" ", strip=True)) if tag else "", "cc": cc.upper()[:2],
+                         "agents": agents[:3], "maps": as_int(col("maps")), "rnd": rnd,
+                         "rating": as_float(col("rating2")), "acs": as_float(col("acs")), "kd": as_float(col("kd")),
+                         "kast": as_float(col("kast").rstrip("%")), "adr": as_float(col("adr")),
+                         "hs": as_float(col("hsp").rstrip("%")), "k": as_int(col("k")), "d": as_int(col("d")),
+                         "a": as_int(col("a"))})
+        except Exception:
+            continue
+    return rows
+
+
+def vlr_team(tid):
+    """vlr.gg team page -> name, tag, country, active roster (players + staff)."""
+    s = BeautifulSoup(get_html(f"{VLR}/team/{tid}"), "lxml")
+    name = s.select_one(".team-header-name h1") or s.select_one(".team-header-name")
+    tag = s.select_one(".team-header-tag")
+    ctry = s.select_one(".team-header-country")
+    roster = []
+    for it in s.select(".team-roster-item"):
+        a = it.select_one('a[href^="/player/"]')
+        if not a:
+            continue
+        pm = re.match(r"^/player/(\d+)/", a["href"])
+        alias = it.select_one(".team-roster-item-name-alias")
+        role = it.select_one(".team-roster-item-name-role")
+        nick = norm((alias or a).get_text(" ", strip=True))
+        if nick:
+            roster.append([nick, pm.group(1) if pm else None, norm(role.get_text(" ", strip=True)).lower() if role else ""])
+    return {"id": str(tid), "name": norm(name.get_text(" ", strip=True)) if name else "",
+            "tag": norm(tag.get_text(" ", strip=True)) if tag else "",
+            "country": norm(ctry.get_text(" ", strip=True)) if ctry else "",
+            "url": f"{VLR}/team/{tid}", "roster": roster, "fetched_at": now_iso()}
+
+
+VAL_PCOLS = ("name", "pid", "tag", "cc", "agents", "maps", "rnd", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "ev", "team")
+
+
+def parse_vlr_upcoming(html):
+    """vlr.gg /matches (upcoming + live) -> list like parse_vlr_results plus 'live'."""
+    s = BeautifulSoup(html, "lxml")
+    res = []
+    for card in s.select(".wf-card"):
+        lab = card.find_previous_sibling("div", class_="wf-label")
+        day = re.sub(r"\s*(Today|Yesterday|Tomorrow)$", "", lab.get_text(" ", strip=True)) if lab else ""
+        for a in card.select("a.match-item"):
+            try:
+                teams = a.select(".match-item-vs-team")
+                ev_div = a.select_one(".match-item-event")
+                if len(teams) != 2 or not ev_div:
+                    continue
+                series = ev_div.select_one(".match-item-event-series")
+                series_t = series.get_text(" ", strip=True) if series else ""
+                if series:
+                    series.extract()
+                st = a.select_one(".ml-status")
+                stt = st.get_text(" ", strip=True).lower() if st else ""
+                t = [(x.select_one(".match-item-vs-team-name") or x).get_text(" ", strip=True) for x in teams]
+                tm = (a.select_one(".match-item-time") or a).get_text(" ", strip=True) if a.select_one(".match-item-time") else ""
+                res.append({"ts": vlr_ts(day, tm), "team1": norm(t[0]), "team2": norm(t[1]),
+                            "event": ev_div.get_text(" ", strip=True), "series": series_t,
+                            "url": VLR + a["href"], "live": stt == "live"})
+            except Exception:
+                continue
+    return res
+
+
+def fetch_vlr_depth(out, prev):
+    """v3.8: Valorant player stats (event stats pages), rosters (team pages) and upcoming
+    matches. Completed events are cached (their stats never change); rosters are refreshed
+    after VAL_TEAM_TTL_H hours, at most VAL_TEAM_REQ_MAX per run. Everything that fails keeps
+    its last-good copy. Lazy data (all player rows + rosters) -> val.json via out["_val"]."""
+    pv = PREV_VAL or {}
+    cols = pv.get("player_cols") or list(VAL_PCOLS)
+    prev_rows = {}
+    for r_ in pv.get("players") or []:
+        d_ = dict(zip(cols, r_))
+        prev_rows.setdefault(d_.get("ev"), []).append(d_)
+    prev_teams = dict(pv.get("teams") or {})
+    # 1) player stats per tracked event
+    rows, n_req, errs, n_cached, n_stale = [], 0, [], 0, 0
+    for ev in out.get("events") or []:
+        eid = (re.search(r"/event/(\d+)/", ev.get("url") or "") or [None, None])[1]
+        if not eid:
+            continue
+        if ev.get("cached") and prev_rows.get(eid):
+            rows += prev_rows[eid]
+            n_cached += 1
+            ev["n_players"] = len(prev_rows[eid])
+            continue
+        if n_req >= VAL_STATS_REQ_MAX:
+            if prev_rows.get(eid):
+                rows += prev_rows[eid]
+                n_stale += 1
+            continue
+        try:
+            n_req += 1
+            got = vlr_event_stats(ev)
+            for g in got:
+                g["ev"] = eid
+            rows += got
+            ev["n_players"] = len(got)
+        except Exception as ex:
+            errs.append(f"event {eid}: {short_err(ex)}")
+            if prev_rows.get(eid):
+                rows += prev_rows[eid]
+                n_stale += 1
+    VAL_REQ["stats"] = n_req
+    # 2) rosters for every team in the tracked events (cached, TTL, capped)
+    want = []
+    for ev in out.get("events") or []:
+        for tid in ev.get("team_ids") or []:
+            if tid not in want:
+                want.append(tid)
+    teams, t_req, t_err = {}, 0, []
+    now = datetime.now(timezone.utc)
+
+    def age_h(t):
+        try:
+            return (now - datetime.fromisoformat(t["fetched_at"])).total_seconds() / 3600
+        except Exception:
+            return 1e9
+    for tid in sorted(want, key=lambda t: -age_h(prev_teams[t]) if t in prev_teams else -1e10):
+        old = prev_teams.get(tid)
+        if old and age_h(old) < VAL_TEAM_TTL_H:
+            teams[tid] = old
+            continue
+        if t_req >= VAL_TEAM_REQ_MAX:
+            if old:
+                teams[tid] = old
+            continue
+        try:
+            t_req += 1
+            tm = vlr_team(tid)
+            if tm["name"]:
+                teams[tid] = tm
+            elif old:
+                teams[tid] = old
+        except Exception as ex:
+            t_err.append(f"team {tid}: {short_err(ex)}")
+            if old:
+                teams[tid] = old
+    VAL_REQ["teams"] = t_req
+    # player -> team: roster membership (player id), else the event tag of a team in that event
+    by_pid = {}
+    for tid, tm in teams.items():
+        for nick, pid, role in tm.get("roster") or []:
+            if pid and "coach" not in role and "manager" not in role and "analyst" not in role:
+                by_pid.setdefault(pid, tid)
+    ev_tag = {}
+    for ev in out.get("events") or []:
+        eid = (re.search(r"/event/(\d+)/", ev.get("url") or "") or [None, None])[1]
+        for tid in ev.get("team_ids") or []:
+            if teams.get(tid, {}).get("tag"):
+                ev_tag[(eid, teams[tid]["tag"].lower())] = tid
+    for r_ in rows:
+        r_["team"] = ev_tag.get((r_.get("ev"), (r_.get("tag") or "").lower())) or by_pid.get(r_.get("pid"))
+    # 3) aggregate per player across events (round-weighted averages)
+    agg = {}
+    for r_ in rows:
+        k = r_.get("pid") or r_["name"].lower()
+        a = agg.setdefault(k, {"name": r_["name"], "pid": r_.get("pid"), "cc": r_.get("cc"), "rnd": 0, "maps": 0,
+                               "k": 0, "d": 0, "a": 0, "_w": {}, "agents": {}, "events": [], "team": None, "tag": "", "_tagr": 0})
+        n = r_["rnd"]
+        a["rnd"] += n
+        a["maps"] += r_.get("maps") or 0
+        for f in ("k", "d", "a"):
+            a[f] += r_.get(f) or 0
+        for f in ("rating", "acs", "kast", "adr", "hs"):
+            a["_w"][f] = a["_w"].get(f, 0) + (r_.get(f) or 0) * n
+        for i, ag in enumerate(r_.get("agents") or []):
+            a["agents"][ag] = a["agents"].get(ag, 0) + n * (3 - i)
+        a["events"].append(r_.get("ev"))
+        if r_.get("team") and not a["team"]:
+            a["team"] = r_["team"]
+        if n > a["_tagr"] and r_.get("tag"):
+            a["tag"], a["_tagr"] = r_["tag"], n
+    players = []
+    for a in agg.values():
+        n = a["rnd"] or 1
+        p = {k: v for k, v in a.items() if not k.startswith("_") and k != "agents"}
+        for f, v in a["_w"].items():
+            p[f] = round(v / n, 2 if f == "rating" else 1)
+        p["kd"] = round(a["k"] / a["d"], 2) if a["d"] else None
+        p["agents"] = [x for x, _ in sorted(a["agents"].items(), key=lambda kv: -kv[1])[:3]]
+        players.append(p)
+    ranked = sorted((p for p in players if p["rnd"] >= VAL_MIN_RND), key=lambda p: (p.get("rating") or 0, p.get("acs") or 0), reverse=True)
+    for i, p in enumerate(ranked):
+        p["rank"] = i + 1
+    tname = {tid: tm.get("name") for tid, tm in teams.items()}
+    out["top_players"] = [dict(p, team_name=tname.get(p.get("team"))) for p in ranked[:50]]
+    out["top_players_meta"] = {"fetched_at": now_iso(), "pool": len(ranked), "total": len(players),
+                               "min_rnd": VAL_MIN_RND, "events": sum(1 for e in out.get("events") or [] if e.get("n_players")),
+                               "stale": bool(n_stale)}
+    for ev in out.get("events") or []:
+        eid = (re.search(r"/event/(\d+)/", ev.get("url") or "") or [None, None])[1]
+        evr = sorted((r_ for r_ in rows if r_.get("ev") == eid and r_["rnd"] >= 40), key=lambda r_: r_.get("rating") or 0, reverse=True)
+        ev["top_players"] = [{k: r_.get(k) for k in ("name", "pid", "tag", "rnd", "rating", "acs", "kd", "adr", "team")} for r_ in evr[:5]]
+        ev.pop("cached", None)
+    # 4) upcoming / live tier-2 matches (1 request)
+    url = f"{VLR}/matches"
+    try:
+        up = [m for m in parse_vlr_upcoming(get_html(url)) if not vlr_excluded(m["event"])]
+        out["upcoming"] = up[:60]
+        out["upcoming_meta"] = {"fetched_at": now_iso(), "stale": False}
+        out["sources"].append(status("vlr.gg upcoming matches (tier-2/GC)", url, True, len(up)))
+    except Exception as ex:
+        if prev.get("upcoming") is not None:
+            out["upcoming"] = copy.deepcopy(prev["upcoming"])
+            out["upcoming_meta"] = mark_stale(prev.get("upcoming_meta") or {"fetched_at": prev.get("fetched_at")})
+            out["sources"].append(stale_status("vlr.gg upcoming matches (tier-2/GC)", url, short_err(ex),
+                                               out["upcoming_meta"].get("fetched_at"), len(out["upcoming"])))
+        else:
+            out["upcoming"] = []
+            out["sources"].append(status("vlr.gg upcoming matches (tier-2/GC)", url, False, reason=f"request failed: {short_err(ex)}"))
+    # sources
+    sname = "vlr.gg event player stats"
+    if rows:
+        out["sources"].append(status(sname, VLR + "/event/stats/<id>", True, len(players),
+                                     note=f"{len(rows)} event lines, {len(players)} players; {n_req} request(s), {n_cached} event(s) cached"
+                                          + (f", {n_stale} reused" if n_stale else "") + (f"; errors: {'; '.join(errs)}" if errs else "")))
+    else:
+        out["sources"].append(status(sname, VLR + "/event/stats/<id>", False, reason="; ".join(errs) or "no player stats parsed"))
+    out["sources"].append(status("vlr.gg team pages (rosters)", VLR + "/team/<id>", bool(teams), len(teams),
+                                 note=f"{t_req} request(s); {len(want)} teams in tracked events" + (f"; errors: {'; '.join(t_err)}" if t_err else ""),
+                                 reason=None if teams else ("; ".join(t_err) or "no teams")))
+    out["_val"] = {"player_cols": list(VAL_PCOLS), "players": [[r_.get(c) for c in VAL_PCOLS] for r_ in rows],
+                   "agg": [[p.get(c) for c in ("name", "pid", "cc", "team", "tag", "rnd", "maps", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "rank")] + [p.get("agents"), p.get("events")] for p in players],
+                   "agg_cols": ["name", "pid", "cc", "team", "tag", "rnd", "maps", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "rank", "agents", "events"],
+                   "teams": teams}
 
 
 # ---------------------------------------------------------------- Raider.IO
@@ -1266,6 +1570,8 @@ def main(argv=None):
     prev = load_prev(out_json)
     global PREV_EXTRA
     PREV_EXTRA = load_prev(os.path.join(out_dir, "teams.json"))
+    global PREV_VAL
+    PREV_VAL = load_prev(os.path.join(out_dir, "val.json"))
     data = {"fetched_at": now_iso(), "generator": GENERATOR, "display_tz": "America/Los_Angeles"}
     for key, fn in SECTIONS:
         print(f"[fragnet] fetching {key} ...", flush=True)
@@ -1298,6 +1604,16 @@ def main(argv=None):
         os.replace(t4, os.path.join(out_dir, "teams.js"))
         print(f"[fragnet] teams.json: {len(extra.get('rosters', {}))} rosters, {len(extra.get('matches', []))} + "
               f"{len(extra.get('upcoming', []))} extra matches, {len(extra.get('players', []))} player stat rows")
+    # lazy Valorant side file (v3.8): every event player line, per-player totals, rosters
+    vx = (data.get("valorant") or {}).pop("_val", None) or {}
+    if vx.get("players") or vx.get("teams"):
+        vx = {"fetched_at": now_iso(), **vx}
+        vblob = json.dumps(vx, ensure_ascii=False, separators=(",", ":"))
+        t5 = write_atomic(os.path.join(out_dir, "val.json"), vblob + "\n")
+        t6 = write_atomic(os.path.join(out_dir, "val.js"), "window.FRAGNET_VAL = " + vblob.replace("</", "<\\/") + ";\n")
+        os.replace(t5, os.path.join(out_dir, "val.json"))
+        os.replace(t6, os.path.join(out_dir, "val.js"))
+        print(f"[fragnet] val.json: {len(vx.get('players', []))} event player lines, {len(vx.get('agg', []))} players, {len(vx.get('teams', {}))} rosters")
     blob = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     # write both files from the same serialized object, then swap them in
     t1 = write_atomic(out_json, blob + "\n")   # compact: smaller page weight (pipe through `python -m json.tool` to read)

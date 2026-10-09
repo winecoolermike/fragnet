@@ -1,4 +1,4 @@
-/* FragNet v3.7.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.8 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -156,6 +156,42 @@
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
   }
+  /* ----- lazy val.js (v3.8): Valorant event player lines, per-player totals and rosters ----- */
+  var VX_STATE = "", VXC = null;
+  function loadVal() {
+    if (window.FRAGNET_VAL) { VX_STATE = "ok"; return; }
+    if (VX_STATE) return;
+    VX_STATE = "loading";
+    var sc = document.createElement("script");
+    sc.src = "val.js?v=" + encodeURIComponent(D.fetched_at || "");
+    function done(ok) { VX_STATE = ok && window.FRAGNET_VAL ? "ok" : "fail"; if (/^#(team\/val|player\/val|valorant\/players)/.test(location.hash)) route(); }
+    sc.onload = function () { done(true); };
+    sc.onerror = function () { done(false); };
+    document.head.appendChild(sc);
+  }
+  function rowsOf(cols, rows) { return (rows || []).map(function (r) { var o = {}; cols.forEach(function (c, i) { o[c] = r[i]; }); return o; }); }
+  function valX() {
+    var x = window.FRAGNET_VAL;
+    if (!x) return null;
+    if (VXC && VXC.src === x) return VXC;
+    var teams = x.teams || {}, bySlug = {};
+    Object.keys(teams).forEach(function (id) { var t = teams[id]; if (t && t.name) bySlug[slug(t.name)] = t; });
+    VXC = { src: x, lines: rowsOf(x.player_cols || [], x.players), agg: rowsOf(x.agg_cols || [], x.agg), teams: teams, bySlug: bySlug };
+    return VXC;
+  }
+  function valEvById(eid) {
+    var evs = valEvents();
+    for (var i = 0; i < evs.length; i++) { var m = String(evs[i].url || "").match(/\/event\/(\d+)\//); if (m && m[1] === String(eid)) return { e: evs[i], i: i }; }
+    return null;
+  }
+  function valPHash(name) { return "player/val/" + encodeURIComponent(name); }
+  function agentsCell(a) { var t = agentsHtml(a); return '<span class="ag" title="' + t + '">' + t + "</span>"; }
+  function agentsHtml(a) { return esc((a || []).map(function (x) { return x.charAt(0).toUpperCase() + x.slice(1); }).join(", ")); }
+  function valStatCells(p) {
+    return '<td class="n hide-sm">' + num(p.rnd) + '</td><td class="n"><b>' + num(p.rating).toFixed(2) + '</b></td><td class="n">' + Math.round(num(p.acs)) + '</td><td class="n">' + (p.kd == null ? "&ndash;" : num(p.kd).toFixed(2)) +
+      '</td><td class="n hide-sm">' + Math.round(num(p.kast)) + '%</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td>";
+  }
+  var VAL_TH = '<th class="n hide-sm" title="rounds played">Rnd</th><th class="n" title="vlr.gg rating">R</th><th class="n" title="average combat score">ACS</th><th class="n" title="kills per death">K/D</th><th class="n hide-sm" title="kill / assist / trade / survive %">KAST</th><th class="n hide-sm" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot %">HS%</th>';
   function teamFaceitUrl(t) { var id = csTeamId(t); return t.url || (UUID_RE.test(id) ? "https://www.faceit.com/en/teams/" + id : ""); }
   function xMatches(key, id) {
     var x = teamsX();
@@ -362,6 +398,9 @@
     ((D.valorant && D.valorant.event_list) || []).forEach(function (e, i) {
       IDX.push({ g: "Valorant events", label: e.title, where: e.status + " " + e.dates, hash: "valorant/calendar", key: "vc:" + i, ext: e.url, text: e.title });
     });
+    ((D.valorant && D.valorant.top_players) || []).forEach(function (p) {
+      IDX.push({ g: "Valorant players", label: p.name, where: (p.team_name ? p.team_name + " · " : "") + "rating " + num(p.rating).toFixed(2), hash: valPHash(p.name), key: "", ext: "", text: p.name + " " + (p.team_name || "") });
+    });
     var rks = (D.wow && D.wow.rankings) || {};
     Object.keys(rks).forEach(function (rg) {
       (rks[rg] || []).forEach(function (g, i) {
@@ -428,6 +467,8 @@
     csFinished().forEach(function (m) { if (today(m.t) && !liveIds[m.id]) rows.push({ g: "cs", st: "done", m: m }); });
     csUpcoming().forEach(function (m) { if (today(m.t) && !liveIds[m.id]) rows.push({ g: "cs", st: "up", m: m }); });
     valResults().forEach(function (m) { if (today(m.ts)) rows.push({ g: "val", st: "done", m: m }); });
+    var vdone = {}; valResults().forEach(function (m) { vdone[m.url] = 1; });
+    ((D.valorant && D.valorant.upcoming) || []).forEach(function (m) { if (today(m.ts) && !vdone[m.url]) rows.push({ g: "val", st: m.live ? "live" : "up", m: m }); });
     rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
     return rows;
   }
@@ -446,6 +487,11 @@
       '<th class="first" title="Pacific Time: start time for upcoming and live matches, finish time for finished CS2 matches">Time (PT)</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division / Event</th><th class="hide-sm">Map</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var m = r.m;
+        if (r.g === "val" && r.st !== "done") {
+          var vt = function (nm) { return nm && nm !== "TBD" ? ilink(valHash(nm), nm) : '<span class="dim">TBD</span>'; };
+          return '<tr class="g-val st-' + r.st + '"><td class="dim" title="' + esc("scheduled " + fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm">' + vt(m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
+            (r.st === "live" ? '<span class="live-b">LIVE</span>' : "vs") + '</a></td><td class="tm">' + vt(m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) + '</td><td class="hide-sm dim">&ndash;</td></tr>';
+        }
         if (r.g === "val") {
           var v1 = m.winner === 0, v2 = m.winner === 1;
           return '<tr class="g-val"><td class="dim" title="' + esc(fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm ' + (v1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) +
@@ -572,9 +618,9 @@
   function vValorant(parts) {
     var sub = parts[0], page = pageOf(parts);
     var v = D.valorant || {}, evs = valEvents();
-    var ids = ["results", "calendar"].concat(evs.map(function (e, i) { return evId(i); }));
+    var ids = ["results", "players", "calendar"].concat(evs.map(function (e, i) { return evId(i); }));
     if (ids.indexOf(sub) < 0) sub = "results";
-    var tabs = [{ grp: "View" }, { id: "results", hash: "valorant/results", label: "Recent Results" }, { id: "calendar", hash: "valorant/calendar", label: "Calendar" }, { grp: "Events" }]
+    var tabs = [{ grp: "View" }, { id: "results", hash: "valorant/results", label: "Recent Results" }, { id: "players", hash: "valorant/players", label: "Top Players" }, { id: "calendar", hash: "valorant/calendar", label: "Calendar" }, { grp: "Events" }]
       .concat(evs.map(function (e, i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(e.title) }; }));
     var body = "", title = "", r;
     if (sub === "results") {
@@ -587,6 +633,18 @@
       body = staleNote(rm) + '<div class="note">' + r.length + " results from " + evNames.length + " events: " + esc(evNames.join(", ")) + ". Winner highlighted; click a score for the vlr.gg match page. Dates in Pacific Time." +
         (rm.scanned ? " Scanned the latest " + num(rm.scanned) + " vlr.gg results; excluded " + num(rm.excluded_international) + " from international events (Champions/Masters) and " + num(rm.excluded_partner) + " from tier-1 VCT partner leagues" + (excl.length ? " (" + esc(excl.join(", ")) + ")" : "") + "." : "") + "</div>" +
         pager(r.length, page, "valorant/results") + resultsTable(slicePage(r, page), (page - 1) * PER_PAGE, false) + pager(r.length, page, "valorant/results");
+    } else if (sub === "players") {
+      title = "Top Players :: Challengers / Game Changers";
+      var tp = v.top_players || [], tm = v.top_players_meta || {}, x = window.FRAGNET_VAL ? valX() : null;
+      var pgP = page, npP = Math.max(1, Math.ceil(tp.length / PER_PAGE)); if (pgP > npP) pgP = npP;
+      body = tp.length ? staleNote(tm) + pager(tp.length, pgP, "valorant/players") + '<div class="rankbox"><table class="tbl val-pl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th class="hide-sm agc">Agents</th>' + VAL_TH + "</tr></thead><tbody>" +
+        slicePage(tp, pgP).map(function (p) {
+          var tn = p.team_name || (x && x.teams[p.team] && x.teams[p.team].name);
+          return '<tr class="' + medal(p.rank) + '">' + rk(p.rank) + '<td class="team">' + ilink(valPHash(p.name), p.name) + (p.cc ? '<span class="cc">' + esc(p.cc) + "</span>" : "") + '</td><td class="hide-sm">' + (tn ? ilink(valHash(tn), tn) : p.tag ? '<span class="dim" title="team tag at the event">' + esc(p.tag) + "</span>" : '<span class="dim">&ndash;</span>') +
+            '</td><td class="hide-sm dim agc">' + agentsCell(p.agents) + "</td>" + valStatCells(p) + "</tr>";
+        }).join("") + "</tbody></table></div>" + pager(tp.length, pgP, "valorant/players") +
+        '<div class="note">Top ' + tp.length + (tm.pool ? " of " + num(tm.pool) : "") + " players with at least " + num(tm.min_rnd || 100) + " rounds across the " + num(tm.events || evs.length) + " events FragNet tracks (latest completed event per Challengers / Game Changers circuit), by vlr.gg rating; per-event numbers are round-weighted. Stats as published on vlr.gg.</div>"
+        : '<div class="empty">Player stats coming soon.</div>';
     } else if (sub === "calendar") {
       title = "Ongoing & Upcoming Events";
       var cal = v.event_list || [];
@@ -596,13 +654,19 @@
           return '<tr data-k="vc:' + i + '"><td class="' + (st === "ongoing" ? "w" : "") + '">' + esc(st.toUpperCase()) + '</td><td class="team">' + ext(e.url, e.title) + '</td><td class="hide-sm">' + esc(e.circuit) + "</td><td>" + esc(e.dates) + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Dates as listed on vlr.gg.</div>' : '<div class="empty">no ongoing/upcoming events listed</div>');
     } else {
-      var i = ids.indexOf(sub) - 2, e = evs[i], rows = e.standings || [];
+      var i = ids.indexOf(sub) - 3, e = evs[i], rows = e.standings || [];
       title = e.title + " :: Final Standings";
       body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
         rows.map(function (t) {
           return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
             '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + "</td></tr>";
         }).join("") + "</tbody></table></div>" : soon("Standings not available yet."));
+      var etp = e.top_players || [];
+      if (etp.length) body += '<h2 class="subhead">Top Players at ' + esc(shortEv(e.title)) + '</h2><div class="rankbox"><table class="tbl val-pl"><thead><tr><th class="first c">#</th><th>Player</th><th class="n hide-sm">Rnd</th><th class="n">R</th><th class="n">ACS</th><th class="n">K/D</th><th class="n hide-sm">ADR</th></tr></thead><tbody>' +
+        etp.map(function (p, k) {
+          return '<tr class="' + medal(k + 1) + '">' + rk(k + 1) + '<td class="team">' + ilink(valPHash(p.name), p.name) + (p.tag ? '<span class="cc">' + esc(p.tag) + "</span>" : "") + '</td><td class="n hide-sm">' + num(p.rnd) + '</td><td class="n"><b>' + num(p.rating).toFixed(2) + '</b></td><td class="n">' + Math.round(num(p.acs)) +
+            '</td><td class="n">' + num(p.kd).toFixed(2) + '</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + "</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Best five by vlr.gg rating (min. 40 rounds) &middot; <a href="#valorant/players">all top players</a> &middot; ' + ext(String(e.url || "").replace(/\/event\/(\d+)\/.*/, "/event/stats/$1"), "event stats on vlr.gg") + "</div>";
     }
     return std("Valorant :: Challengers / Game Changers", "", toolbar(tabs, sub) + srcLine("valorant")) +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
@@ -755,9 +819,56 @@
       v.placings.map(function (x) {
         return '<tr class="' + medal(x.t.place) + '">' + rk(x.t.place) + '<td class="team">' + ilink("valorant/" + evId(x.i), x.ev.title) + '<span class="cc">' + esc(x.ev.dates) + '</span></td><td class="n">' + esc(x.t.prize) + '</td><td class="hide-sm">' + esc([x.t.points, x.t.note].filter(Boolean).join(" ")) + "</td></tr>";
       }).join("") + "</tbody></table></div>" : '<div class="empty">No final placings in the events FragNet tracks.</div>';
-    return std(esc(v.name), "Valorant &middot; team", info) + '<h2 class="subhead">Event Placings</h2>' + pl +
+    loadVal();
+    var vx = valX(), tm = vx && vx.bySlug[sl], ros;
+    if (!vx && VX_STATE === "loading") ros = '<div class="empty loading">Loading roster&hellip;</div>';
+    else if (tm && (tm.roster || []).length) {
+      var st = {}; (vx.agg || []).forEach(function (p) { if (p.pid) st[p.pid] = p; });
+      ros = '<div class="rankbox"><table class="tbl val-roster"><thead><tr><th class="first">Player</th><th>Role</th><th class="n" title="vlr.gg rating across the tracked events">R</th><th class="n hide-sm">ACS</th><th class="n hide-sm">Rnd</th></tr></thead><tbody>' +
+        tm.roster.map(function (m) {
+          var p = st[m[1]], staff = /coach|manager|analyst/.test(m[2] || "");
+          return '<tr><td class="team">' + (staff ? esc(m[0]) : ilink(valPHash(m[0]), m[0])) + "</td><td>" + esc(m[2] ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "Player") + '</td><td class="n">' + (p ? "<b>" + num(p.rating).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') +
+            '</td><td class="n hide-sm">' + (p ? Math.round(num(p.acs)) : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.rnd) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Current roster from the team page on vlr.gg' + (tm.fetched_at ? " (checked " + fmt(tm.fetched_at, "short") + ")" : "") + "; stats across the tracked events, &ndash; = no tracked event stats.</div>";
+      if (!v.url) v.url = tm.url;
+    } else ros = '<div class="empty">Roster not available yet.</div>';
+    if (tm) info = kv([tm.tag ? ["Tag", esc(tm.tag)] : null, (tm.country || v.country) ? ["Country / region", esc(tm.country || v.country)] : null,
+      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["vlr.gg", ext(tm.url || v.url, "Team page on vlr.gg")]]);
+    return std(esc(v.name), "Valorant &middot; team", info) + '<h2 class="subhead">Roster</h2>' + ros + '<h2 class="subhead">Event Placings</h2>' + pl +
       '<h2 class="subhead">Recent Results</h2>' + (v.results.length ? resultsTable(v.results, 0, false, true) : '<div class="empty">No results for this team in the tracked tier-2 results.</div>') +
       '<div class="note">Results and placings as listed on vlr.gg; dates in Pacific Time.</div>';
+  }
+
+  function vPlayerVal(name) {
+    loadVal();
+    var vx = valX();
+    if (!vx) return VX_STATE === "fail" ? notFound("Player not tracked", "Valorant player data could not be loaded right now.", '<a href="#valorant/players">Top players</a>')
+      : std(esc(name), "Valorant &middot; player", '<div class="empty loading">Loading player&hellip;</div>');
+    var n = String(name).toLowerCase(), cands = vx.agg.filter(function (p) { return String(p.name).toLowerCase() === n; });
+    var onRoster = null;
+    Object.keys(vx.teams).forEach(function (id) { (vx.teams[id].roster || []).forEach(function (m) { if (String(m[0]).toLowerCase() === n && !onRoster) onRoster = { t: vx.teams[id], m: m }; }); });
+    if (!cands.length && !onRoster) return notFound("Player not tracked", "No Valorant player named &ldquo;" + esc(name) + "&rdquo; in the events FragNet tracks.", '<a href="#valorant/players">Top players</a>');
+    cands.sort(function (a, b) { return num(b.rnd) - num(a.rnd); });
+    var p = cands[0], team = (p && p.team && vx.teams[p.team]) || (onRoster && onRoster.t);
+    var pid = p ? p.pid : onRoster.m[1], nm = p ? p.name : onRoster.m[0];
+    var info = kv([
+      ["Team", team ? ilink(valHash(team.name), team.name) + (team.tag ? ' <span class="dim">(' + esc(team.tag) + ")</span>" : "") : '<span class="dim">not on a tracked team roster</span>'],
+      p && p.cc ? ["Country", esc(countryName(p.cc) + " (" + p.cc + ")")] : null,
+      p && (p.agents || []).length ? ["Main agents", agentsHtml(p.agents)] : null,
+      p && p.rank ? ["Top players rank", ilink("valorant/players", "#" + p.rank) + " of " + num(((D.valorant || {}).top_players_meta || {}).pool || 0)] : null
+    ]);
+    var st = p ? '<div class="rankbox"><table class="tbl pstats"><thead><tr><th class="first n">Maps</th>' + VAL_TH + '<th class="n hide-sm">K</th><th class="n hide-sm">D</th></tr></thead><tbody><tr><td class="n">' + num(p.maps) + "</td>" + valStatCells(p) +
+      '<td class="n hide-sm">' + num(p.k) + '</td><td class="n hide-sm">' + num(p.d) + "</td></tr></tbody></table></div>" +
+      (num(p.rnd) < 100 ? '<div class="note few-rounds">Few rounds so far (' + num(p.rnd) + "): too small a sample to rank (min. 100 rounds).</div>" : "") : '<div class="empty">No stats yet: ' + esc(nm) + " has not played in the events FragNet tracks.</div>";
+    var lines = vx.lines.filter(function (l) { return pid ? l.pid === pid : String(l.name).toLowerCase() === n; });
+    var ev = lines.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Event</th><th class="hide-sm">Agents</th>' + VAL_TH + "</tr></thead><tbody>" + lines.map(function (l) {
+      var e = valEvById(l.ev);
+      return '<tr><td class="team">' + (e ? ilink("valorant/" + evId(e.i), shortEv(e.e.title)) : esc(l.ev)) + (l.tag ? '<span class="cc">' + esc(l.tag) + "</span>" : "") + '</td><td class="hide-sm dim">' + agentsCell(l.agents) + "</td>" + valStatCells(l) + "</tr>";
+    }).join("") + "</tbody></table></div>" : "";
+    var link = pid ? "https://www.vlr.gg/player/" + encodeURIComponent(pid) : "https://www.vlr.gg/search/?q=" + encodeURIComponent(nm);
+    return std(esc(nm), "Valorant &middot; player", info) + '<h2 class="subhead">Stats (tracked events)</h2>' + st + (ev ? '<h2 class="subhead">By Event</h2>' + ev : "") +
+      '<div class="note">Round-weighted across the tracked Challengers / Game Changers events. Stats as published on vlr.gg &middot; ' + ext(link, "Profile on vlr.gg") + ' &middot; <a href="#valorant/players">Top players</a></div>';
   }
 
   function vGuild(region, realm, name) {
@@ -964,7 +1075,7 @@
         case "forums": html = vForums(r.parts); break;
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
-        case "player": html = vPlayerCS(r.parts.slice(1).join("/")); break;
+        case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
         case "match": html = vMatchCS(r.parts.slice(1).join("/")); break;
         case "guild": html = vGuild(r.parts[0] || "", r.parts[1] || "", r.parts.slice(2).join("/")); break;
         case "search": html = vSearch(r.parts.join("/")); break;
@@ -979,7 +1090,7 @@
     $("#view").innerHTML = html;
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
-    var navTop = r.top === "search" ? "" : r.top === "player" || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" ? "valorant" : r.top === "guild" ? "wow" : r.top;
+    var navTop = r.top === "search" ? "" : (r.top === "player" && r.parts[0] !== "val") || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" || r.top === "player" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
     var on = $("#view .toolbar a.on");

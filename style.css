@@ -380,3 +380,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .pager .show-all{margin-left:8px;font-weight:bold}
 .pager-wrap .pager{flex-wrap:wrap}
 .empty.loading{font-style:italic;color:#777}
+
+/* v3.8 Valorant players: agents column truncates (full list in the tooltip) */
+.ag{display:inline-block;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+@media (max-width:1100px){.val-pl .agc{display:none}}
