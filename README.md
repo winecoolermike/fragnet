@@ -71,6 +71,15 @@ GitHub's `schedule` event is best-effort and can be delayed or skipped. `tools/r
 (needs an authenticated `gh`) dispatches `deploy.yml` only when no run is queued/running and the
 last successful run is older than 35 minutes; run it every 30 minutes from any scheduler.
 
+### Optional visitor counter
+
+Off by default. To count visits without cookies or personal data, create a free
+[GoatCounter](https://www.goatcounter.com/) site (for example code `fragnet`), then add a
+repository variable `GOATCOUNTER_CODE` with that code (Settings > Secrets and variables >
+Actions > Variables). The next deploy adds the counter; only the section of the page
+(`#cs2`, `#valorant`, ...) is counted, never team or player names. Delete the variable to
+turn it off again.
+
 ## Run locally
 
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
