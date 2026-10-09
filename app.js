@@ -1,4 +1,4 @@
-/* FragNet v4.0 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.1 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -87,7 +87,7 @@
     valorant: { name: "Valorant", short: "Valorant", sub: "Challengers / Game Changers", tabs: [["events", "valorant/events", "Events"], ["results", "valorant/results", "Results"], ["players", "valorant/players", "Top Players"]] },
     wow: { name: "World of Warcraft", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
   };
-  var CRUMB = null, CUR_SEC = "", LAST_SEC = (location.hash || "#home").split("/")[0];
+  var KEEP_SCROLL = false, CRUMB = null, CUR_SEC = "", LAST_SEC = (location.hash || "#home").split("/")[0];
   function setCrumbs(list) { CRUMB = list.filter(Boolean); }
   function crumbHtml(list) {
     return '<nav class="crumbs" aria-label="Breadcrumb"><a href="#home">Home</a>' + list.map(function (c, i) {
@@ -210,7 +210,7 @@
     TX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player)\/cs2\/|search)/.test(location.hash)) route(); }
+    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player)\/cs2\/|search|cs2(\/(?!results|players|today)|$))/.test(location.hash)) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -319,6 +319,49 @@
   function csSide(sd) { return sd && sd.id && UUID_RE.test(sd.id) ? ilink("team/cs2/" + encodeURIComponent(sd.id), sd.name) : esc(sd ? sd.name : "TBD"); }
   function divOf(m) { return slug(m.region + "-" + m.division); }
   function involves(m, id) { return (m.t1 && m.t1.id === id) || (m.t2 && m.t2.id === id); }
+  /* ----- v4.1 form & streaks: computed only from finished results already in data.json / teams.js ----- */
+  function isFF(m) { var a = num(m.s1), b = num(m.s2); return a + b <= 1 && (num(m.bo) === 1 || !!m.nostats); }
+  var FORM = null;
+  function csForm(id) { // oldest -> newest results for a CS team: {r: W|L|D, ff, opp, score, t}
+    var x = teamsX(), a = (D.cs && D.cs.matches) || [], b = (x && x.matches) || [];
+    if (!FORM || FORM.a !== a || FORM.b !== b) {
+      var seen = {}, map = {};
+      a.concat(b).forEach(function (m) {
+        if (!m || !m.id || seen[m.id] || !m.t1 || !m.t2 || !m.t1.id || !m.t2.id) return;   // byes / TBD have no opponent
+        seen[m.id] = 1;
+        [1, 2].forEach(function (side) {
+          var me = side === 1 ? m.t1 : m.t2, op = side === 1 ? m.t2 : m.t1, w = num(m.winner);
+          (map[me.id] = map[me.id] || []).push({ r: w === side ? "W" : w === 1 || w === 2 ? "L" : "D", ff: isFF(m), opp: op.name, score: side === 1 ? num(m.s1) + ":" + num(m.s2) : num(m.s2) + ":" + num(m.s1), t: m.t });
+        });
+      });
+      Object.keys(map).forEach(function (k) { map[k].sort(function (p, q) { return String(p.t || "").localeCompare(String(q.t || "")); }); });
+      FORM = { a: a, b: b, map: map };
+    }
+    return FORM.map[id] || [];
+  }
+  function valForm(name) { // Valorant results use winner 0/1 (team1/team2)
+    var sl = slug(name), out = [];
+    valResults().forEach(function (m) {
+      var side = slug(m.team1) === sl ? 0 : slug(m.team2) === sl ? 1 : -1;
+      if (side < 0 || (m.winner !== 0 && m.winner !== 1)) return;
+      out.push({ r: m.winner === side ? "W" : "L", ff: false, opp: side === 0 ? m.team2 : m.team1, score: side === 0 ? m.score1 + ":" + m.score2 : m.score2 + ":" + m.score1, t: m.ts });
+    });
+    return out.sort(function (p, q) { return String(p.t || "").localeCompare(String(q.t || "")); });
+  }
+  function formHtml(list, n) {
+    var last = list.slice(-(n || 5));
+    if (!last.length) return '<span class="dim form-none" title="no finished matches yet">&ndash;</span>';
+    return '<span class="form" aria-label="last ' + last.length + " results, newest right: " + last.map(function (f) { return f.ff ? f.r + " by forfeit" : f.r; }).join(", ") + '">' + last.map(function (f) {
+      var tip = (f.r === "W" ? "Won" : f.r === "L" ? "Lost" : "Drew") + (f.ff ? " by forfeit" : "") + " vs " + f.opp + " " + f.score + (f.t ? " (" + fmt(f.t, "md") + ")" : "");
+      return '<span class="fq ' + f.r.toLowerCase() + (f.ff ? " ff" : "") + '" title="' + esc(tip) + '">' + (f.ff ? "FF" : f.r) + "</span>";
+    }).join("") + "</span>";
+  }
+  function streak(list) {
+    if (!list.length) return "";
+    var r = list[list.length - 1].r, n = 0;
+    for (var i = list.length - 1; i >= 0 && list[i].r === r; i--) n++;
+    return r + n;
+  }
   function mapCell(m) {
     if (m.maps && m.maps.length) return ilink("match/cs2/" + encodeURIComponent(m.id), m.maps.map(function (x) { return x.map; }).join(", "));
     if (m.nostats) return '<span class="dim" title="no match stats on FACEIT (e.g. forfeit or technical result)">no stats</span>';
@@ -687,12 +730,13 @@
       var shown = showAll ? d.teams : slicePage(d.teams || [], spg);
       var pnav = nT > PER_PAGE ? '<div class="pager-wrap">' + (showAll ? '<nav class="pager"><span class="title">All ' + nT + ' teams</span><a href="#' + esc(base) + '">show pages</a></nav>' :
         pager(nT, spg, base).replace("</nav>", ' <a class="show-all" href="#' + esc(base) + '/all">show all ' + nT + "</a></nav>")) + "</div>" : "";
+      loadTeams();   // more finished matches for the Form column (lazy teams.js)
       if (d.status !== "OK") body = soon("Standings coming soon.");
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
-      else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + pnav + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n" title="rounds won-lost">Rounds</th></tr></thead><tbody>' +
+      else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + pnav + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n hide-sm" title="rounds won-lost">Rounds</th><th class="c form-h" title="last 5 results, newest right (FF = forfeit)">Form</th></tr></thead><tbody>' +
         shown.map(function (t) {
           return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + csTeamLink(t) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
-            "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n">' + esc(t.rounds) + "</td></tr>";
+            "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n hide-sm">' + esc(t.rounds) + '</td><td class="c fcell">' + formHtml(csForm(csTeamId(t))) + "</td></tr>";
         }).join("") + "</tbody></table></div>" + pnav + '<div class="note">All ' + nT + " teams of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
         " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
     }
@@ -757,10 +801,10 @@
     } else {
       var i = ids.indexOf(sub) - 3, e = evs[i], rows = e.standings || [];
       title = e.title + " :: Final Standings";
-      body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
+      body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th><th class="c form-h" title="last 5 tracked results, newest right">Form</th></tr></thead><tbody>' +
         rows.map(function (t) {
           return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
-            '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + "</td></tr>";
+            '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + '</td><td class="c fcell">' + formHtml(valForm(t.team)) + "</td></tr>";
         }).join("") + "</tbody></table></div>" : soon("Standings not available yet."));
       var etp = e.top_players || [];
       if (etp.length) body += '<h2 class="subhead">Top Players at ' + esc(shortEv(e.title)) + '</h2><div class="rankbox"><table class="tbl val-pl"><thead><tr><th class="first c">#</th><th>Player</th><th class="n hide-sm">Rnd</th><th class="n">R</th><th class="n">ACS</th><th class="n">K/D</th><th class="n hide-sm">ADR</th></tr></thead><tbody>' +
@@ -856,6 +900,7 @@
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
         (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
     }
+    var fl = csForm(csTeamId(f.t)), sk = streak(fl);
     var t = f.t, d = f.d, r = t.roster, lead = t.leader, x = teamsX(), xr = x && x.rosters && x.rosters[csTeamId(t)];
     if (!r && xr) { r = (xr.r || []).map(function (a) { return { nick: a[0], country: a[1], sub: !!a[2] }; }); lead = xr.lead; }
     var rosterPending = !r && TX_STATE !== "ok" && TX_STATE !== "fail";
@@ -866,7 +911,8 @@
       ["Country", esc(t.country ? countryName(t.country) + " (" + t.country + ")" : "-")],
       ["Division", ilink("cs2/" + divId(d), d.region + " " + d.division) + (t.conf ? " &middot; " + esc(t.conf) + " conference" : (d.conferences || []).length === 1 ? " &middot; " + esc(d.conferences[0]) + " conference" : "")],
       ["Season", esc(s.name || "?") + (s.start ? " (" + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + ")" : "")],
-      ["Standings", line]
+      ["Standings", line],
+      ["Form", formHtml(fl) + (fl.length ? ' <span class="dim">last ' + Math.min(5, fl.length) + ", newest right</span>" : "")]
     ]);
     var stats = {}; allCsPlayers().forEach(function (p) { if (p.division === d.division && p.region === d.region || !stats[String(p.nick).toLowerCase()]) stats[String(p.nick).toLowerCase()] = p; });
     var roster = r.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Player</th><th>Country</th><th>Role</th><th class="n" title="kills per death, season to date">K/D</th><th class="n hide-sm" title="average damage per round">ADR</th></tr></thead><tbody>' +
@@ -876,7 +922,8 @@
           '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" + (num(p.rounds) < MINR() ? '<span class="dim" title="few rounds">*</span>' : "") : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR season to date (* = fewer than ' + MINR() + " rounds); &ndash; = no matches with stats yet.</div>"
       : rosterPending ? '<div class="empty loading">Loading roster&hellip;</div>' : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
-    var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)], ["Rounds", esc(t.rounds || "-")]]);
+    var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)],
+      sk ? ["Streak", '<span class="' + (sk[0] === "W" ? "w" : sk[0] === "L" ? "l" : "") + '">' + sk + "</span>"] : ["Rounds", esc(t.rounds || "-")]]);
     setCrumbs([["CS2", "cs2"], [d.region + " " + d.division, "cs2/" + divId(d)], [t.name]]);
     return std(esc(t.name), "CS2 &middot; ESEA League team", tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
       '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
@@ -920,6 +967,7 @@
     var info = kv([
       v.country ? ["Country / region", esc(v.country)] : null,
       ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["Form", formHtml(valForm(v.name))],
       ["vlr.gg", v.url ? ext(v.url, "Team page on vlr.gg") : '<span class="dim">no team link in the scraped data</span> &middot; ' + ext("https://www.vlr.gg/search/?q=" + encodeURIComponent(v.name), "search vlr.gg")]
     ]);
     var pl = v.placings.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Event</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
@@ -941,8 +989,10 @@
     } else ros = '<div class="empty">Roster not available yet.</div>';
     if (tm) info = kv([tm.tag ? ["Tag", esc(tm.tag)] : null, (tm.country || v.country) ? ["Country / region", esc(tm.country || v.country)] : null,
       ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["Form", formHtml(valForm(v.name))],
       ["vlr.gg", ext(tm.url || v.url, "Team page on vlr.gg")]]);
-    var tl = tiles([v.results.length ? ["Recent series", '<span class="w">' + w + '</span>-<span class="l">' + l + "</span>"] : null, tm && tm.roster ? ["Roster", tm.roster.filter(function (m) { return !/coach|manager|analyst/.test(m[2] || ""); }).length] : null, tm && (tm.tag || v.country || tm.country) ? [tm.tag ? "Tag" : "Region", esc(tm.tag || tm.country || v.country)] : null]);
+    var vsk = streak(valForm(v.name));
+    var tl = tiles([v.results.length ? ["Recent series", '<span class="w">' + w + '</span>-<span class="l">' + l + "</span>"] : null, vsk ? ["Streak", '<span class="' + (vsk[0] === "W" ? "w" : "l") + '">' + vsk + "</span>"] : null, tm && tm.roster ? ["Roster", tm.roster.filter(function (m) { return !/coach|manager|analyst/.test(m[2] || ""); }).length] : null, tm && (tm.tag || v.country || tm.country) ? [tm.tag ? "Tag" : "Region", esc(tm.tag || tm.country || v.country)] : null]);
     setCrumbs([["Valorant", "valorant"], ["Events", "valorant/events"], [v.name]]);
     return std(esc(v.name), "Valorant &middot; team", tl + info) + '<h2 class="subhead">Roster</h2>' + ros + '<h2 class="subhead">Event Placings</h2>' + pl +
       '<h2 class="subhead">Recent Results</h2>' + (v.results.length ? resultsTable(v.results, 0, false, true) : '<div class="empty">No results for this team in the tracked tier-2 results.</div>') +
@@ -1215,7 +1265,8 @@
       pendingHL = null;
       if (row) { row.classList.add("flash"); row.scrollIntoView({ block: "center" }); return; }
     }
-    if (r.top !== "home" && window.scrollY > $("#mesh").offsetTop) $("#mesh").scrollIntoView();
+    var keep = KEEP_SCROLL; KEEP_SCROLL = false;
+    if (!keep && r.top !== "home" && window.scrollY > $("#mesh").offsetTop) $("#mesh").scrollIntoView();
   }
 
   function today() {

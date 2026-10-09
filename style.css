@@ -534,3 +534,11 @@ ul.gn-sub li a{display:block;padding:2px 0;font:bold 11px var(--ui)}
   .gbtn{min-height:42px;font-size:13px}
   .gc-name{font-size:18px}
 }
+
+/* v4.1 form squares (last 5, newest right) */
+.form{display:inline-flex;gap:2px;vertical-align:middle}
+.fq{display:inline-block;width:16px;height:16px;line-height:16px;text-align:center;font:bold 9.5px Verdana,"FragNet Sans",sans-serif;color:#fff;border-radius:2px;cursor:default}
+.fq.w{background:#1E7B34} .fq.l{background:#C0392B} .fq.d{background:#7d8691}
+.fq.ff{font-size:8px;letter-spacing:-.3px;opacity:.8;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.18) 0 3px,transparent 3px 6px)}
+.tbl td.fcell{width:96px;overflow:visible}
+@media (max-width:600px){.fq{width:14px;height:15px;line-height:15px;font-size:9px}.tbl td.fcell{width:84px}}
