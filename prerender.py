@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Pre-render a static front page into dist/index.html (FragNet v3.7 no-JS fallback).
+"""Pre-render a static front page into dist/index.html (FragNet no-JS fallback; v4.0 calm home).
 
     python prerender.py dist/index.html dist/data.json
 
-Writes a plain-HTML snapshot (CS2 top 5 per division, latest ESEA + Valorant results,
-WoW top 5, headlines) into #view / #side-news / #hdr-upd and a live summary into the
+Writes a plain-HTML snapshot (three game cards with live teasers and outbound section
+buttons, the latest 5 ESEA results, 5 headlines; North America first) into #view / #side-news / #hdr-upd and a live summary into the
 description + og/twitter description, so no-JS visitors, search engines and link
 previews see real data. app.js replaces it on boot (it renders #view / #side-news
 wholesale) and removes the data-prerender marker.
@@ -50,8 +50,9 @@ def pt(iso, f="%b %-d, %H:%M %Z"):
         return ""
 
 
-def std(title, meta, inner):
-    return (f'<div class="std"><div class="std-header"><h1>{title}</h1>'
+def std(title, meta, inner, sid=""):
+    idattr = f' id="{sid}"' if sid else ""
+    return (f'<div class="std"{idattr}><div class="std-header"><h1>{title}</h1>'
             + (f'<span class="meta">{meta}</span>' if meta else "") + f"</div>{inner}</div>")
 
 
@@ -70,28 +71,50 @@ def rio_page(raid, region):
     return f"https://raider.io/{slug}/rankings/{region}/mythic" if slug and re.match(r"^[a-z0-9-]+$", slug) else "https://raider.io/"
 
 
+def card(game, name, sub, teaser, btns):
+    b = "".join(f'<a class="gbtn" href="{e(safe_url(u))}" target="_blank" rel="noopener">{e(t)}</a>' for t, u in btns if safe_url(u))
+    return (f'<section class="gcard g-{game}" aria-label="{e(name)}"><div class="gc-head"><span class="gc-name">{e(name)}</span><span class="gc-sub">{e(sub)}</span></div>'
+            f'<div class="gc-teaser">{teaser or "<span class=dim>No data yet.</span>"}</div><div class="gc-btns">{b}</div></section>')
+
+
+def na_first(divs):
+    return sorted(divs or [], key=lambda dv: 0 if dv.get("region") == "NA" else 1)
+
+
 def render(d):
+    """v4.0 calm home: three game cards, the latest 5 ESEA results, 5 headlines (North America first)."""
     cs, val, wow = d.get("cs") or {}, d.get("valorant") or {}, d.get("wow") or {}
     upd = pt(d.get("fetched_at"))
     parts = [std("FragNet Front Page", "updated " + e(upd),
-                 '<div class="infobox">Welcome to <b>FragNet</b>, an amateur &amp; semi-pro league tracker. '
-                 "This is a static snapshot of the front page; with JavaScript enabled you get every division, "
-                 "team and player pages, match scoreboards and search. All times Pacific.</div>")]
-    # CS2: top N per division
-    rows = []
-    for dv in cs.get("divisions") or []:
-        teams = (dv.get("teams") or [])[:N_TEAMS]
-        if not teams:
-            continue
-        rows.append(f'<tr class="row-header"><td colspan="5">{ext(dv.get("link"), (dv.get("region") or "") + " " + (dv.get("division") or ""))}</td></tr>')
-        for t in teams:
-            rows.append(f'<tr><td class="rk"><span>{e(t.get("rank"))}</span></td><td class="team">{ext(team_url(t), t.get("name"))}</td>'
-                        f'<td class="n w">{e(t.get("w"))}</td><td class="n l">{e(t.get("l"))}</td><td class="n"><b>{e(t.get("pts"))}</b></td></tr>')
-    parts.append(std(f"ESEA League Standings :: Top {N_TEAMS}", ext(ESEA_PAGE, "FACEIT ESEA League &raquo;").replace("&amp;raquo;", "&raquo;"),
-                     '<div class="rankbox"><table class="tbl pre-st"><thead><tr><th class="first c">#</th><th>Team</th><th class="n">W</th><th class="n">L</th><th class="n">Pts</th></tr></thead><tbody>'
-                     + "".join(rows) + "</tbody></table></div>" if rows else '<div class="empty">Standings coming soon.</div>'))
-    # latest ESEA results
-    fin = sorted([m for m in cs.get("matches") or [] if m.get("t")], key=lambda m: m["t"], reverse=True)[:8]
+                 '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. '
+                 "This is a static snapshot; with JavaScript enabled you get every division, team and player page, match scoreboards and search. All times Pacific.</div>")]
+    divs = [dv for dv in na_first(cs.get("divisions")) if dv.get("teams")]
+    d0 = divs[0] if divs else None
+    cs_t = " &middot; ".join(x for x in [
+        e(cs.get("season", {}).get("name")) if cs.get("season") else "",
+        (f'{e(d0.get("region"))} {e(d0.get("division"))} leader <b>{e(d0["teams"][0].get("name"))}</b>' if d0 else "")] if x)
+    evs = val.get("events") or []
+    tp = (val.get("top_players") or [None])[0]
+    na_ev = next((ev for ev in evs if re.search(r"north america", ev.get("title") or "", re.I)), None)
+    val_t = " &middot; ".join(x for x in [
+        f"{len(evs)} events tracked" if evs else "",
+        (f'top player <b>{e(tp.get("name"))}</b> ({float(tp.get("rating") or 0):.2f})' if tp else "")] if x)
+    rk, raid = wow.get("rankings") or {}, wow.get("raid") or {}
+    us, eu = (rk.get("us") or [None])[0], (rk.get("eu") or [None])[0]
+    wow_t = " &middot; ".join(x for x in [
+        e(raid.get("name")) if raid.get("name") else "",
+        (f'US #1 <b>{e(us.get("guild"))}</b> {e(us.get("progress"))}' if us else ""),
+        (f'EU #1 <b>{e(eu.get("guild"))}</b> {e(eu.get("progress"))}' if eu else "")] if x)
+    parts.append('<div class="gcards">'
+                 + card("cs2", "Counter-Strike 2", "ESEA League", cs_t,
+                        [((d0.get("region") + " " + d0.get("division") + " standings") if d0 else "Standings", (d0 or {}).get("link") or ESEA_PAGE), ("ESEA League on FACEIT", ESEA_PAGE)])
+                 + card("valorant", "Valorant", "Challengers / Game Changers", val_t,
+                        [("NA event on vlr.gg" if na_ev else "Events on vlr.gg", (na_ev or {}).get("url") or "https://www.vlr.gg/events"), ("Results on vlr.gg", "https://www.vlr.gg/matches/results")])
+                 + card("wow", "World of Warcraft", "Mythic raid race", wow_t,
+                        [("US Rankings", rio_page(raid, "us")), ("EU Rankings", rio_page(raid, "eu"))])
+                 + "</div>")
+    # latest ESEA results (short)
+    fin = sorted([m for m in cs.get("matches") or [] if m.get("t")], key=lambda m: m["t"], reverse=True)[:5]
     rr = []
     for m in fin:
         w = m.get("winner")
@@ -103,36 +126,13 @@ def render(d):
     parts.append(std("Latest ESEA Results", "",
                      '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first hide-sm">Date</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
                      + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">Match results coming soon.</div>'))
-    # Valorant
-    vr = (val.get("results") or [])[:6]
-    vrows = "".join(
-        f'<tr><td class="n {"win" if m.get("winner") == 0 else "lose"}">{e(m.get("team1"))}</td>'
-        f'<td class="score">{ext(m.get("url"), str(m.get("score1")) + ":" + str(m.get("score2")))}</td>'
-        f'<td class="{"win" if m.get("winner") == 1 else "lose"}">{e(m.get("team2"))}</td><td class="dim hide-sm">{e(m.get("event"))}</td></tr>' for m in vr)
-    parts.append(std("Latest Valorant Results", "",
-                     '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Event</th></tr></thead><tbody>'
-                     + vrows + "</tbody></table></div>" if vr else '<div class="empty">Not available yet.</div>'))
-    # WoW
-    rk, raid = wow.get("rankings") or {}, wow.get("raid") or {}
-    us, eu = rk.get("us") or [], rk.get("eu") or []
-    if us or eu:
-        wrows = "".join(
-            f'<tr><td class="rk"><span>{i + 1}</span></td><td class="team">{ext(us[i].get("url"), us[i].get("guild")) if i < len(us) else ""}</td>'
-            f'<td class="hide-sm">{e(us[i].get("progress")) if i < len(us) else ""}</td>'
-            f'<td class="team">{ext(eu[i].get("url"), eu[i].get("guild")) if i < len(eu) else ""}</td>'
-            f'<td class="hide-sm">{e(eu[i].get("progress")) if i < len(eu) else ""}</td></tr>' for i in range(5))
-        wow_html = ('<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>US Guild</th><th class="hide-sm">Prog</th><th>EU Guild</th><th class="hide-sm">Prog</th></tr></thead><tbody>'
-                    + wrows + "</tbody></table></div>")
-    else:
-        wow_html = '<div class="empty">Not available yet.</div>'
-    parts.append(std("Mythic Raid Race :: Top 5", ext(rio_page(raid, "world"), (raid.get("name") or "Raider.IO") + " rankings"), wow_html))
     # news
-    news = sorted((d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)[:10]
+    news = sorted((d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)
     parts.append(std("Latest Esports News", "",
-                     '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news) + "</div>"
-                     if news else '<div class="empty">No headlines.</div>'))
-    side = "".join(f'<li>{ext(n.get("url"), n.get("title"))}<span class="cnt">{e(pt(n.get("date"), "%b %-d"))}</span></li>' for n in news[:12])
-    leaders = [f'{dv.get("region")} {dv.get("division")}: {dv["teams"][0].get("name")}' for dv in cs.get("divisions") or [] if dv.get("teams") and dv.get("division") == "Advanced"][:3]
+                     '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news[:5]) + "</div>"
+                     if news else '<div class="empty">No headlines.</div>', "home-news"))
+    side = "".join(f'<li>{ext(n.get("url"), n.get("title"))}<span class="cnt">{e(pt(n.get("date"), "%b %-d"))}</span></li>' for n in news[:8])
+    leaders = [f'{dv.get("region")} {dv.get("division")}: {dv["teams"][0].get("name")}' for dv in divs if dv.get("division") == "Advanced"][:3]
     desc = ("FragNet - ESEA League CS2 standings and results" + (f" (leaders {', '.join(leaders)})" if leaders else "")
             + ", Valorant tier-2 results, WoW Mythic raid race and esports news." + (f" Updated {upd}." if upd else ""))
     return "".join(parts), side, upd, desc
@@ -198,8 +198,8 @@ def check_page(page):
     else:
         if not well_formed(m.group(1)):
             probs.append("prerendered #view is not well-formed")
-        if m.group(1).count('class="std-header"') < 5:
-            probs.append("prerendered #view has fewer than 5 sections")
+        if m.group(1).count('class="std-header"') < 3 or m.group(1).count('class="gcard ') != 3:
+            probs.append("prerendered #view is missing sections (3 boxes + 3 game cards expected)")
         if re.search(r'href="#', m.group(1)):
             probs.append("prerendered #view contains #route links (need JavaScript)")
     return probs
