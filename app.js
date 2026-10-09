@@ -623,9 +623,62 @@
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
     return null;
   }
+  /* v5.9 pre-match preview for upcoming / live CS2 matches: this season's tracked maps only, no predictions */
+  function findCsUpcoming(id) {
+    var all = ((D.cs && D.cs.live) || []).concat(csUpcoming(), (teamsX() && teamsX().upcoming) || []);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+  function csAllFinished() {
+    var seen = {}, out = [];
+    ((D.cs && D.cs.matches) || []).concat((teamsX() && teamsX().matches) || []).forEach(function (x) { if (x.id && !seen[x.id] && (x.winner === 1 || x.winner === 2)) { seen[x.id] = 1; out.push(x); } });
+    return out;
+  }
+  function mapRecord(fin, id) {
+    var rec = {};
+    fin.forEach(function (x) {
+      var side = x.t1 && x.t1.id === id ? 1 : x.t2 && x.t2.id === id ? 2 : 0;
+      if (!side || isFF(x)) return;
+      var list = (x.maps && x.maps.length) ? x.maps.map(function (mp) { return { map: mp.map, a: num(mp.s1), b: num(mp.s2) }; })
+        : (num(x.bo) === 1 && x.pick && x.pick[0]) ? [{ map: x.pick[0], a: num(x.s1), b: num(x.s2) }] : [];
+      list.forEach(function (mp) {
+        if (!mp.map || mp.a === mp.b) return;
+        var r = rec[mp.map] || (rec[mp.map] = { w: 0, n: 0, last: [] }), won = side === 1 ? mp.a > mp.b : mp.b > mp.a;
+        r.n++; if (won) r.w++; r.last.push({ r: won ? "W" : "L", t: x.t });
+      });
+    });
+    return rec;
+  }
+  function vPreviewCS(m) {
+    var fin = csAllFinished(), a = m.t1 || {}, b = m.t2 || {}, ra = mapRecord(fin, a.id), rb = mapRecord(fin, b.id);
+    var maps = Object.keys(ra).concat(Object.keys(rb)).filter(function (x, i, l) { return l.indexOf(x) === i; }).sort();
+    function cell(r) {
+      if (!r) return '<td class="n dim">&ndash;</td>';
+      var pct = Math.round(100 * r.w / r.n), last = r.last.sort(function (p, q) { return String(p.t).localeCompare(String(q.t)); }).slice(-5).map(function (f) { return '<span class="fq ' + (f.r === "W" ? "w" : "l") + '">' + f.r + "</span>"; }).join("");
+      return '<td class="n' + (r.n < 2 ? " dim small-n" : "") + '" title="' + r.w + " won of " + r.n + ' maps tracked this season">' + '<span class="wr-bar" style="width:' + pct + '%"></span>' + pct + "% <small>(" + r.w + "-" + (r.n - r.w) + ", n=" + r.n + ")</small> " + last + "</td>";
+    }
+    var mapTbl = maps.length ? '<div class="rankbox"><table class="tbl prev-maps"><thead><tr><th class="first">Map</th><th class="n">' + esc(a.name) + '</th><th class="n">' + esc(b.name) + "</th></tr></thead><tbody>" +
+      maps.map(function (mp) { return "<tr><td>" + esc(mp) + "</td>" + cell(ra[mp]) + cell(rb[mp]) + "</tr>"; }).join("") + "</tbody></table></div>" : '<div class="empty">No maps tracked for these teams yet this season.</div>';
+    function involves(x, id) { return (x.t1 && x.t1.id === id) || (x.t2 && x.t2.id === id); }
+    var h2h = fin.filter(function (x) { return involves(x, a.id) && involves(x, b.id); }).sort(function (p, q) { return String(q.t).localeCompare(String(p.t)); });
+    var oppA = {}, oppB = {};
+    fin.forEach(function (x) { [[a.id, oppA], [b.id, oppB]].forEach(function (z) { if (involves(x, z[0])) { var o = x.t1.id === z[0] ? x.t2 : x.t1, won = (x.t1.id === z[0]) === (x.winner === 1); (z[1][o.id] = z[1][o.id] || { name: o.name, r: [] }).r.push(won ? "W" : "L"); } }); });
+    var common = Object.keys(oppA).filter(function (k) { return oppB[k] && k !== a.id && k !== b.id; }).map(function (k) { return esc(oppA[k].name) + " (" + esc(a.name) + " " + oppA[k].r.join("") + ", " + esc(b.name) + " " + oppB[k].r.join("") + ")"; });
+    var live = ((D.cs && D.cs.live) || []).some(function (x) { return x.id === m.id; }), ru = roomUrl(m);
+    var info = kv([["When", m.t ? fmt(m.t) + " " + relSpan(live ? "live" : "up", m.t, "cs") : "TBD"], ["Division", esc(m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + (m.round ? " &middot; round " + num(m.round) : "")],
+      ["Format", "best of " + num(m.bo || 1)], ["Standing now", rankPre(a) + esc(a.name) + " &middot; " + rankPre(b) + esc(b.name)], ["Match room", ru ? ext(ru, live ? "Follow live on FACEIT" : "Match room on FACEIT") : ""]]);
+    setCrumbs([["CS2", "cs2"], ["Matches Today", "cs2/today"], [a.name + " vs " + b.name]]);
+    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) +
+      '<h2 class="subhead">Map win rates this season <small>maps tracked here; n&lt;2 greyed</small></h2>' + mapTbl +
+      '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
+      '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
+      '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') +
+      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). No predictions. Times in Pacific Time.</div>';
+  }
   function vMatchCS(id) {
     var m = findCsMatch(id);
     if (!m && TX_STATE !== "ok" && TX_STATE !== "fail") { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
+    if (!m) { var um = findCsUpcoming(id); if (um) return vPreviewCS(um); }
     if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in Esports Scoreboard's data.", '<a href="#cs2/results">ESEA results</a>');
     loadTeams();
     var ru = roomUrl(m), w = win12(m, "cs"), maps = m.maps || [];
@@ -996,7 +1049,7 @@
         else mid = "vs";
         var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : "match room on FACEIT";
         return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) + relSpan(r.st, m.t, "cs") : "TBD") + "</td>" +
-          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + rankPre(m.t1) + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) + (isFF(m) ? ' <span class="ff-tag" title="forfeit (FACEIT result with no rounds played)">FF</span>' : "") : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + (r.st === "done" ? mapChips(m) : "") + "</td>" +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + rankPre(m.t1) + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) + (isFF(m) ? ' <span class="ff-tag" title="forfeit (FACEIT result with no rounds played)">FF</span>' : "") : (r.st === "up" && csMatchHash(m) ? '<a href="#' + esc(csMatchHash(m)) + '" title="match preview">' + mid + "</a>" : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid)) + (r.st === "done" ? mapChips(m) : "") + "</td>" +
           '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + rankPre(m.t2) + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
           ilink("cs2/" + divOf(m), m.region + " " + m.division) + (m.bo ? ' <span class="bo-tag">Bo' + num(m.bo) + "</span>" : "") + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" +

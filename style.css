@@ -775,3 +775,8 @@ td.score a.xl:hover{color:var(--link)}
 [data-theme=night] .day-strip .day{background:#1b2026;color:#cfe0ee;border-color:#3a434d}
 [data-theme=night] .day-strip .day.on{background:#2f6db8;color:#fff}
 [data-theme=night] .day-strip .day.off{background:#14171b;color:#a7b2bc}
+/* v5.9 preview */
+.tbl.prev-maps td.n{position:relative;white-space:nowrap}
+.wr-bar{position:absolute;left:0;bottom:0;height:3px;background:#D94F00;opacity:.7}
+.tbl.prev-maps td.small-n{opacity:.65}
+@media (max-width:600px){.tbl.prev-maps td.n .fq{display:none}}
