@@ -1,4 +1,4 @@
-/* FragNet v3.7 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.7.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -120,6 +120,23 @@
   function guildHash(region, g) { return "guild/" + region + "/" + encodeURIComponent(guildRealm(g)) + "/" + encodeURIComponent(g.guild); }
   function csTeamLink(t) { var h = teamHash(t); return h ? ilink(h, t.name) : ext(t.url, t.name); }
   function csPlayers() { return (D.cs && (D.cs.players && D.cs.players.length ? D.cs.players : D.cs.top_players)) || []; }
+  /* v3.7.2: Main/Intermediate season stats live in the lazy teams.js ("players", compact rows in player_cols order) */
+  var XP = null;
+  function xPlayers() {
+    var x = window.FRAGNET_TEAMS;
+    if (!x || !x.players) return [];
+    if (XP && XP.src === x) return XP.list;
+    var tName = {}; csDivs().forEach(function (d) { (d.teams || []).forEach(function (t) { if (t.id) tName[t.id] = t.name; }); });
+    var cols = x.player_cols || [], list = x.players.map(function (row) {
+      var o = {}; cols.forEach(function (c, i) { o[c] = row[i]; });
+      o.url = "https://www.faceit.com/en/players/" + encodeURIComponent(o.nick || "");
+      if (o.team_id && !o.team) { var tm = tName[o.team_id]; o.team = tm || null; if (!tm) o.team_id = null; }
+      return o;
+    });
+    XP = { src: x, list: list }; return list;
+  }
+  function allCsPlayers() { return csPlayers().concat(xPlayers()); }
+  var MINR = function () { return num(((D.cs || {}).top_players_meta || {}).min_rounds || 20); };
   function findCsTeam(id) {
     var ds = csDivs();
     for (var i = 0; i < ds.length; i++) for (var j = 0; j < (ds[i].teams || []).length; j++) if (csTeamId(ds[i].teams[j]) === id && id) return { t: ds[i].teams[j], d: ds[i] };
@@ -145,7 +162,7 @@
     return x ? (x[key] || []).filter(function (m) { return involves(m, id); }) : [];
   }
   function findCsPlayer(nick) {
-    var n = String(nick || "").toLowerCase(), ps = csPlayers();
+    var n = String(nick || "").toLowerCase(), ps = allCsPlayers();
     for (var i = 0; i < ps.length; i++) if (String(ps[i].nick).toLowerCase() === n) return ps[i];
     return null;
   }
@@ -500,13 +517,24 @@
       " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
     var body = "", title = "";
     if (sub === "players") {
-      title = "Top Fraggers :: EU + NA Advanced";
+      title = "Top Fraggers :: EU + NA";
       var ps = cs.top_players || [], pm = cs.top_players_meta || {};
       body = ps.length ? staleNote(pm) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Division</th><th class="n hide-sm" title="matches played">Matches</th><th class="n hide-sm" title="rounds played">Rnds</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
         ps.map(function (p, i) {
           return '<tr class="' + medal(i + 1) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + esc(p.region + " " + p.division) +
             '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
-        }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">no player stats</div>';
+        }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">Player stats coming soon.</div>';
+      var tbd = cs.top_by_div || {};
+      csDivs().forEach(function (d) {
+        var k = d.region + " " + d.division, list = tbd[k] || [];
+        if (d.division === "Advanced" && ps.length) return;      // already ranked above
+        body += '<h2 class="subhead" id="tf-' + esc(divId(d)) + '">Top Fraggers :: ' + esc(k) + "</h2>" + (list.length ? '<div class="rankbox"><table class="tbl tf-div"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th class="n hide-sm">Rnds</th><th class="n">K/D</th><th class="n">ADR</th><th class="n hide-sm">HS%</th></tr></thead><tbody>' +
+          list.map(function (p, i) {
+            return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : "") +
+              '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+          }).join("") + "</tbody></table></div>" + '<div class="note">Top ' + list.length + (((cs.top_players_meta || {}).per_div || {})[k] ? " of " + num(cs.top_players_meta.per_div[k]) : "") + " players with at least " + MINR() + " rounds in " + esc(k) + ", by K/D.</div>"
+          : '<div class="empty">No player in ' + esc(k) + " has " + MINR() + " rounds yet.</div>");
+      });
     } else if (sub === "results") {
       title = "Match Results :: EU + NA";
       var allF = csFinished(), pg = pageOf(parts), npg = Math.max(1, Math.ceil(allF.length / PER_PAGE)); if (pg > npg) pg = npg;
@@ -673,24 +701,25 @@
       ["Season", esc(s.name || "?") + (s.start ? " (" + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + ")" : "")],
       ["Standings", line]
     ]);
-    var stats = {}; csPlayers().forEach(function (p) { stats[String(p.nick).toLowerCase()] = p; });
-    var roster = r.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Player</th><th>Country</th><th>Role</th><th class="n" title="kills per death (ranked ESEA Advanced players only)">K/D</th><th class="n hide-sm" title="average damage per round">ADR</th></tr></thead><tbody>' +
+    var stats = {}; allCsPlayers().forEach(function (p) { if (p.division === d.division && p.region === d.region || !stats[String(p.nick).toLowerCase()]) stats[String(p.nick).toLowerCase()] = p; });
+    var roster = r.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Player</th><th>Country</th><th>Role</th><th class="n" title="kills per death, season to date">K/D</th><th class="n hide-sm" title="average damage per round">ADR</th></tr></thead><tbody>' +
       r.map(function (m) {
         var p = stats[String(m.nick).toLowerCase()];
         return "<tr><td class=\"team\">" + ilink(playerHash(m.nick), m.nick) + '</td><td title="' + esc(countryName(m.country)) + '">' + esc(m.country || "") + "</td><td>" + (m.sub ? "Substitute" : "Player") + (lead === m.nick ? " &middot; Captain" : "") +
-          '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
-      }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR only for players ranked in the ESEA Advanced stats (at least ' + num(((D.cs || {}).top_players_meta || {}).min_rounds || 20) + " rounds); &ndash; = not ranked.</div>"
+          '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" + (num(p.rounds) < MINR() ? '<span class="dim" title="few rounds">*</span>' : "") : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+      }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR season to date (* = fewer than ' + MINR() + " rounds); &ndash; = no matches with stats yet.</div>"
       : rosterPending ? '<div class="empty loading">Loading roster&hellip;</div>' : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
     return std(esc(t.name), "CS2 &middot; ESEA League team", info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
       '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
 
   function vPlayerCS(nick) {
-    var p = findCsPlayer(nick), spot = findRosterSpot(nick), pm = (D.cs && D.cs.top_players_meta) || {};
-    if (!p && !spot) loadTeams();
-    if (!p && !spot && TX_STATE === "loading") return std(esc(nick), "CS2 &middot; ESEA League player", '<div class="empty loading">Loading player&hellip;</div>');
-    if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in FragNet's data (rosters of the ESEA teams shown and ranked ESEA Advanced players).", '<a href="#cs2/players">Top fraggers</a>');
-    var name = p ? p.nick : spot.m.nick;
+    var p = findCsPlayer(nick), spot = findRosterSpot(nick);
+    if (!p) loadTeams();                                   // Main/Intermediate stats + rosters are in teams.js
+    if (!p && TX_STATE === "loading") return std(esc(nick), "CS2 &middot; ESEA League player", '<div class="empty loading">Loading player&hellip;</div>');
+    p = p || findCsPlayer(nick); spot = spot || findRosterSpot(nick);
+    if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in FragNet's data (rosters and season stats of the ESEA teams shown).", '<a href="#cs2/players">Top fraggers</a>');
+    var name = p ? p.nick : spot.m.nick, pm = (D.cs && D.cs.top_players_meta) || {};
     var teamCell = spot ? csTeamLink(spot.t) + ' <span class="dim">(' + esc(spot.d.region + " " + spot.d.division) + ")</span>" :
       p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : '<span class="dim">not found in the public rosters</span>';
     var info = kv([
@@ -699,11 +728,14 @@
       spot && spot.m.country ? ["Country", esc(countryName(spot.m.country) + " (" + spot.m.country + ")")] : null,
       p ? ["Stats group", esc(p.region + " " + p.division)] : null
     ]);
-    var st = p ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank by K/D among ranked players">Rank</th><th class="n">Matches</th><th class="n">Rounds</th><th class="n">K</th><th class="n">D</th><th class="n">K/D</th><th class="n">ADR</th><th class="n">HS%</th></tr></thead><tbody><tr>' +
-      '<td class="c"><b>#' + num(p.rank || 0) + "</b>" + (pm.pool ? '<span class="cc">of ' + num(pm.pool) + "</span>" : "") + '</td><td class="n">' + num(p.matches) + '</td><td class="n">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) +
+    var few = p && num(p.rounds) < MINR();
+    var rankCell = p && p.drank ? "<b>#" + num(p.drank) + '</b><span class="cc">of ' + num(p.dpool) + "</span>" : '<span class="dim" title="fewer than ' + MINR() + ' rounds">&ndash;</span>';
+    var st = p ? '<div class="rankbox"><table class="tbl pstats"><thead><tr><th class="first c" title="rank by K/D in the division (min. ' + MINR() + ' rounds)">Rank</th><th class="n">Matches</th><th class="n">Rounds</th><th class="n">K</th><th class="n">D</th><th class="n">K/D</th><th class="n">ADR</th><th class="n">HS%</th></tr></thead><tbody><tr>' +
+      '<td class="c">' + rankCell + '</td><td class="n">' + num(p.matches) + '</td><td class="n">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) +
       '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n">' + Math.round(num(p.hs)) + "%</td></tr></tbody></table></div>" +
-      '<div class="note">Season to date in ESEA ' + esc(p.region + " " + p.division) + " (EU + NA Advanced ranked together by K/D, min. " + num(pm.min_rounds || 20) + " rounds). Stats as published on FACEIT" + (pm.fetched_at ? ", fetched " + fmt(pm.fetched_at, "short") : "") + ".</div>"
-      : '<div class="empty">No season stats for this player in FragNet\'s data: only ESEA Advanced players with at least ' + num(pm.min_rounds || 20) + " rounds are ranked.</div>";
+      (few ? '<div class="note few-rounds">Few rounds so far (' + num(p.rounds) + "): too small a sample to rank (min. " + MINR() + " rounds).</div>" : "") +
+      '<div class="note">Season to date in ESEA ' + esc(p.region + " " + p.division) + (p.drank ? ", ranked by K/D among " + num(p.dpool) + " players with at least " + MINR() + " rounds" : "") + ". Stats as published on FACEIT" + (pm.fetched_at ? ", fetched " + fmt(pm.fetched_at, "short") : "") + ".</div>"
+      : '<div class="empty">No season stats yet: ' + esc(name) + " has not played an ESEA match with stats this season.</div>";
     var link = (p && p.url) || "https://www.faceit.com/en/players/" + encodeURIComponent(name);
     return std(esc(name), "CS2 &middot; ESEA League player", info) + '<h2 class="subhead">Season Stats</h2>' + st + playerMatchesHtml(name) +
       '<div class="note">' + ext(link, "Profile on FACEIT") + ' &middot; <a href="#cs2/players">Top fraggers</a></div>';

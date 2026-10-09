@@ -9,7 +9,7 @@ like a classic mid-2000s esports portal:
   scores and upcoming with start times - plus any Valorant results from today.
 - **Counter-Strike 2 / ESEA League**: current season, full standings (every team, paged with
   "show all") for EU and NA Advanced, Main and Intermediate, recent results and upcoming matches with per-map
-  scoreboards, and top fraggers in Advanced.
+  scoreboards, season stats for every player in those divisions and top fraggers per division.
 - **Valorant**: Challengers / VCL and Game Changers calendar, recent final standings and
   tier-2 match results.
 - **World of Warcraft**: Mythic raid progression rankings (top 50, US and EU).
