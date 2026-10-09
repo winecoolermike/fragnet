@@ -107,3 +107,12 @@ JavaScript the normal app takes over. Only teams, players and matches with at le
 page. `sitemap.xml` and `robots.txt` are written alongside. Share images (1200x630 PNG, no logos) are drawn
 with Pillow for teams and matches and cached between runs, so only changed ones are redrawn. Generated files
 are never committed; they go straight into the Pages artifact. Local build: `python build_dist.py --pages --prerender`.
+
+## Custom domain (esportsscoreboard.com)
+
+Pages is deployed by the Actions workflow, so the custom domain is a Pages setting (a CNAME file is not used):
+`gh api -X PUT repos/winecoolermike/fragnet/pages -f cname=esportsscoreboard.com`, then, once GitHub has issued the
+certificate, `gh api -X PUT repos/winecoolermike/fragnet/pages -F https_enforced=true`. The repository variable
+`SITE_URL` (`gh variable set SITE_URL --body https://esportsscoreboard.com/`) switches canonical URLs, og tags,
+sitemap.xml, robots.txt and share images on the next deploy. All links inside the site are relative, so it works both
+under /fragnet/ and at the domain root.
