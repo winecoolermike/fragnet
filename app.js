@@ -1,4 +1,4 @@
-/* FragNet v4.4 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.5 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -87,7 +87,15 @@
     valorant: { name: "Valorant", short: "Valorant", sub: "Challengers / Game Changers", tabs: [["events", "valorant/events", "Events"], ["results", "valorant/results", "Results"], ["players", "valorant/players", "Top Players"]] },
     wow: { name: "World of Warcraft", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
   };
-  var KEEP_SCROLL = false, CRUMB = null, CUR_SEC = "", LAST_SEC = (location.hash || "#home").split("/")[0];
+  /* v4.5 path pages (e.g. team/cs2/<id>/): the route comes from <meta name="fragnet-route"> until a hash is set.
+     Hash links on those pages resolve through <base> to the front page, so navigation stays the plain hash SPA. */
+  var PATH_ROUTE = (function () {
+    var m = document.querySelector('meta[name="fragnet-route"]'), b = document.querySelector("base[href]");
+    if (b) b.setAttribute("href", document.baseURI + (location.protocol === "file:" ? "index.html" : ""));   // freeze it; file:// has no directory index
+    return m ? (m.getAttribute("content") || "").replace(/^#/, "") : "";
+  })();
+  function curHash() { return location.hash || (PATH_ROUTE ? "#" + PATH_ROUTE : ""); }
+  var KEEP_SCROLL = false, CRUMB = null, CUR_SEC = "", LAST_SEC = (curHash() || "#home").split("/")[0];
   function setCrumbs(list) { CRUMB = list.filter(Boolean); }
   function crumbHtml(list) {
     return '<nav class="crumbs" aria-label="Breadcrumb"><a href="#home">Home</a>' + list.map(function (c, i) {
@@ -210,7 +218,7 @@
     TX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player|match)\/cs2\/|search|cs2(\/(?!results|players)|$)|home|$)/.test(location.hash || "#")) { KEEP_SCROLL = true; route(); } }
+    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player|match)\/cs2\/|search|cs2(\/(?!results|players)|$)|home|$)/.test(curHash() || "#")) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -223,7 +231,7 @@
     VX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "val.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { VX_STATE = ok && window.FRAGNET_VAL ? "ok" : "fail"; if (/^#(team\/val|player\/val|match\/val|valorant\/players|search)/.test(location.hash)) { KEEP_SCROLL = true; route(); } }
+    function done(ok) { VX_STATE = ok && window.FRAGNET_VAL ? "ok" : "fail"; if (/^#(team\/val|player\/val|match\/val|valorant\/players|search)/.test(curHash())) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -838,7 +846,7 @@
     if (["team", "player", "guild", "match"].indexOf(r.top) < 0) return;
     var h1 = $("#view .std-header h1"), name = h1 ? h1.textContent.trim() : "";
     if (!name || /not tracked|unavailable/i.test(name) || $("#view .loading")) return;
-    var h = (location.hash || "").replace(/^#/, ""), kind = { team: "team", player: "player", guild: "guild", match: "match" }[r.top];
+    var h = curHash().replace(/^#/, ""), kind = { team: "team", player: "player", guild: "guild", match: "match" }[r.top];
     var game = r.top === "guild" ? "WoW" : r.parts[0] === "val" ? "Valorant" : "CS2";
     var rec = lsGet(LS.rec, []); if (!Array.isArray(rec)) rec = [];
     rec = [{ h: h, n: name.slice(0, 80), w: game + " " + kind }].concat(rec.filter(function (x) { return x && x.h !== h; })).slice(0, 8);
@@ -1425,7 +1433,7 @@
 
   /* ================= ROUTER ================= */
   function parseHash() {
-    var h = (location.hash || "").replace(/^#/, "");
+    var h = curHash().replace(/^#/, "");
     try { h = decodeURIComponent(h); } catch (e) {}
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
@@ -1514,7 +1522,7 @@
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum();
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
-      var sec = (location.hash || "#home").split("/")[0];
+      var sec = (curHash() || "#home").split("/")[0];
       if (window.goatcounter && window.goatcounter.count && sec !== LAST_SEC) { LAST_SEC = sec; window.goatcounter.count({ path: location.pathname + sec }); }
     });
     var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(autoTitles, 200); });
@@ -1531,6 +1539,8 @@
         if (again) again.focus();
         return;
       }
+      var sk = e.target.closest && e.target.closest("a.skip");
+      if (sk) { e.preventDefault(); var pm = $("#pane-middle"); if (pm) { pm.focus(); pm.scrollIntoView(); } return; }   // in-page jump, not a route
       if (e.target.closest && e.target.closest("button.rv-clear")) { lsSet(LS.rec, null); KEEP_SCROLL = true; route(); return; }
       var a = e.target.closest && e.target.closest("[data-hl]");
       if (a && a.dataset.hl) pendingHL = a.dataset.hl;
