@@ -750,3 +750,16 @@ td.score a.xl:hover{color:var(--link)}
 .rec-tag{display:inline-block;padding:0 4px;font:bold 11px/16px var(--ui);background:#B03F00;color:#fff;border-radius:2px}
 .claim{margin:8px 0;font-size:12px}
 .tbl.rec-board td{white-space:normal}
+/* v5.5 status tabs + relative times */
+.st-tabs{margin:6px 0}
+.st-tab .cnt{font-weight:normal;opacity:.85}
+.tbl.today td .rel{display:block;font-size:10px;line-height:1.2;white-space:normal}
+.tbl.today col.c-when{width:92px}
+/* v5.6 richer rows */
+.rk-pre{font-size:10px;color:#5b6770;font-weight:normal}
+[data-theme=night] .rk-pre{color:#a7b2bc}
+.bo-tag,.ff-tag{display:inline-block;padding:0 3px;font:bold 10px/14px var(--ui);border:1px solid #9FB6C6;border-radius:2px;color:#33414b}
+[data-theme=night] .bo-tag,[data-theme=night] .ff-tag{color:#d6e2e9;border-color:#56656e}
+.ff-tag{border-color:#B03F00;color:#B03F00}
+.map-chips{font-size:10px;line-height:1.3;white-space:normal;margin-top:2px}
+.mchip{white-space:nowrap}

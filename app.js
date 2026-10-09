@@ -326,6 +326,20 @@
     return s || null;
   }
   function roomUrl(m) { return m.url || (/^[0-9a-z-]+$/i.test(String(m.id || "")) ? "https://www.faceit.com/en/cs2/room/" + m.id : ""); }
+  /* v5.6 row extras: current division rank prefix, map chips for series */
+  var RANKC = null;
+  function rankOf(id) {
+    if (!RANKC) { RANKC = {}; csDivs().forEach(function (d) { (d.teams || []).forEach(function (t) { var k = csTeamId(t); if (k && t.rank) RANKC[k] = t.rank; }); }); }
+    return RANKC[id] || "";
+  }
+  function rankPre(sd) { var r = sd && rankOf(sd.id); return r ? '<span class="rk-pre" title="current division standing (at the last update), not the rank when the match was played">#' + esc(r) + "</span> " : ""; }
+  function mapChips(m) {
+    if (!m.maps || m.maps.length < 2) return "";
+    return '<div class="map-chips">' + m.maps.map(function (x) {
+      var a = num(x.s1), b = num(x.s2);
+      return '<span class="mchip">' + esc(x.map) + " " + (a > b ? "<b>" + a + "</b>-" + b : a + "-<b>" + b + "</b>") + "</span>";
+    }).join(" ") + "</div>";
+  }
   function csSide(sd) { return sd && sd.id && UUID_RE.test(sd.id) ? ilink("team/cs2/" + encodeURIComponent(sd.id), sd.name) : esc(sd ? sd.name : "TBD"); }
   function divOf(m) { return slug(m.region + "-" + m.division); }
   function involves(m, id) { return (m.t1 && m.t1.id === id) || (m.t2 && m.t2.id === id); }
@@ -885,8 +899,31 @@
     rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
     return rows;
   }
+  /* v5.5 relative times + status tabs (Today board) */
+  function relText(st, iso, g) {
+    var t = new Date(iso).getTime(); if (isNaN(t)) return "";
+    var d = Math.round((Date.now() - t) / 60000), a = Math.abs(d);
+    var span = a < 60 ? a + "m" : a < 1440 ? Math.floor(a / 60) + "h" + (a % 60 ? " " + (a % 60) + "m" : "") : Math.floor(a / 1440) + "d";
+    if (st === "up") return d < 0 ? "in " + span : "started " + span + " ago &middot; no result yet";
+    if (st === "live") return "started " + span + " ago";
+    return d < 0 ? "" : (g === "cs" ? "ended " : "started ") + span + " ago";
+  }
+  function relSpan(st, iso, g) { return iso ? '<span class="rel" data-st="' + st + '" data-g="' + g + '" data-t="' + esc(iso) + '">' + relText(st, iso, g) + "</span>" : ""; }
+  function refreshRel() { Array.prototype.forEach.call(document.querySelectorAll("#view .rel[data-t]"), function (el) { el.innerHTML = relText(el.getAttribute("data-st"), el.getAttribute("data-t"), el.getAttribute("data-g")); }); }
+  var TABS = [["all", "All"], ["live", "Live"], ["up", "Upcoming"], ["done", "Finished"], ["mine", "My teams"]];
+  function rowMine(r) {
+    var m = r.m;
+    if (r.g === "cs") return (m.t1 && isFav("cs:" + m.t1.id)) || (m.t2 && isFav("cs:" + m.t2.id));
+    return isFav("val:" + slug(m.team1)) || isFav("val:" + slug(m.team2));
+  }
+  function todayTab() { var t = lsGet("esb-today-tab", "all"); return TABS.some(function (x) { return x[0] === t; }) ? t : "all"; }
   function todayBoard(preview) {
-    var all = todayRows(), p = ptParts(new Date()), N = 12;
+    var all = todayRows(), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
+    all.forEach(function (r) { counts[r.st]++; if (rowMine(r)) counts.mine++; });
+    var tabsHtml = preview ? "" : '<div class="segs segs2 st-tabs"><div class="seg" role="tablist" aria-label="Match status"><span class="seg-l">Show</span>' + TABS.map(function (x) {
+      return '<a href="#cs2/today" role="tab" class="st-tab' + (x[0] === tab ? " on" : "") + '" aria-selected="' + (x[0] === tab) + '" data-tab="' + x[0] + '">' + x[1] + ' <span class="cnt">' + counts[x[0]] + "</span></a>";
+    }).join("") + "</div></div>";
+    if (tab !== "all") { all = all.filter(function (r) { return tab === "mine" ? rowMine(r) : r.st === tab; }); N = 60; }
     // busy league days have 200+ matches: show every live match, the latest N results and the next N starts
     var done = all.filter(function (r) { return r.st === "done"; }), up = all.filter(function (r) { return r.st === "up"; });
     var live = all.filter(function (r) { return r.st === "live"; });
@@ -902,19 +939,19 @@
     var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
     var meta = upd ? "updated " + fmt(upd, "short") : "";
     if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
-    if (!rows.length) return std(esc(title), meta, '<div class="empty today-empty">No matches scheduled today.</div>', "today-board");
-    var body = '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
+    if (!rows.length) return std(esc(title), meta, tabsHtml + '<div class="empty today-empty">' + (tab === "all" ? "No matches scheduled today." : tab === "mine" ? "None of your starred teams play today." : "No " + { live: "live", up: "upcoming", done: "finished" }[tab] + " matches today.") + "</div>", "today-board");
+    var body = tabsHtml + '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
       '<th class="first" title="Pacific Time: start time for upcoming and live matches, finish time for finished CS2 matches">Time (PT)</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division / Event</th><th class="hide-sm">Map</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var m = r.m;
         if (r.g === "val" && r.st !== "done") {
           var vt = function (nm) { return nm && nm !== "TBD" ? ilink(valHash(nm), nm) : '<span class="dim">TBD</span>'; };
-          return '<tr class="g-val st-' + r.st + '"><td class="dim" title="' + esc("scheduled " + fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm">' + vt(m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
+          return '<tr class="g-val st-' + r.st + '"><td class="dim" title="' + esc("scheduled " + fmt(m.ts)) + '">' + hhmm(m.ts) + relSpan(r.st, m.ts, "val") + '</td><td class="n tm">' + vt(m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
             (r.st === "live" ? '<span class="live-b">LIVE</span>' : "vs") + '</a></td><td class="tm">' + vt(m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) + '</td><td class="hide-sm dim">&ndash;</td></tr>';
         }
         if (r.g === "val") {
           var v1 = m.winner === 0, v2 = m.winner === 1;
-          return '<tr class="g-val"><td class="dim" title="' + esc(fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm ' + (v1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) +
+          return '<tr class="g-val"><td class="dim" title="' + esc(fmt(m.ts)) + '">' + hhmm(m.ts) + relSpan("done", m.ts, "val") + '</td><td class="n tm ' + (v1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) +
             '</td><td class="score">' + scoreLink(valMatchHash(m), '<span class="' + (v1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (v2 ? "w" : "") + '">' + esc(m.score2) + "</span>", m.url, "match page on vlr.gg") + "</td>" +
             '<td class="tm ' + (v2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) +
             '</td><td class="hide-sm dim">&ndash;</td></tr>';
@@ -924,10 +961,10 @@
         else if (r.st === "live") mid = '<span class="live-b">LIVE</span>';
         else mid = "vs";
         var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : "match room on FACEIT";
-        return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) : "TBD") + "</td>" +
-          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + "</td>" +
-          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
-          ilink("cs2/" + divOf(m), m.region + " " + m.division) + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+        return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) + relSpan(r.st, m.t, "cs") : "TBD") + "</td>" +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + rankPre(m.t1) + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) + (isFF(m) ? ' <span class="ff-tag" title="forfeit (FACEIT result with no rounds played)">FF</span>' : "") : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + (r.st === "done" ? mapChips(m) : "") + "</td>" +
+          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + rankPre(m.t2) + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
+          ilink("cs2/" + divOf(m), m.region + " " + m.division) + (m.bo ? ' <span class="bo-tag">Bo' + num(m.bo) + "</span>" : "") + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
       (preview ? '<div class="note see-all">' + all.length + " match" + (all.length === 1 ? "" : "es") + ' today &middot; <a href="#cs2/today">see all matches today &raquo;</a></div>' :
       '<div class="note">' + all.length + " match" + (all.length === 1 ? "" : "es") + " today" + (cut ? " &middot; showing " + [live.length ? "live matches" : "", done.length ? "the latest " + Math.min(N, done.length) + " result" + (Math.min(N, done.length) === 1 ? "" : "s") : "", up.length ? "the next " + Math.min(N, up.length) + " start" + (Math.min(N, up.length) === 1 ? "" : "s") : ""].filter(Boolean).join(", ") + ' (<a href="#cs2/results">all results &raquo;</a>)' : "") +
@@ -1788,7 +1825,14 @@
     document.body.appendChild(s);
   }
 
-  today(); setInterval(today, 30000);
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest(".st-tab");
+    if (!b) return;
+    ev.preventDefault();
+    lsSet("esb-today-tab", b.getAttribute("data-tab"));
+    KEEP_SCROLL = true; route();
+  });
+  today(); setInterval(function () { today(); try { refreshRel(); } catch (e) {} }, 30000);
   if (location.protocol === "file:" || !window.fetch) loadDataJs();
   else fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(boot, loadDataJs);
