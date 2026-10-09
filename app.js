@@ -1,4 +1,4 @@
-/* FragNet v4.1 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -247,7 +247,7 @@
   function agentsCell(a) { var t = agentsHtml(a); return '<span class="ag" title="' + t + '">' + t + "</span>"; }
   function agentsHtml(a) { return esc((a || []).map(function (x) { return x.charAt(0).toUpperCase() + x.slice(1); }).join(", ")); }
   function valStatCells(p) {
-    return '<td class="n hide-sm">' + num(p.rnd) + '</td><td class="n"><b>' + num(p.rating).toFixed(2) + '</b></td><td class="n">' + Math.round(num(p.acs)) + '</td><td class="n">' + (p.kd == null ? "&ndash;" : num(p.kd).toFixed(2)) +
+    return '<td class="n hide-sm">' + num(p.rnd) + '</td><td class="n">' + valPc(p) + '</td><td class="n">' + Math.round(num(p.acs)) + '</td><td class="n">' + (p.kd == null ? "&ndash;" : num(p.kd).toFixed(2)) +
       '</td><td class="n hide-sm">' + Math.round(num(p.kast)) + '%</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td>";
   }
   var VAL_TH = '<th class="n hide-sm" title="rounds played">Rnd</th><th class="n" title="vlr.gg rating">R</th><th class="n" title="average combat score">ACS</th><th class="n" title="kills per death">K/D</th><th class="n hide-sm" title="kill / assist / trade / survive %">KAST</th><th class="n hide-sm" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot %">HS%</th>';
@@ -355,6 +355,39 @@
       var tip = (f.r === "W" ? "Won" : f.r === "L" ? "Lost" : "Drew") + (f.ff ? " by forfeit" : "") + " vs " + f.opp + " " + f.score + (f.t ? " (" + fmt(f.t, "md") + ")" : "");
       return '<span class="fq ' + f.r.toLowerCase() + (f.ff ? " ff" : "") + '" title="' + esc(tip) + '">' + (f.ff ? "FF" : f.r) + "</span>";
     }).join("") + "</span>";
+  }
+  /* ----- v4.2 percentile chips: 5 steps (red -> green) within the same pool (division / tracked events) ----- */
+  var PCC = {};
+  function pcPool(key, build) {
+    var c = PCC[key], t = window.FRAGNET_TEAMS || null, v = window.FRAGNET_VAL || null;
+    if (c && c.d === D && c.t === t && c.v === v) return c.a;
+    var a = build().map(Number).filter(function (x) { return isFinite(x); }).sort(function (x, y) { return x - y; });
+    PCC[key] = { d: D, t: t, v: v, a: a };
+    return a;
+  }
+  function chip(v, txt, pool, who) {
+    v = Number(v);
+    if (pool.length < 10 || !isFinite(v)) return "<b>" + txt + "</b>";
+    var lo = 0, hi = pool.length;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (pool[mid] < v) lo = mid + 1; else hi = mid; }
+    var f = lo / pool.length, k = Math.min(5, Math.floor(f * 5) + 1);
+    return '<span class="pc pc' + k + '" title="' + esc("better than " + Math.round(f * 100) + "% of " + pool.length + " " + who) + '">' + txt + "</span>";
+  }
+  function csPc(p, stat) {
+    var txt = stat === "kd" ? num(p.kd).toFixed(2) : num(p.adr).toFixed(1);
+    if (num(p.rounds) < MINR()) return "<b>" + txt + "</b>";
+    var dv = p.region + " " + p.division;
+    return chip(p[stat], txt, pcPool("cs:" + dv + ":" + stat, function () {
+      return allCsPlayers().filter(function (q) { return q.region === p.region && q.division === p.division && num(q.rounds) >= MINR(); }).map(function (q) { return q[stat]; });
+    }), dv + " players (min. " + MINR() + " rounds)");
+  }
+  function valPc(p) {
+    var txt = num(p.rating).toFixed(2);
+    if (num(p.rnd) < 100) return "<b>" + txt + "</b>";
+    return chip(p.rating, txt, pcPool("val:rating", function () {
+      var x = window.FRAGNET_VAL ? valX() : null;
+      return (x ? x.agg : ((D.valorant || {}).top_players || [])).filter(function (q) { return num(q.rnd) >= 100; }).map(function (q) { return q.rating; });
+    }), "players in the tracked events (min. 100 rounds)");
   }
   function streak(list) {
     if (!list.length) return "";
@@ -702,7 +735,7 @@
       body = ps.length ? staleNote(pm) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Division</th><th class="n hide-sm" title="matches played">Matches</th><th class="n hide-sm" title="rounds played">Rnds</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
         ps.map(function (p, i) {
           return '<tr class="' + medal(i + 1) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + esc(p.region + " " + p.division) +
-            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Season to date, top ' + ps.length + (pm.pool ? " of " + num(pm.pool) : "") + " players with at least " + num(pm.min_rounds || 20) + " rounds, sorted by K/D (ADR breaks ties). Early-season samples are small. Stats as published on FACEIT." + "</div>" : '<div class="empty">Player stats coming soon.</div>';
       var tbd = cs.top_by_div || {};
       csDivs().forEach(function (d) {
@@ -711,7 +744,7 @@
         body += '<h2 class="subhead" id="tf-' + esc(divId(d)) + '">Top Fraggers :: ' + esc(k) + "</h2>" + (list.length ? '<div class="rankbox"><table class="tbl tf-div"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th class="n hide-sm">Rnds</th><th class="n">K/D</th><th class="n">ADR</th><th class="n hide-sm">HS%</th></tr></thead><tbody>' +
           list.map(function (p, i) {
             return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : "") +
-              '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+              '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
           }).join("") + "</tbody></table></div>" + '<div class="note">Top ' + list.length + (((cs.top_players_meta || {}).per_div || {})[k] ? " of " + num(cs.top_players_meta.per_div[k]) : "") + " players with at least " + MINR() + " rounds in " + esc(k) + ", by K/D.</div>"
           : '<div class="empty">No player in ' + esc(k) + " has " + MINR() + " rounds yet.</div>");
       });
@@ -809,7 +842,7 @@
       var etp = e.top_players || [];
       if (etp.length) body += '<h2 class="subhead">Top Players at ' + esc(shortEv(e.title)) + '</h2><div class="rankbox"><table class="tbl val-pl"><thead><tr><th class="first c">#</th><th>Player</th><th class="n hide-sm">Rnd</th><th class="n">R</th><th class="n">ACS</th><th class="n">K/D</th><th class="n hide-sm">ADR</th></tr></thead><tbody>' +
         etp.map(function (p, k) {
-          return '<tr class="' + medal(k + 1) + '">' + rk(k + 1) + '<td class="team">' + ilink(valPHash(p.name), p.name) + (p.tag ? '<span class="cc">' + esc(p.tag) + "</span>" : "") + '</td><td class="n hide-sm">' + num(p.rnd) + '</td><td class="n"><b>' + num(p.rating).toFixed(2) + '</b></td><td class="n">' + Math.round(num(p.acs)) +
+          return '<tr class="' + medal(k + 1) + '">' + rk(k + 1) + '<td class="team">' + ilink(valPHash(p.name), p.name) + (p.tag ? '<span class="cc">' + esc(p.tag) + "</span>" : "") + '</td><td class="n hide-sm">' + num(p.rnd) + '</td><td class="n">' + valPc(p) + '</td><td class="n">' + Math.round(num(p.acs)) +
             '</td><td class="n">' + num(p.kd).toFixed(2) + '</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Best five by vlr.gg rating (min. 40 rounds) &middot; <a href="#valorant/players">all top players</a> &middot; ' + ext(String(e.url || "").replace(/\/event\/(\d+)\/.*/, "/event/stats/$1"), "event stats on vlr.gg") + "</div>";
     }
@@ -919,7 +952,7 @@
       r.map(function (m) {
         var p = stats[String(m.nick).toLowerCase()];
         return "<tr><td class=\"team\">" + ilink(playerHash(m.nick), m.nick) + '</td><td title="' + esc(countryName(m.country)) + '">' + esc(m.country || "") + "</td><td>" + (m.sub ? "Substitute" : "Player") + (lead === m.nick ? " &middot; Captain" : "") +
-          '</td><td class="n">' + (p ? "<b>" + num(p.kd).toFixed(2) + "</b>" + (num(p.rounds) < MINR() ? '<span class="dim" title="few rounds">*</span>' : "") : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+          '</td><td class="n">' + (p ? csPc(p, "kd") + (num(p.rounds) < MINR() ? '<span class="dim" title="few rounds">*</span>' : "") : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.adr).toFixed(1) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR season to date (* = fewer than ' + MINR() + " rounds); &ndash; = no matches with stats yet.</div>"
       : rosterPending ? '<div class="empty loading">Loading roster&hellip;</div>' : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
     var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)],
@@ -948,7 +981,7 @@
     var rankCell = p && p.drank ? "<b>#" + num(p.drank) + '</b><span class="cc">of ' + num(p.dpool) + "</span>" : '<span class="dim" title="fewer than ' + MINR() + ' rounds">&ndash;</span>';
     var st = p ? '<div class="rankbox"><table class="tbl pstats"><thead><tr><th class="first c" title="rank by K/D in the division (min. ' + MINR() + ' rounds)">Rank</th><th class="n">Matches</th><th class="n">Rounds</th><th class="n">K</th><th class="n">D</th><th class="n">K/D</th><th class="n">ADR</th><th class="n">HS%</th></tr></thead><tbody><tr>' +
       '<td class="c">' + rankCell + '</td><td class="n">' + num(p.matches) + '</td><td class="n">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + num(p.deaths) +
-      '</td><td class="n"><b>' + num(p.kd).toFixed(2) + '</b></td><td class="n">' + num(p.adr).toFixed(1) + '</td><td class="n">' + Math.round(num(p.hs)) + "%</td></tr></tbody></table></div>" +
+      '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n">' + Math.round(num(p.hs)) + "%</td></tr></tbody></table></div>" +
       (few ? '<div class="note few-rounds">Few rounds so far (' + num(p.rounds) + "): too small a sample to rank (min. " + MINR() + " rounds).</div>" : "") +
       '<div class="note">Season to date in ESEA ' + esc(p.region + " " + p.division) + (p.drank ? ", ranked by K/D among " + num(p.dpool) + " players with at least " + MINR() + " rounds" : "") + ". Stats as published on FACEIT" + (pm.fetched_at ? ", fetched " + fmt(pm.fetched_at, "short") : "") + ".</div>"
       : '<div class="empty">No season stats yet: ' + esc(name) + " has not played an ESEA match with stats this season.</div>";
@@ -982,7 +1015,7 @@
       ros = '<div class="rankbox"><table class="tbl val-roster"><thead><tr><th class="first">Player</th><th>Role</th><th class="n" title="vlr.gg rating across the tracked events">R</th><th class="n hide-sm">ACS</th><th class="n hide-sm">Rnd</th></tr></thead><tbody>' +
         tm.roster.map(function (m) {
           var p = st[m[1]], staff = /coach|manager|analyst/.test(m[2] || "");
-          return '<tr><td class="team">' + (staff ? esc(m[0]) : ilink(valPHash(m[0]), m[0])) + "</td><td>" + esc(m[2] ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "Player") + '</td><td class="n">' + (p ? "<b>" + num(p.rating).toFixed(2) + "</b>" : '<span class="dim">&ndash;</span>') +
+          return '<tr><td class="team">' + (staff ? esc(m[0]) : ilink(valPHash(m[0]), m[0])) + "</td><td>" + esc(m[2] ? m[2].charAt(0).toUpperCase() + m[2].slice(1) : "Player") + '</td><td class="n">' + (p ? valPc(p) : '<span class="dim">&ndash;</span>') +
             '</td><td class="n hide-sm">' + (p ? Math.round(num(p.acs)) : '<span class="dim">&ndash;</span>') + '</td><td class="n hide-sm">' + (p ? num(p.rnd) : '<span class="dim">&ndash;</span>') + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Current roster from the team page on vlr.gg' + (tm.fetched_at ? " (checked " + fmt(tm.fetched_at, "short") + ")" : "") + "; stats across the tracked events, &ndash; = no tracked event stats.</div>";
       if (!v.url) v.url = tm.url;
@@ -1274,10 +1307,29 @@
     $("#today").textContent = DAYS[p.wd] + " " + MONTHS[p.m] + " " + p.d + " " + p.y + " " + pad(p.h) + ":" + pad(p.mi) + " " + p.tz;
   }
 
+  /* v4.2 theme: default follows prefers-color-scheme; an explicit choice is kept in this browser */
+  function initTheme() {
+    var b = $("#theme-tg"), root = document.documentElement, mq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
+    function stored() { try { return localStorage.getItem("fragnet-theme"); } catch (e) { return null; } }
+    function paint() {
+      var night = root.getAttribute("data-theme") === "night";
+      if (b) { b.textContent = night ? "\u00bb Classic" : "\u00bb Night"; b.setAttribute("aria-pressed", night ? "true" : "false"); b.title = night ? "Switch to the classic light theme" : "Switch to the Night theme"; }
+      var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", night ? "#14171B" : "#0B0D10");
+    }
+    if (b) b.addEventListener("click", function () {
+      var next = root.getAttribute("data-theme") === "night" ? "classic" : "night";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("fragnet-theme", next); } catch (e) {}
+      paint();
+    });
+    if (mq && mq.addEventListener) mq.addEventListener("change", function (e) { if (!stored()) { root.setAttribute("data-theme", e.matches ? "night" : "classic"); paint(); } });
+    paint();
+  }
   function boot(data) {
     D = data || {};
     buildIndex();
     $("#hdr-upd").textContent = "updated " + fmt(D.fetched_at, "short");
+    initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
     [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("FragNet: sidebar render failed", e); } });
