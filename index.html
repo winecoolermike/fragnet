@@ -3,15 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>/* v4.2 theme before first paint: saved choice, else the system setting */try{var t=localStorage.getItem("fragnet-theme");if(t!=="night"&&t!=="classic")t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"night":"classic";document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","classic")}</script>
-<title>FragNet eSports League Tracker</title>
-<meta name="description" content="FragNet: a retro esports league tracker with ESEA League (CS2) standings and match results, Valorant Challengers and Game Changers results, WoW Mythic raid rankings and esports news, all from public sources.">
+<script>/* v4.7: move settings saved under the old fragnet-* keys to esb-* (favorites, theme, recent, division survive the rename) */try{["theme","favs","recent","cs-div"].forEach(function(k){var o=localStorage.getItem("fragnet-"+k);if(o!==null){if(localStorage.getItem("esb-"+k)===null)localStorage.setItem("esb-"+k,o);localStorage.removeItem("fragnet-"+k)}})}catch(e){}
+/* v4.2 theme before first paint: saved choice, else the system setting */try{var t=localStorage.getItem("esb-theme");if(t!=="night"&&t!=="classic")t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"night":"classic";document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","classic")}</script>
+<title>Esports Scoreboard :: Esports League Tracker</title>
+<meta name="description" content="Esports Scoreboard: a retro esports league tracker with ESEA League (CS2) standings and match results, Valorant Challengers and Game Changers results, WoW Mythic raid rankings and esports news, all from public sources.">
 <meta name="theme-color" content="#0B0D10">
 <meta name="color-scheme" content="light">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="FragNet">
+<meta property="og:site_name" content="Esports Scoreboard">
 <meta property="og:url" content="https://winecoolermike.github.io/fragnet/">
-<meta property="og:title" content="FragNet eSports League Tracker">
+<meta property="og:title" content="Esports Scoreboard :: Esports League Tracker">
 <meta property="og:description" content="ESEA League standings, Valorant tier-2 results, WoW Mythic raid race and esports news in a 2007-portal style. Public data only.">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -41,14 +42,14 @@ if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " 
 
   <!-- level two: banner -->
   <div id="banner">
-    <a href="#home" class="logo" aria-label="FragNet home">
-      <span class="logo-main">FRAG<span class="logo-net">NET</span></span>
+    <a href="#home" class="logo" aria-label="Esports Scoreboard home">
+      <span class="logo-main">ESPORTS <span class="logo-net">SCOREBOARD</span></span>
       <span class="logo-sub">eSports League Tracker</span>
     </a>
     <form id="hsearch" role="search" class="searchbox">
-      <div class="sb-label">SEARCH FRAGNET</div>
+      <div class="sb-label">SEARCH SCOREBOARD</div>
       <div class="sb-row">
-        <input id="q" type="search" placeholder="team, player, guild, headline" autocomplete="off" maxlength="100" aria-label="Search FragNet">
+        <input id="q" type="search" placeholder="team, player, guild, headline" autocomplete="off" maxlength="100" aria-label="Search Esports Scoreboard">
         <button type="submit">GO</button>
       </div>
       <div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>
@@ -109,22 +110,22 @@ if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " 
 
   <div id="footer">
     <ul class="menu">
-      <li><a href="#home"><span class="bullet">&raquo;</span> FragNet Home</a></li>
+      <li><a href="#home"><span class="bullet">&raquo;</span> Esports Scoreboard Home</a></li>
       <li><a href="#news"><span class="bullet">&raquo;</span> News</a></li>
       <li><a href="#forums"><span class="bullet">&raquo;</span> Forums</a></li>
       <li><a href="#about"><span class="bullet">&raquo;</span> About</a></li>
       <li><a href="#status"><span class="bullet">&raquo;</span> Site status</a></li>
     </ul>
-    <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles<span class="js-only"> &middot; <a href="#about">About FragNet</a></span></div>
-    <div class="foot-note">FragNet v4.6 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time<span class="js-only"> &middot; <span id="foot-fetched"></span></span></div>
+    <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles<span class="js-only"> &middot; <a href="#about">About Esports Scoreboard</a></span></div>
+    <div class="foot-note">Esports Scoreboard v4.7 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time<span class="js-only"> &middot; <span id="foot-fetched"></span></span></div>
   </div>
 </div>
 <template id="about-tpl">
-<div class="std"><div class="std-header"><h1>About FragNet</h1><span class="meta">independent fan project</span></div>
-<div class="infobox about-intro"><b>FragNet</b> is an independent, fan-made tracker for <b>amateur and semi-pro esports</b>: the ESEA League for Counter-Strike 2, Valorant Challengers / Game Changers and other tier-2 events, the World of Warcraft Mythic raid race, and esports headlines. It shows only data that is published on public web pages or through official, open APIs. Nothing is invented or estimated: when something isn't available yet, the page says so instead of filling the gap.</div></div>
+<div class="std"><div class="std-header"><h1>About Esports Scoreboard</h1><span class="meta">independent fan project</span></div>
+<div class="infobox about-intro"><b>Esports Scoreboard</b> is an independent, fan-made tracker for <b>amateur and semi-pro esports</b>: the ESEA League for Counter-Strike 2, Valorant Challengers / Game Changers and other tier-2 events, the World of Warcraft Mythic raid race, and esports headlines. It shows only data that is published on public web pages or through official, open APIs. Nothing is invented or estimated: when something isn't available yet, the page says so instead of filling the gap.</div></div>
 
 <h2 class="subhead">Data sources</h2>
-<div class="rankbox"><table class="tbl about-src"><thead><tr><th class="first">Source</th><th>What FragNet shows from it</th></tr></thead><tbody>
+<div class="rankbox"><table class="tbl about-src"><thead><tr><th class="first">Source</th><th>What Esports Scoreboard shows from it</th></tr></thead><tbody>
 <tr><td class="team"><a href="https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8" target="_blank" rel="noopener">FACEIT &ndash; ESEA League</a></td><td>Public ESEA League pages: current season dates, registered teams, prize pool and map pool; standings (top 20) for EU and NA Advanced, Main and Intermediate with each listed team's registered league roster; player stats for the Advanced divisions.</td></tr>
 <tr><td class="team"><a href="https://docs.faceit.com/docs/data-api/data/" target="_blank" rel="noopener">FACEIT Data API</a></td><td>The official FACEIT developer API: recent and upcoming ESEA League CS2 matches for the tracked divisions with teams, scores, maps and links to the FACEIT match rooms, plus per-map scoreboards (kills, deaths, ADR, headshots).</td></tr>
 <tr><td class="team"><a href="https://www.vlr.gg/events" target="_blank" rel="noopener">vlr.gg</a></td><td>Valorant Challengers / VCL and Game Changers event calendar, final standings of recent events, and recent tier-2 match results (international Champions / Masters and partner-league matches are left out).</td></tr>
@@ -135,18 +136,18 @@ if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " 
 <tr><td class="team"><a href="https://esportsinsider.com/" target="_blank" rel="noopener">Esports Insider</a></td><td>Esports industry headlines (RSS).</td></tr>
 </tbody></table></div>
 <div class="note">Not covered yet: Valorant Premier, HLTV and Dot Esports. They are left out rather than filled with guessed data.</div>
-<div class="note">Team, player and guild names open a FragNet detail page, and every detail page links back to its page on the source site (FACEIT, vlr.gg, Raider.IO); CS2 scores link to the FACEIT match room and Valorant scores to the vlr.gg match page. News headlines link to the original articles; FragNet shows only the headline, source and date, never article text.</div>
+<div class="note">Team, player and guild names open a Esports Scoreboard detail page, and every detail page links back to its page on the source site (FACEIT, vlr.gg, Raider.IO); CS2 scores link to the FACEIT match room and Valorant scores to the vlr.gg match page. News headlines link to the original articles; Esports Scoreboard shows only the headline, source and date, never article text.</div>
 
 <h2 class="subhead">Updates and times</h2>
-<div class="about-p">Data is refreshed periodically. All dates and times on FragNet are shown in <b>Pacific Time</b> (PT: PDT in summer, PST in winter). {{fetched}}</div>
+<div class="about-p">Data is refreshed periodically. All dates and times on Esports Scoreboard are shown in <b>Pacific Time</b> (PT: PDT in summer, PST in winter). {{fetched}}</div>
 
-<div class="about-p">If a source can't be updated for a while, FragNet keeps showing the last good data with a &ldquo;Last updated&rdquo; date; if something has never been available, the page shows a short &ldquo;Not available yet&rdquo; or &ldquo;coming soon&rdquo; line. Nothing is guessed. Per-source details (status, record counts, timestamps) are on the <a href="#status">Site status</a> page.</div>
+<div class="about-p">If a source can't be updated for a while, Esports Scoreboard keeps showing the last good data with a &ldquo;Last updated&rdquo; date; if something has never been available, the page shows a short &ldquo;Not available yet&rdquo; or &ldquo;coming soon&rdquo; line. Nothing is guessed. Per-source details (status, record counts, timestamps) are on the <a href="#status">Site status</a> page.</div>
 
 <h2 class="subhead">Forums</h2>
 <div class="about-p">Forums are coming soon. Posting opens once shared accounts and moderation are in place.</div>
 
 <h2 class="subhead">Disclaimer</h2>
-<div class="about-p disclaimer">FragNet is an independent fan project. It is <b>not affiliated with, endorsed by, or sponsored by</b> FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg, Wowhead, Dexerto or Esports Insider. Counter-Strike, Valorant, World of Warcraft and all other trademarks, game names and logos belong to their respective owners.</div>
+<div class="about-p disclaimer">Esports Scoreboard is an independent fan project. It is <b>not affiliated with, endorsed by, or sponsored by</b> FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg, Wowhead, Dexerto or Esports Insider. Counter-Strike, Valorant, World of Warcraft and all other trademarks, game names and logos belong to their respective owners.</div>
 </template>
 <noscript><div class="noscript-note">Static snapshot of the front page &middot; enable JavaScript for every division, team and player pages, scoreboards and search.</div></noscript>
 <script src="app.js"></script>

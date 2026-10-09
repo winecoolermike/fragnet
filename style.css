@@ -1,7 +1,7 @@
 /* =====================================================================
-   FragNet v3.2 :: "2007 esports portal" skin
+   Esports Scoreboard v3.2 :: "2007 esports portal" skin
    Palette / type / layout in the style of mid-2000s esports portals.
-   FragNet branding only; no third-party artwork, logos or names.
+   Esports Scoreboard branding only; no third-party artwork, logos or names.
    Sizes are ~1-2px larger than period originals for readability.
    ===================================================================== */
 @font-face{font-family:"FragNet Sans";src:url("fonts/fn-sans-regular.woff2") format("woff2");font-weight:400;font-display:swap;unicode-range:U+0020-007E,U+00A0-024F,U+0300-036F,U+0400-045F,U+0490-0491,U+1E00-1EFF,U+2000-206F,U+20A0-20CF,U+2100-2122,U+2190-2195,U+221E,U+2212,U+25A0-25CF;}
@@ -434,7 +434,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
   #utilbar{display:none}
   #banner{position:relative;padding:0;gap:0;flex-wrap:wrap}
   .logo{padding:8px 12px 6px}
-  .logo-main{font-size:28px;letter-spacing:-1.5px}
+  .logo-main{font-size:21px;letter-spacing:-1px;max-width:calc(100% - 96px)}
   .logo-sub{font-size:9px;letter-spacing:2px;margin-top:2px;padding-top:2px}
   .searchbox{padding:6px 10px 7px}
   .sb-label{display:none}
@@ -544,7 +544,7 @@ ul.gn-sub li a{display:block;padding:2px 0;font:bold 11px var(--ui)}
 @media (max-width:600px){.fq{width:14px;height:15px;line-height:15px;font-size:9px}.tbl td.fcell{width:84px}}
 
 /* =====================================================================
-   v4.2 "FragNet 2026 Classic": flatter frame, two type families, cleaner
+   v4.2 "Esports Scoreboard 2026 Classic": flatter frame, two type families, cleaner
    tables, percentile colours; optional Night theme ([data-theme=night])
    ===================================================================== */
 :root{
