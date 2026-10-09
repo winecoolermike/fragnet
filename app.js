@@ -906,6 +906,7 @@
     var span = a < 60 ? a + "m" : a < 1440 ? Math.floor(a / 60) + "h" + (a % 60 ? " " + (a % 60) + "m" : "") : Math.floor(a / 1440) + "d";
     if (st === "up") return d < 0 ? "in " + span : "started " + span + " ago &middot; no result yet";
     if (st === "live") return "started " + span + " ago";
+    if (g === "as") return d < 0 ? "just now" : span + " ago";
     return d < 0 ? "" : (g === "cs" ? "ended " : "started ") + span + " ago";
   }
   function relSpan(st, iso, g) { return iso ? '<span class="rel" data-st="' + st + '" data-g="' + g + '" data-t="' + esc(iso) + '">' + relText(st, iso, g) + "</span>" : ""; }
@@ -940,7 +941,9 @@
     var meta = upd ? "updated " + fmt(upd, "short") : "";
     if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
     if (!rows.length) return std(esc(title), meta, tabsHtml + '<div class="empty today-empty">' + (tab === "all" ? "No matches scheduled today." : tab === "mine" ? "None of your starred teams play today." : "No " + { live: "live", up: "upcoming", done: "finished" }[tab] + " matches today.") + "</div>", "today-board");
-    var body = tabsHtml + '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
+    var liveN = rows.filter(function (x) { return x.st === "live"; }).length;
+    var liveAge = liveN && upd ? '<div class="live-age"><span class="live-b">LIVE</span> status as of ' + fmt(upd, "short") + " (" + relSpan("done", upd, "as") + ") &middot; scores here refresh about every 30 minutes; for the live score use the LIVE button (FACEIT / vlr.gg match room &#8599;).</div>" : "";
+    var body = tabsHtml + liveAge + '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
       '<th class="first" title="Pacific Time: start time for upcoming and live matches, finish time for finished CS2 matches">Time (PT)</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division / Event</th><th class="hide-sm">Map</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var m = r.m;
@@ -1718,6 +1721,7 @@
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + (r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : "Esports Scoreboard");
+    try { var nl = todayRows().filter(function (x) { return x.st === "live"; }).length; if (nl) document.title = "(" + nl + " live) " + document.title; } catch (e) {}
     var navTop = r.top === "search" ? "" : (r.top === "player" || r.top === "match" || r.top === "team") && r.parts[0] !== "val" ? "cs2" : r.top === "team" || r.top === "player" || r.top === "match" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
@@ -1757,6 +1761,19 @@
     if (mq && mq.addEventListener) mq.addEventListener("change", function (e) { if (!stored()) { root.setAttribute("data-theme", e.matches ? "night" : "classic"); paint(); } });
     paint();
   }
+  var LAST_FETCH = Date.now();
+  function refreshData() {
+    if (location.protocol === "file:" || !window.fetch || Date.now() - LAST_FETCH < 300000) return;
+    LAST_FETCH = Date.now();
+    fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (nd) {
+      if (!nd || !nd.fetched_at || nd.fetched_at === D.fetched_at) return;
+      D = nd; RANKC = null; buildIndex();
+      $("#hdr-upd").textContent = "updated " + fmt(D.fetched_at, "short");
+      $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
+      KEEP_SCROLL = true; route();
+    }).catch(function () {});
+  }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshData(); });
   function boot(data) {
     D = data || {};
     buildIndex();
