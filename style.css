@@ -791,3 +791,5 @@ td.score a.xl:hover{color:var(--link)}
 .offline-note{margin:6px 0;padding:4px 8px;background:#FFF4E5;border:1px solid #E8B97A;font-size:12px}
 .offline-note[hidden]{display:none}
 [data-theme=night] .offline-note{background:#2a2117;border-color:#6b4a25;color:#e3e8ec}
+[data-theme=night] .pin{background:#1b2026;color:#cfe0ee;border-color:#56656e}
+[data-theme=night] .pin.on{background:#2f6db8;color:#fff;border-color:#2f6db8}
