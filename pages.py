@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v4.5 real path pages, sitemap, robots.txt and share images (FragNet).
+"""v4.5 real path pages, sitemap, robots.txt and share images (Esports Scoreboard).
 
     python pages.py dist [--site https://winecoolermike.github.io/fragnet/] [--og-cache .ogcache] [--no-og]
 
@@ -27,10 +27,14 @@ from datetime import datetime, timezone
 
 import prerender as pr
 
-SITE = "https://winecoolermike.github.io/fragnet/"
+# public base URL of the site (canonical, og:url, sitemap, robots, share images). One switch for a custom domain:
+# set SITE_URL (env or repository variable) to e.g. https://esportsscoreboard.com/ ; links inside pages are relative.
+SITE = (os.environ.get("SITE_URL") or "https://winecoolermike.github.io/fragnet/").strip()
+SITE = SITE if SITE.endswith("/") else SITE + "/"
+SITE_LABEL = [re.sub(r"^https?://", "", SITE).rstrip("/")]
 SAFE_SEG = re.compile(r"^(?!\.+$)[A-Za-z0-9._-]{1,48}$")
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
-OG_VERSION = "og-1"
+OG_VERSION = "og-2"   # bump to redraw every share image (v4.7 rebrand)
 e, ext, pt, std = pr.e, pr.ext, pr.pt, pr.std
 
 
@@ -196,7 +200,7 @@ class Site:
                     + table(['<th class="first c">#</th>', "<th>Team</th>", '<th class="n">W</th>', '<th class="n">L</th>', '<th class="n">Pts</th>', '<th class="c">Form</th>'], rows)
                     + f'<div class="note">{e(dv.get("stage") or "")} &middot; {ext(dv.get("link"), "full table on FACEIT")}</div>')
             lead = (dv.get("teams") or [{}])[0]
-            desc = f"ESEA {season} {name} standings: {len(dv.get('teams') or [])} teams, led by {lead.get('name')} ({int(num(lead.get('w')))}-{int(num(lead.get('l')))}). Form, results and rosters on FragNet."
+            desc = f"ESEA {season} {name} standings: {len(dv.get('teams') or [])} teams, led by {lead.get('name')} ({int(num(lead.get('w')))}-{int(num(lead.get('l')))}). Form, results and rosters on Esports Scoreboard."
             self.add("cs2/" + self.div_id(dv), f"{name} Standings :: ESEA League CS2", desc, body)
             ov.append(f'<tr><td class="team">{ilink("cs2/" + self.div_id(dv), name)}</td><td>{self.cs_side(lead) if lead.get("name") else "&ndash;"}</td><td class="n">{len(dv.get("teams") or [])}</td></tr>')
         if ov:
@@ -241,7 +245,7 @@ class Site:
                     + '<h2 class="subhead">Roster</h2>' + (table(['<th class="first">Player</th>', "<th>Country</th>", "<th>Role</th>", '<th class="n">K/D</th>'], rrows) or '<div class="empty">No roster in the public data.</div>')
                     + '<h2 class="subhead">Recent Results</h2>' + self.cs_results(ms) + '<h2 class="subhead">Upcoming Matches</h2>' + self.cs_upcoming(ups))
             rec = f"{int(num(t.get('w')))}-{int(num(t.get('l')))}"
-            desc = f"{name}: #{t.get('rank')} in ESEA {dn} ({rec}, {int(num(t.get('pts')))} pts)" + (f", form {' '.join(f)}" if f else "") + ". Roster, results and upcoming matches on FragNet."
+            desc = f"{name}: #{t.get('rank')} in ESEA {dn} ({rec}, {int(num(t.get('pts')))} pts)" + (f", form {' '.join(f)}" if f else "") + ". Roster, results and upcoming matches on Esports Scoreboard."
             ogk = "cs-team-" + tid
             self.og_jobs[ogk] = (name, f"ESEA {dn} · CS2", [("RANK", "#" + str(t.get("rank"))), ("RECORD", rec), ("FORM", " ".join(f) or "-")], (217, 80, 0))
             self.add("team/cs2/" + tid, f"{name} :: ESEA {dn} CS2 team", desc, body, og=ogk, kind="team",
@@ -309,7 +313,7 @@ class Site:
             body = std(e(ev.get("title")) + " :: Final Standings", e(ev.get("dates")), table(['<th class="first c">Place</th>', "<th>Team</th>", '<th class="n">Prize</th>'], rows)
                        + f'<div class="note">{ext(ev.get("url"), "event page on vlr.gg")}</div>')
             w0 = (ev.get("standings") or [{}])[0]
-            self.add(f"valorant/event-{i + 1}", f"{ev.get('title')} :: Valorant", f"{ev.get('title')} ({ev.get('dates')}) final standings" + (f", won by {w0.get('team')}" if w0.get("team") else "") + ". Teams, prize money and top players on FragNet.", body)
+            self.add(f"valorant/event-{i + 1}", f"{ev.get('title')} :: Valorant", f"{ev.get('title')} ({ev.get('dates')}) final standings" + (f", won by {w0.get('team')}" if w0.get("team") else "") + ". Teams, prize money and top players on Esports Scoreboard.", body)
         rows = [f'<tr><td class="team">{ilink("valorant/event-" + str(i + 1), evs[i].get("title"))}</td><td class="hide-sm dim">{e(evs[i].get("dates"))}</td></tr>' for i in order]
         self.add("valorant", "Valorant :: Challengers / Game Changers", f"{len(evs)} Valorant Challengers and Game Changers events tracked: final standings, results and top players.",
                  std("Valorant :: Tracked Events", "", table(['<th class="first">Event</th>', '<th class="hide-sm">Dates</th>'], rows)))
@@ -336,7 +340,7 @@ class Site:
                     + '<h2 class="subhead">Recent Results</h2>' + self.v_results(t["res"]))
             ogk = "val-team-" + sl
             self.og_jobs[ogk] = (t["name"], "Valorant · Challengers / Game Changers", [("SERIES", f"{w}-{l}"), ("EVENTS", str(len(t["place"]))), ("LATEST", pt(t["res"][0].get("ts"), "%b %-d") or "-")], (200, 40, 40))
-            self.add("team/val/" + sl, f"{t['name']} :: Valorant team", f"{t['name']}: {w}-{l} in the tracked Valorant tier-2 results" + (f", {len(t['place'])} event placing(s)" if t["place"] else "") + ". Results and roster on FragNet.",
+            self.add("team/val/" + sl, f"{t['name']} :: Valorant team", f"{t['name']}: {w}-{l} in the tracked Valorant tier-2 results" + (f", {len(t['place'])} event placing(s)" if t["place"] else "") + ". Results and roster on Esports Scoreboard.",
                      body, og=ogk, kind="team", ld={"@context": "https://schema.org", "@type": "SportsTeam", "name": t["name"], "sport": "Valorant", "url": self.site + "team/val/" + sl + "/"})
         self._vteams = teams
         cols = self.vx.get("agg_cols") or []
@@ -390,8 +394,8 @@ class Site:
                              + f'<div class="note">{ext(pr.rio_page(wow.get("raid"), rg), "Full rankings on Raider.IO")}</div>'))
         news = sorted((self.d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)[:40]
         if news:
-            self.add("news", "Esports News :: FragNet", f"Latest esports headlines (CS2, Valorant, WoW) from {', '.join(sorted({str(n.get('source')) for n in news})[:5])}.",
-                     std("FragNet News Wire", f"{len(news)} headlines", '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news) + "</div>"))
+            self.add("news", "Esports News :: Esports Scoreboard", f"Latest esports headlines (CS2, Valorant, WoW) from {', '.join(sorted({str(n.get('source')) for n in news})[:5])}.",
+                     std("Esports Scoreboard News Wire", f"{len(news)} headlines", '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news) + "</div>"))
 
     # ------------------------------------------------------------- output
     def head_tags(self, p, rel, og_url):
@@ -412,7 +416,7 @@ class Site:
         if page.count(vp) != 1:
             raise ValueError("viewport meta not found")
         page = page.replace(vp, vp + "\n" + tags[0], 1)       # <base> before any relative URL
-        title = p["title"] + " :: FragNet"
+        title = p["title"] + " :: Esports Scoreboard"
         page = re.sub(r"<title>[^<]*</title>", lambda _: f"<title>{e(title)}</title>", page, count=1)
         for attr, val in (('name="description"', p["desc"]), ('property="og:description"', p["desc"]), ('property="og:title"', title), ('property="og:url"', url)):
             pat = re.compile(r'(<meta ' + re.escape(attr) + r' content=")[^"]*(">)')
@@ -426,7 +430,7 @@ class Site:
         view = '<div id="view" aria-live="polite"></div>'
         if page.count(view) != 1:
             raise ValueError("#view not found")
-        note = ('<div class="note noscript-note">Static snapshot of FragNet data fetched ' + e(pt(self.d.get("fetched_at"))) +
+        note = ('<div class="note noscript-note">Static snapshot of Esports Scoreboard data fetched ' + e(pt(self.d.get("fetched_at"))) +
                 '. <a href="./">Front page</a></div>')
         page = page.replace(view, f'<div id="view" aria-live="polite" {pr.MARK}>{p["body"]}{note}</div>', 1)
         page = page.replace('<div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>', f'<div class="sb-upd" id="hdr-upd">updated {e(pt(self.d.get("fetched_at")))}</div>', 1)
@@ -456,8 +460,9 @@ def draw_og(path, title, sub, stats, accent):
         d.line([(0, y), (W, y)], fill=(c, c + 2, c + 5))
     d.rectangle([0, 118, W, 124], fill=accent)
     f_logo = _font(64)
-    d.text((48, 22), "FRAG", font=f_logo, fill=(255, 255, 255))
-    d.text((48 + d.textlength("FRAG", font=f_logo), 22), "NET", font=f_logo, fill=(244, 196, 48))
+    f_logo = _font(56)
+    d.text((48, 26), "ESPORTS ", font=f_logo, fill=(255, 255, 255))
+    d.text((48 + d.textlength("ESPORTS ", font=f_logo), 26), "SCOREBOARD", font=f_logo, fill=(244, 196, 48))
     d.text((52, 92), "ESPORTS LEAGUE TRACKER", font=_font(18), fill=(201, 210, 219))
     d.rectangle([40, 160, W - 40, 590], fill=(26, 29, 33), outline=(58, 64, 72))
     d.rectangle([40, 160, 48, 590], fill=accent)
@@ -480,13 +485,14 @@ def draw_og(path, title, sub, stats, accent):
         while vs > 22 and d.textlength(str(val), font=_font(vs)) > tw - 40:
             vs -= 2
         d.text((x + 20, 462), str(val), font=_font(vs), fill=(255, 255, 255))
-    d.text((W - 48, 606), "winecoolermike.github.io/fragnet", font=_font(18, False), fill=(120, 130, 142), anchor="rs")
+    d.text((W - 48, 606), SITE_LABEL[0], font=_font(18, False), fill=(120, 130, 142), anchor="rs")
     im = im.quantize(colors=64, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
     im.save(path, optimize=True)
 
 
 def build(dist, site, og_cache, do_og=True):
     t0 = time.time()
+    SITE_LABEL[0] = re.sub(r"^https?://", "", site).rstrip("/")
     s = Site(dist, site)
     s.build_cs()
     s.build_val()
@@ -515,7 +521,7 @@ def build(dist, site, og_cache, do_og=True):
             cs = s.d.get("cs") or {}
             jobs["site"] = ("ESEA · Valorant · WoW", "Standings, results and the Mythic raid race", [("CS2", (cs.get("season") or {}).get("name") or "ESEA"), ("VALORANT", "Tier 2"), ("WOW", ((s.d.get("wow") or {}).get("raid") or {}).get("name", "Mythic")[:14])], (217, 80, 0))
             for k, (title, sub, stats, accent) in jobs.items():
-                h = hashlib.sha1(json.dumps([OG_VERSION, title, sub, stats, accent], ensure_ascii=False).encode()).hexdigest()[:16]
+                h = hashlib.sha1(json.dumps([OG_VERSION, SITE_LABEL[0], title, sub, stats, accent], ensure_ascii=False).encode()).hexdigest()[:16]
                 fn = k + ".png"
                 cp = os.path.join(cache_dir, fn)
                 if man.get(k) != h or not os.path.exists(cp):
@@ -540,9 +546,10 @@ def build(dist, site, og_cache, do_og=True):
             fh.write(s.render_page(tpl, p, og_url.get(p["og"]) or og_url.get("site")))
         n += 1
     # front page: canonical, share image, JSON-LD (prerender.py adds the snapshot afterwards)
-    home = tpl.replace("</head>", f'<link rel="canonical" href="{e(site)}">\n'
+    home = re.sub(r'(<meta property="og:url" content=")[^"]*(">)', lambda m: m.group(1) + e(site) + m.group(2), tpl, count=1)
+    home = home.replace("</head>", f'<link rel="canonical" href="{e(site)}">\n'
                        + (f'<meta property="og:image" content="{e(og_url["site"])}">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n' if og_url.get("site") else "")
-                       + '<script type="application/ld+json">' + json.dumps({"@context": "https://schema.org", "@type": "WebSite", "name": "FragNet", "url": site}).replace("<", "\\u003c") + "</script>\n</head>", 1)
+                       + '<script type="application/ld+json">' + json.dumps({"@context": "https://schema.org", "@type": "WebSite", "name": "Esports Scoreboard", "url": site}).replace("<", "\\u003c") + "</script>\n</head>", 1)
     if og_url.get("site"):
         home = home.replace('<meta name="twitter:card" content="summary">', '<meta name="twitter:card" content="summary_large_image">', 1)
     with open(tpl_path + ".tmp", "w", encoding="utf-8") as fh:
@@ -569,7 +576,7 @@ def build(dist, site, og_cache, do_og=True):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="FragNet path pages, sitemap and share images")
+    ap = argparse.ArgumentParser(description="Esports Scoreboard path pages, sitemap and share images")
     ap.add_argument("dist")
     ap.add_argument("--site", default=SITE)
     ap.add_argument("--og-cache", default=".ogcache")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-render a static front page into dist/index.html (FragNet no-JS fallback; v4.0 calm home).
+"""Pre-render a static front page into dist/index.html (Esports Scoreboard no-JS fallback; v4.0 calm home).
 
     python prerender.py dist/index.html dist/data.json
 
@@ -85,7 +85,7 @@ def render(d):
     """v4.0 calm home: three game cards, the latest 5 ESEA results, 5 headlines (North America first)."""
     cs, val, wow = d.get("cs") or {}, d.get("valorant") or {}, d.get("wow") or {}
     upd = pt(d.get("fetched_at"))
-    parts = [std("FragNet Front Page", "updated " + e(upd),
+    parts = [std("Esports Scoreboard Front Page", "updated " + e(upd),
                  '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. '
                  "This is a static snapshot; with JavaScript enabled you get every division, team and player page, match scoreboards and search. All times Pacific.</div>")]
     divs = [dv for dv in na_first(cs.get("divisions")) if dv.get("teams")]
@@ -133,7 +133,7 @@ def render(d):
                      if news else '<div class="empty">No headlines.</div>', "home-news"))
     side = "".join(f'<li>{ext(n.get("url"), n.get("title"))}<span class="cnt">{e(pt(n.get("date"), "%b %-d"))}</span></li>' for n in news[:8])
     leaders = [f'{dv.get("region")} {dv.get("division")}: {dv["teams"][0].get("name")}' for dv in divs if dv.get("division") == "Advanced"][:3]
-    desc = ("FragNet - ESEA League CS2 standings and results" + (f" (leaders {', '.join(leaders)})" if leaders else "")
+    desc = ("Esports Scoreboard - ESEA League CS2 standings and results" + (f" (leaders {', '.join(leaders)})" if leaders else "")
             + ", Valorant tier-2 results, WoW Mythic raid race and esports news." + (f" Updated {upd}." if upd else ""))
     return "".join(parts), side, upd, desc
 
