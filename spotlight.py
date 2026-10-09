@@ -20,8 +20,10 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 PT = ZoneInfo("America/Los_Angeles")
-UPSET_RULE = ("Upset = a team outside the top 5 beats a top-5 team, by the division table built from the results "
-              "tracked here before that match (3 points per win, ties share a rank). Forfeits and results without FACEIT match stats are not counted as upsets.")
+MIN_PLAYED = 3
+UPSET_RULE = ("Upset = a team outside the top 5 beats a top-5 team, by the division table built from the results tracked here "
+              "before that match (3 points per win, ties share a rank). Both teams must have played at least 3 matches; "
+              "forfeits and 13:0 results without FACEIT match stats never count.")
 
 
 def ts(s):
@@ -53,8 +55,9 @@ def upsets(results, start, end):
         table = pts.setdefault(k, {})
         if start <= t < end:
             w, l = (m["t1"], m["t2"]) if m["winner"] == 1 else (m["t2"], m["t1"])
-            ff = int(m.get("s1") or 0) + int(m.get("s2") or 0) <= 1 or m.get("nostats")
-            if played.get(w["id"]) and played.get(l["id"]) and not ff:
+            s1, s2 = int(m.get("s1") or 0), int(m.get("s2") or 0)
+            ff = s1 + s2 <= 1 or m.get("nostats") or (min(s1, s2) == 0 and not m.get("maps"))
+            if played.get(w["id"], 0) >= MIN_PLAYED and played.get(l["id"], 0) >= MIN_PLAYED and not ff:
                 rank = lambda tid: 1 + sum(1 for v in table.values() if v > table.get(tid, 0))
                 rw, rl = rank(w["id"]), rank(l["id"])
                 if rl <= 5 and rw > 5:
@@ -157,8 +160,41 @@ def build(data, teams, now=None):
     return out
 
 
+def merge_archive(sp, archive_dir, write=True):
+    """Completed weeks are frozen in archive_dir/YYYY-wNN.json (committed by Actions, append-only):
+    an archived week always wins over a recomputed one, and weeks that rolled out of the tracked data stay listed.
+    Returns the ids of newly archived weeks."""
+    import re as _re
+    old = {}
+    if os.path.isdir(archive_dir):
+        for f in sorted(os.listdir(archive_dir)):
+            if _re.match(r"^\d{4}-w\d{2}\.json$", f):
+                try:
+                    w = json.load(open(os.path.join(archive_dir, f), encoding="utf-8"))
+                    if w.get("id") == f[:-5]:
+                        old[w["id"]] = w
+                except (OSError, ValueError):
+                    pass
+    new = []
+    for w in sp["weeks"]:
+        if not w.get("current") and w["id"] not in old:
+            old[w["id"]] = w
+            new.append(w["id"])
+            if write:
+                os.makedirs(archive_dir, exist_ok=True)
+                with open(os.path.join(archive_dir, w["id"] + ".json"), "w", encoding="utf-8") as fh:
+                    json.dump(w, fh, ensure_ascii=False, indent=1, sort_keys=True)
+                    fh.write("\n")
+    cur = [w for w in sp["weeks"] if w.get("current")]
+    sp["weeks"] = cur + sorted(old.values(), key=lambda w: w["id"], reverse=True)
+    return new
+
+
 def main(argv=None):
     argv = argv or sys.argv[1:]
+    archive = None
+    if "--archive" in argv:
+        i = argv.index("--archive"); archive = argv[i + 1]; argv = argv[:i] + argv[i + 2:]
     dist = argv[0] if argv else "dist"
     data = json.load(open(os.path.join(dist, "data.json"), encoding="utf-8"))
     try:
@@ -166,6 +202,9 @@ def main(argv=None):
     except Exception:
         teams = None
     sp = build(data, teams)
+    new = merge_archive(sp, archive) if archive else []
+    if new:
+        print(f"[spotlight] archived new weeks: {', '.join(new)}")
     blob = json.dumps(sp, ensure_ascii=False, separators=(",", ":"))
     open(os.path.join(dist, "spot.json"), "w", encoding="utf-8").write(blob)
     open(os.path.join(dist, "spot.js"), "w", encoding="utf-8").write("window.ESB_SPOT = " + blob.replace("</", "<\\/") + ";\n")
