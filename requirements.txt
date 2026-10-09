@@ -3,3 +3,4 @@ feedparser>=6.0
 beautifulsoup4>=4.11
 lxml>=4.9
 tzdata; platform_system == "Windows"
+Pillow>=10.1   # v4.5 share images (pages.py)

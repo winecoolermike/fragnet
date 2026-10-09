@@ -1,6 +1,7 @@
 # build output (GitHub Actions builds and deploys dist/)
 dist/
 .lastgood/
+.ogcache/
 # local only
 .venv/
 venv/
