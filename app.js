@@ -1,4 +1,4 @@
-/* FragNet v4.3 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.4 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -210,7 +210,7 @@
     TX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player)\/cs2\/|search|cs2(\/(?!results|players)|$)|home|$)/.test(location.hash || "#")) { KEEP_SCROLL = true; route(); } }
+    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player|match)\/cs2\/|search|cs2(\/(?!results|players)|$)|home|$)/.test(location.hash || "#")) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -223,7 +223,7 @@
     VX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "val.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { VX_STATE = ok && window.FRAGNET_VAL ? "ok" : "fail"; if (/^#(team\/val|player\/val|valorant\/players|search)/.test(location.hash)) route(); }
+    function done(ok) { VX_STATE = ok && window.FRAGNET_VAL ? "ok" : "fail"; if (/^#(team\/val|player\/val|match\/val|valorant\/players|search)/.test(location.hash)) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -400,6 +400,16 @@
     if (m.nostats) return '<span class="dim" title="no match stats on FACEIT (e.g. forfeit or technical result)">no stats</span>';
     return '<span class="dim" title="map and scoreboard coming soon">&ndash;</span>';
   }
+  /* v4.4: score cells open FragNet's match page; a small arrow keeps the source link (FACEIT room / vlr.gg) */
+  function vlrId(u) { var m = String(u || "").match(/vlr\.gg\/(\d+)\//); return m ? m[1] : ""; }
+  function scoreLink(hash, inner, extUrl, extTitle) {
+    var x = extUrl && safeUrl(extUrl) !== "#" ? ' <a class="xl" href="' + esc(safeUrl(extUrl)) + '" target="_blank" rel="noopener" title="' + esc(extTitle) + '" aria-label="' + esc(extTitle) + '">&#8599;</a>' : "";
+    return (hash ? '<a class="sc" href="#' + esc(hash) + '" title="match page">' + inner + "</a>" : inner) + x;
+  }
+  function csMatchHash(m) { return m && m.id && /^[0-9a-z-]+$/i.test(String(m.id)) ? "match/cs2/" + encodeURIComponent(m.id) : ""; }
+  function valMatchHash(m) { var id = vlrId(m && m.url); return id ? "match/val/" + id : ""; }
+  // winner normalized to 1 (team 1) / 2 (team 2) / 0 for both games: CS stores 1/2, vlr.gg results 0/1
+  function win12(m, g) { return g === "val" ? (m.winner === 0 ? 1 : m.winner === 1 ? 2 : 0) : (m.winner === 1 || m.winner === 2 ? m.winner : 0); }
   function csEmpty(what) {
     var s = csMatchSrc();
     if (!s || s.status === "MISS") return soon(/upcoming/.test(what) ? "Upcoming matches coming soon." : "Match results coming soon.");
@@ -415,7 +425,7 @@
         var w1 = m.winner === 1, w2 = m.winner === 2, ru = roomUrl(m);
         var sc = '<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>";
         return "<tr>" + (opts.compact ? "" : '<td class="hide-sm dim date" title="' + esc(m.t ? fmt(m.t) : "") + '">' + (m.t ? fmt(m.t, "md") : "?") + "</td>") +
-          '<td class="n tm ' + (w1 ? "win" : "lose") + '">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="match room on FACEIT">' + sc + "</a>" : sc) + "</td>" +
+          '<td class="n tm ' + (w1 ? "win" : "lose") + '">' + csSide(m.t1) + '</td><td class="score">' + scoreLink(csMatchHash(m), sc, ru, "match room on FACEIT") + "</td>" +
           '<td class="tm ' + (w2 ? "win" : "lose") + '">' + csSide(m.t2) + '</td><td class="' + (opts.compact ? "hide-sm" : "") + '">' + mapCell(m) + "</td>" +
           (showDiv ? '<td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '">' + ilink("cs2/" + divOf(m), m.region + " " + m.division) + '<span class="cc">R' + num(m.round) + "</span></td>" : "") + "</tr>";
       }).join("") + "</tbody></table></div>";
@@ -435,17 +445,56 @@
     var mm = csMeta();
     if (!mm) return "";
     return '<div class="note">Results from FACEIT' + (mm.fetched_at ? ", updated " + fmt(mm.fetched_at, "short") : "") +
-      ". Dates in Pacific Time. Click a score for the FACEIT match room, a map for the scoreboard. Byes are not listed.</div>";
+      ". Dates in Pacific Time. Click a score for the match page (&#8599; = FACEIT match room). Byes are not listed.</div>";
+  }
+  /* v4.4 match pages: header, per-map scores (+ scoreboards when published), picked maps, both teams'
+     last 5 and earlier meetings this season. Built only from tracked data; bans are never made up. */
+  function lastFive(list, upto) {
+    var l = upto ? list.filter(function (f) { return String(f.t || "") < String(upto); }) : list;
+    return formHtml(l);
+  }
+  function meetingsHtml(rows, g, cur) {
+    if (!rows.length) return '<div class="empty">No other meeting between these teams in the data FragNet tracks this season.</div>';
+    return '<div class="rankbox"><table class="tbl res meet"><colgroup><col class="c-date"><col class="c-team"><col class="c-score"><col class="c-team"></colgroup><thead><tr><th class="first">Date</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th></tr></thead><tbody>' +
+      rows.map(function (m) {
+        var w = win12(m, g), t = g === "val" ? m.ts : m.t;
+        var sc = g === "val" ? '<span class="' + (w === 1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w === 2 ? "w" : "") + '">' + esc(m.score2) + "</span>" :
+          '<span class="' + (w === 1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w === 2 ? "w" : "") + '">' + num(m.s2) + "</span>";
+        var a = g === "val" ? ilink(valHash(m.team1), m.team1) : csSide(m.t1), b = g === "val" ? ilink(valHash(m.team2), m.team2) : csSide(m.t2);
+        return '<tr><td class="dim">' + (t ? fmt(t, "md") : "?") + '</td><td class="n tm ' + (w === 1 ? "win" : "lose") + '">' + a + '</td><td class="score">' +
+          scoreLink(g === "val" ? valMatchHash(m) : csMatchHash(m), sc, g === "val" ? m.url : roomUrl(m), g === "val" ? "match page on vlr.gg" : "match room on FACEIT") + '</td><td class="tm ' + (w === 2 ? "win" : "lose") + '">' + b + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function matchHead(t1, t2, s1, s2, w, sub) {
+    return '<div class="mhead"><div class="mt mt1' + (w === 1 ? " won" : "") + '">' + t1 + '</div><div class="ms"><span class="' + (w === 1 ? "w" : "") + '">' + s1 + '</span><span class="dash">:</span><span class="' + (w === 2 ? "w" : "") + '">' + s2 + "</span>" +
+      (sub ? '<div class="msub">' + sub + "</div>" : "") + '</div><div class="mt mt2' + (w === 2 ? " won" : "") + '">' + t2 + "</div></div>";
+  }
+  function mapsTable(maps, n1, n2, g) {
+    if (!maps.length) return "";
+    return '<div class="rankbox"><table class="tbl maps-tbl"><thead><tr><th class="first">Map</th><th class="c">' + esc(n1) + '</th><th class="c">' + esc(n2) + '</th><th class="hide-sm">Pick</th></tr></thead><tbody>' +
+      maps.map(function (x, i) {
+        var w = num(x.s1) > num(x.s2) ? 1 : num(x.s2) > num(x.s1) ? 2 : 0;
+        var pick = g === "val" ? (x.pick === 1 ? esc(n1) : x.pick === 2 ? esc(n2) : '<span class="dim">decider</span>') : '<span class="dim">&ndash;</span>';
+        return "<tr><td>" + (maps.length > 1 ? '<span class="dim">' + (i + 1) + ".</span> " : "") + "<b>" + esc(x.map) + '</b></td><td class="c ' + (w === 1 ? "w" : "") + '">' + num(x.s1) + '</td><td class="c ' + (w === 2 ? "w" : "") + '">' + num(x.s2) + '</td><td class="hide-sm">' + pick + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function findCsMatch(id) {
+    var all = ((D.cs && D.cs.matches) || []).concat((teamsX() && teamsX().matches) || []);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
   }
   function vMatchCS(id) {
-    var m = null;
-    ((D.cs && D.cs.matches) || []).forEach(function (x) { if (x.id === id) m = x; });
+    var m = findCsMatch(id);
+    if (!m && TX_STATE !== "ok" && TX_STATE !== "fail") { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
     if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in FragNet's data.", '<a href="#cs2/results">ESEA results</a>');
-    var ru = roomUrl(m);
+    loadTeams();
+    var ru = roomUrl(m), w = win12(m, "cs"), maps = m.maps || [];
+    var pick = (m.pick || []).filter(Boolean);
     var info = kv([
       ["Division", ilink("cs2/" + divOf(m), m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + " &middot; round " + num(m.round) + " &middot; best of " + num(m.bo || 1)],
       ["Finished", m.t ? fmt(m.t) : "?"],
-      ["Result", csSide(m.t1) + ' <b><span class="' + (m.winner === 1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (m.winner === 2 ? "w" : "") + '">' + num(m.s2) + "</span></b> " + csSide(m.t2)],
+      ["Result", csSide(m.t1) + ' <b><span class="' + (w === 1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w === 2 ? "w" : "") + '">' + num(m.s2) + "</span></b> " + csSide(m.t2) + (isFF(m) ? ' <span class="dim">(forfeit / technical result)</span>' : "")],
+      ["Map veto", pick.length ? "Picked: <b>" + pick.map(esc).join(", ") + '</b> <span class="dim">(FACEIT lists the chosen map' + (pick.length > 1 ? "s" : "") + " only)</span>" : '<span class="dim">not published for this match</span>'],
       ["FACEIT", ru ? ext(ru, "Match room on FACEIT") : "-"]
     ]);
     function board(lines, side) {
@@ -455,13 +504,50 @@
           return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + '</td><td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }
-    var maps = (m.maps || []).map(function (x, i) {
-      return '<h2 class="subhead">' + (m.maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1) + board(x.p2, m.t2);
+    var boards = maps.map(function (x, i) {
+      return '<h2 class="subhead">' + (maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1) + board(x.p2, m.t2);
     }).join("");
+    var other = {}, prior = [];
+    ((D.cs && D.cs.matches) || []).concat((teamsX() && teamsX().matches) || []).forEach(function (x) {
+      if (!x.id || other[x.id] || x.id === m.id) return; other[x.id] = 1;
+      if (involves(x, m.t1.id) && involves(x, m.t2.id)) prior.push(x);
+    });
+    prior.sort(function (a, b) { return String(b.t || "").localeCompare(String(a.t || "")); });
+    var form = kv([[m.t1.name, lastFive(csForm(m.t1.id), m.t)], [m.t2.name, lastFive(csForm(m.t2.id), m.t)]]);
     setCrumbs([["CS2", "cs2"], ["Results", "cs2/results"], [m.t1.name + " vs " + m.t2.name]]);
-    return std(esc(m.t1.name) + " vs " + esc(m.t2.name), "CS2 &middot; ESEA match", info) +
-      (maps || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Match stats not fetched yet; they are added on a later refresh.") + "</div>") +
-      '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT.</div>';
+    return std(esc(m.t1.name) + " vs " + esc(m.t2.name), "CS2 &middot; ESEA match", matchHead(csSide(m.t1), csSide(m.t2), num(m.s1), num(m.s2), w, "best of " + num(m.bo || 1)) + info) +
+      (maps.length > 1 || maps.length && pick.length ? '<h2 class="subhead">Maps</h2>' + mapsTable(maps, m.t1.name, m.t2.name, "cs") : "") +
+      (boards || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Scoreboard not available for this match yet (FragNet adds stats for the newest matches on each refresh).") + "</div>") +
+      '<h2 class="subhead">Form before this match <small>last 5, newest right</small></h2>' + form +
+      '<h2 class="subhead">Meetings this season</h2>' + meetingsHtml(prior, "cs") +
+      '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT. Times in Pacific Time.</div>';
+  }
+  function vMatchVal(id) {
+    var m = null;
+    valResults().forEach(function (x) { if (!m && vlrId(x.url) === id) m = x; });
+    if (!m) return notFound("Match not tracked", "No Valorant result with this id in FragNet's data (FragNet keeps the latest tier-2 / Game Changers results).", '<a href="#valorant/results">Valorant results</a>');
+    loadVal();
+    var vx = window.FRAGNET_VAL, det = vx && vx.matches && vx.matches[id], w = win12(m, "val");
+    var detail;
+    if (!vx && VX_STATE !== "fail") detail = '<div class="empty loading">Loading map details&hellip;</div>';
+    else if (!det) detail = '<div class="empty">Map details not fetched yet (FragNet reads a few vlr.gg match pages per refresh). ' + ext(m.url, "Full match page on vlr.gg") + "</div>";
+    else detail = (det.veto ? '<div class="infobox veto"><b>Map veto</b> <span class="dim">(as listed on vlr.gg)</span><br>' + esc(det.veto) + "</div>" : "") +
+      (det.maps && det.maps.length ? mapsTable(det.maps, m.team1, m.team2, "val") : '<div class="empty">No map scores on the vlr.gg match page.</div>') +
+      '<div class="note">Player scoreboards: ' + ext(m.url, "match page on vlr.gg") + (det.fetched_at ? " &middot; read " + fmt(det.fetched_at, "short") : "") + ".</div>";
+    var info = kv([
+      ["Event", esc(m.event) + (m.series ? ' <span class="dim">&middot; ' + esc(m.series) + "</span>" : "")],
+      ["Date", m.ts ? fmt(m.ts) : esc(m.date || "?")],
+      ["Result", ilink(valHash(m.team1), m.team1) + ' <b><span class="' + (w === 1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w === 2 ? "w" : "") + '">' + esc(m.score2) + "</span></b> " + ilink(valHash(m.team2), m.team2)],
+      ["vlr.gg", ext(m.url, "Match page on vlr.gg")]
+    ]);
+    var prior = valResults().filter(function (x) { return x !== m && ((slug(x.team1) === slug(m.team1) && slug(x.team2) === slug(m.team2)) || (slug(x.team1) === slug(m.team2) && slug(x.team2) === slug(m.team1))); });
+    var form = kv([[m.team1, lastFive(valForm(m.team1), m.ts)], [m.team2, lastFive(valForm(m.team2), m.ts)]]);
+    setCrumbs([["Valorant", "valorant"], ["Results", "valorant/results"], [m.team1 + " vs " + m.team2]]);
+    return std(esc(m.team1) + " vs " + esc(m.team2), "Valorant &middot; match", matchHead(ilink(valHash(m.team1), m.team1), ilink(valHash(m.team2), m.team2), esc(m.score1), esc(m.score2), w, esc(shortEv(m.event))) + info) +
+      '<h2 class="subhead">Maps</h2>' + detail +
+      '<h2 class="subhead">Form before this match <small>last 5, newest right</small></h2>' + form +
+      '<h2 class="subhead">Meetings this season</h2>' + meetingsHtml(prior, "val") +
+      '<div class="note">Results as listed on vlr.gg; dates in Pacific Time.</div>';
   }
   function teamMatchesHtml(id) {
     var seen = {};
@@ -604,8 +690,8 @@
       rows.map(function (m, j) {
         var w1 = m.winner === 0, w2 = m.winner === 1;
         return "<tr" + (noKeys ? "" : ' data-k="vr:' + (offset + j) + '"') + ">" + (compact ? "" : '<td class="hide-sm dim" title="' + esc(m.ts ? fmt(m.ts) : (m.date + " " + m.time + " (US Central, as listed on vlr.gg)")) + '">' + resDate(m) + "</td>") +
-          '<td class="n ' + (w1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) + '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg">' +
-          '<span class="' + (w1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + esc(m.score2) + "</span></a></td>" +
+          '<td class="n ' + (w1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) + '</td><td class="score">' +
+          scoreLink(valMatchHash(m), '<span class="' + (w1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + esc(m.score2) + "</span>", m.url, "match page on vlr.gg") + "</td>" +
           '<td class="' + (w2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + "</td>" +
           (compact ? "" : '<td class="hide-sm" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '">' + esc(shortEv(m.event)) + '<span class="cc">' + esc(m.series) + "</span></td>") + "</tr>";
       }).join("") + "</tbody></table></div>";
@@ -658,7 +744,7 @@
         if (r.g === "val") {
           var v1 = m.winner === 0, v2 = m.winner === 1;
           return '<tr class="g-val"><td class="dim" title="' + esc(fmt(m.ts)) + '">' + hhmm(m.ts) + '</td><td class="n tm ' + (v1 ? "win" : "lose") + '">' + ilink(valHash(m.team1), m.team1) +
-            '</td><td class="score"><a href="' + esc(safeUrl(m.url)) + '" target="_blank" rel="noopener" title="match page on vlr.gg"><span class="' + (v1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (v2 ? "w" : "") + '">' + esc(m.score2) + "</span></a></td>" +
+            '</td><td class="score">' + scoreLink(valMatchHash(m), '<span class="' + (v1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (v2 ? "w" : "") + '">' + esc(m.score2) + "</span>", m.url, "match page on vlr.gg") + "</td>" +
             '<td class="tm ' + (v2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) +
             '</td><td class="hide-sm dim">&ndash;</td></tr>';
         }
@@ -668,13 +754,13 @@
         else mid = "vs";
         var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : "match room on FACEIT";
         return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) : "TBD") + "</td>" +
-          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + "</td>" +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid) + "</td>" +
           '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
           ilink("cs2/" + divOf(m), m.region + " " + m.division) + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
       (preview ? '<div class="note see-all">' + all.length + " match" + (all.length === 1 ? "" : "es") + ' today &middot; <a href="#cs2/today">see all matches today &raquo;</a></div>' :
       '<div class="note">' + all.length + " match" + (all.length === 1 ? "" : "es") + " today" + (cut ? " &middot; showing " + [live.length ? "live matches" : "", done.length ? "the latest " + Math.min(N, done.length) + " result" + (Math.min(N, done.length) === 1 ? "" : "s") : "", up.length ? "the next " + Math.min(N, up.length) + " start" + (Math.min(N, up.length) === 1 ? "" : "s") : ""].filter(Boolean).join(", ") + ' (<a href="#cs2/results">all results &raquo;</a>)' : "") +
-      ". Times in Pacific Time. Click a score for the match room, a map for the scoreboard. LIVE = in progress at the last update.</div>");
+      ". Times in Pacific Time. Click a final score for the match page (&#8599; = source), vs / LIVE for the match room. LIVE = in progress at the last update.</div>");
     return std(esc(title), meta, body, "today-board");
   }
 
@@ -735,7 +821,7 @@
       var src = r.g === "cs" ? "match room on FACEIT" : "match page on vlr.gg";
       var where = r.g === "cs" ? '<span class="gtag">CS2</span>' + ilink("cs2/" + divOf(m), m.region + " " + m.division) : '<span class="gtag">VAL</span>' + esc(shortEv(m.event));
       return '<tr class="st-' + r.st + '"><td class="dim when" title="' + esc(r.t ? fmt(r.t) : "") + '">' + when + '</td><td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + side(r, 1) + '</td><td class="score">' +
-        (url && safeUrl(url) !== "#" ? '<a href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener" title="' + src + '">' + mid + "</a>" : mid) + '</td><td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + side(r, 2) + '</td><td class="hide-sm div">' + where + "</td></tr>";
+        (r.st === "done" ? scoreLink(r.g === "cs" ? csMatchHash(m) : valMatchHash(m), mid, url, src) : url && safeUrl(url) !== "#" ? '<a href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener" title="' + src + '">' + mid + "</a>" : mid) + '</td><td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + side(r, 2) + '</td><td class="hide-sm div">' + where + "</td></tr>";
     }
     function table(rows, head) {
       return '<div class="my-h">' + head + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl res my-tbl"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"></colgroup><tbody>' +
@@ -893,7 +979,7 @@
       var rm = v.results_meta || {};
       var excl = (rm.excluded_events || []).map(shortEv);
       title = "Recent Results (Challengers / Game Changers / tier-2)";
-      body = staleNote(rm) + '<div class="note">' + r.length + " results from " + evNames.length + " events: " + esc(evNames.join(", ")) + ". Winner highlighted; click a score for the vlr.gg match page. Dates in Pacific Time." +
+      body = staleNote(rm) + '<div class="note">' + r.length + " results from " + evNames.length + " events: " + esc(evNames.join(", ")) + ". Winner highlighted; click a score for the match page (&#8599; = vlr.gg). Dates in Pacific Time." +
         (rm.scanned ? " Scanned the latest " + num(rm.scanned) + " vlr.gg results; excluded " + num(rm.excluded_international) + " from international events (Champions/Masters) and " + num(rm.excluded_partner) + " from tier-1 VCT partner leagues" + (excl.length ? " (" + esc(excl.join(", ")) + ")" : "") + "." : "") + "</div>" +
         pager(r.length, page, "valorant/results") + resultsTable(slicePage(r, page), (page - 1) * PER_PAGE, false) + pager(r.length, page, "valorant/results");
     } else if (sub === "players") {
@@ -1358,7 +1444,7 @@
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
-        case "match": html = vMatchCS(r.parts.slice(1).join("/")); break;
+        case "match": html = r.parts[0] === "val" ? vMatchVal(r.parts.slice(1).join("/")) : vMatchCS(r.parts.slice(1).join("/")); break;
         case "guild": html = vGuild(r.parts[0] || "", r.parts[1] || "", r.parts.slice(2).join("/")); break;
         case "search": html = vSearch(r.parts.join("/")); break;
         case "status": html = vStatus(); break;
@@ -1379,7 +1465,7 @@
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
-    var navTop = r.top === "search" ? "" : (r.top === "player" && r.parts[0] !== "val") || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" || r.top === "player" ? "valorant" : r.top === "guild" ? "wow" : r.top;
+    var navTop = r.top === "search" ? "" : (r.top === "player" || r.top === "match" || r.top === "team") && r.parts[0] !== "val" ? "cs2" : r.top === "team" || r.top === "player" || r.top === "match" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
     $$("[data-sel]").forEach(function (a) { a.classList.toggle("on", a.dataset.sel === CUR_SEC); });
