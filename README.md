@@ -97,3 +97,13 @@ sponsored by FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO,
 or any of the news sites listed above. Counter-Strike, Valorant, World of Warcraft and
 all other trademarks belong to their respective owners. Fonts: see `fonts/README.txt`
 and the licence files in `fonts/`.
+
+## Path pages, sitemap and share images (v4.5)
+
+Every deploy also writes real URLs such as `team/cs2/<id>/`, `player/cs2/<nick>/`, `match/cs2/<id>/` and
+`cs2/na-advanced/` (`pages.py`, run by the workflow before the front-page snapshot). Each page has its own
+title, description, canonical URL, share tags and a static snapshot that works without JavaScript; with
+JavaScript the normal app takes over. Only teams, players and matches with at least one tracked match get a
+page. `sitemap.xml` and `robots.txt` are written alongside. Share images (1200x630 PNG, no logos) are drawn
+with Pillow for teams and matches and cached between runs, so only changed ones are redrawn. Generated files
+are never committed; they go straight into the Pages artifact. Local build: `python build_dist.py --pages --prerender`.
