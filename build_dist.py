@@ -17,6 +17,7 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import shutil
 import sys
 import zipfile
@@ -48,6 +49,29 @@ def build():
     for f in sorted(os.listdir(os.path.join(HERE, "fonts"))):
         if any(fnmatch.fnmatch(f, p) for p in FONT_PATTERNS):
             shutil.copy2(os.path.join(HERE, "fonts", f), os.path.join(DIST, "fonts", f))
+    add_counter()
+
+
+def counter_snippet(code):
+    """Optional privacy-friendly visitor counter (GoatCounter: no cookies, no personal data).
+    Inert unless GOATCOUNTER_CODE is set (e.g. a GitHub Actions repository variable).
+    Only the section part of the hash route is counted (#cs2, #valorant ...), never ids or names."""
+    code = (code or "").strip().lower()
+    if not re.match(r"^[a-z0-9][a-z0-9-]{1,48}$", code):
+        return ""
+    return ('<script>window.goatcounter={path:function(p){return p+((location.hash||"#home").split("/")[0])}};</script>\n'
+            f'<script data-goatcounter="https://{code}.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>\n')
+
+
+def add_counter():
+    snip = counter_snippet(os.environ.get("GOATCOUNTER_CODE"))
+    if not snip:
+        return
+    ip = os.path.join(DIST, "index.html")
+    page = open(ip, encoding="utf-8").read()
+    if page.count("</body>") == 1 and "goatcounter" not in page:
+        open(ip, "w", encoding="utf-8").write(page.replace("</body>", snip + "</body>"))
+        print("[build] visitor counter enabled (GoatCounter)")
 
 
 def files_in(root):

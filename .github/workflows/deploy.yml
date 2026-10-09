@@ -38,6 +38,9 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Build dist/ (site files + committed data)
+        env:
+          # optional visitor counter: inert until the repository variable GOATCOUNTER_CODE is set
+          GOATCOUNTER_CODE: ${{ vars.GOATCOUNTER_CODE }}
         run: python build_dist.py
 
       - name: Restore last-good data from cache
