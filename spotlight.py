@@ -124,10 +124,22 @@ def wow_kills(data, start, end):
     return {"raid": raid.get("name"), "kills": total, "guilds": out[:8]}
 
 
+RK = {"res": [], "avgs": {}}   # v6.2: filled by build() from ranking.py
+
+
+def week_picks(start, end):
+    try:
+        import ranking
+        return {"potw": ranking.player_of_week(RK["res"], RK["avgs"], start, end), "totw": ranking.team_of_week(RK["res"], start, end)}
+    except Exception as ex:   # never break roundups
+        print("[spotlight] week picks skipped:", ex)
+        return {"potw": None, "totw": None}
+
+
 def block(data, results, start, end):
     inp = [m for m in results if start <= ts(m["t"]) < end]
     return {"start": start.isoformat(), "end": end.isoformat(), "cs_matches": len(inp), "cs_with_scoreboards": sum(1 for m in inp if m.get("maps")),
-            "upsets": upsets(results, start, end)[:5], "fraggers": fraggers(results, start, end), "streaks": streaks(results, end), "wow": wow_kills(data, start, end)}
+            "upsets": upsets(results, start, end)[:5], "fraggers": fraggers(results, start, end), "streaks": streaks(results, end), "wow": wow_kills(data, start, end), **week_picks(start, end)}
 
 
 def week_start(dt):
@@ -139,6 +151,12 @@ def week_start(dt):
 def build(data, teams, now=None):
     now = now or datetime.now(timezone.utc)
     res = cs_results(data, teams)
+    try:
+        import ranking
+        RK["res"] = ranking.finished(data, teams)
+        RK["avgs"] = ranking.div_avgs(ranking.players_of(data, teams))
+    except Exception as ex:
+        print("[spotlight] ranking inputs unavailable:", ex)
     out = {"generated": now.isoformat(timespec="seconds"), "upset_rule": UPSET_RULE, "last7": block(data, res, now - timedelta(days=7), now), "weeks": []}
     if not res:
         return out

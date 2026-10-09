@@ -801,3 +801,8 @@ td.score a.xl:hover{color:var(--link)}
 [data-theme=night] .esbr.hi{color:#6fd18b}[data-theme=night] .esbr.lo{color:#fdba74}
 .rank-line{margin:6px 0}
 .method h3{margin:8px 0 4px;font-size:13px}.method p{margin:0 0 6px}
+.potw{display:flex;flex-wrap:wrap;gap:0 12px}.potw .pick{flex:1 1 260px;min-width:0}.potw .note{flex-basis:100%}
+.tbl.awards th{text-align:left;width:120px;padding:6px}
+.bracket{display:flex;gap:10px;overflow-x:auto;padding:4px 0}.bcol{min-width:160px}.bhead{font:bold 11px var(--ui);margin-bottom:4px}
+.bm{border:1px solid #9aa7b1;margin-bottom:6px;font-size:12px}.bm div{display:flex;justify-content:space-between;padding:2px 4px}.bm .w{font-weight:bold}
+.po-links{margin:6px 0 6px 18px}

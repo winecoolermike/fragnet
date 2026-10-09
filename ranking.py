@@ -216,9 +216,29 @@ def build(data, teams, now=None):
     pl = players_of(data, teams)
     avgs = div_avgs(pl)
     pr = player_ratings(pl, avgs)
+    names = {}
+    for m in res:
+        names[m["t1"]["id"]] = m["t1"]["name"]; names[m["t2"]["id"]] = m["t2"]["name"]
+    for p in pr:
+        p["team"] = p.get("team") or names.get(p.get("team_id"))
     top = sorted([p for p in pr if p["rounds"] >= TOP_MIN_ROUNDS], key=lambda p: (-p["adj"], -p["rounds"]))[:20]
     season = (data.get("cs") or {}).get("season") or {}
-    return {"generated": now.isoformat(timespec="seconds"), "week_start": ws.isoformat(), "season": {"name": season.get("name"), "end": season.get("end"), "start": season.get("start")},
+    # v6.3 season awards (only what the data supports: no rookie-team flag, no weapon stats in FACEIT data we fetch)
+    br = max(cur, key=lambda r: (r["pts"] - PRIOR.get(r["division"], 1300.0), r["pts"])) if cur else None
+    awards = {"mvp": top[0] if top else None, "best_team": cur[0] if cur else None,
+              "breakout": dict(br, gain=round(br["pts"] - PRIOR.get(br["division"], 1300.0), 1)) if br else None,
+              "omitted": ["Top rookie team: FACEIT data here does not say which teams are new this season.",
+                          "Top AWPer: FACEIT match stats here have no per-weapon data."]}
+    # v6.4 playoffs: stages/matches marked as playoffs by fetch_data.py (none until FACEIT publishes them)
+    cs = data.get("cs") or {}
+    po_divs = [d for d in cs.get("divisions") or [] if re.search(r"playoff", str(d.get("stage") or ""), re.I)]
+    po_matches = [m for m in (cs.get("matches") or []) + (cs.get("upcoming") or []) if re.search(r"playoff", str(m.get("stage") or ""), re.I)]
+    po_done = [m for m in res if re.search(r"playoff", str(m.get("stage") or ""), re.I)]
+    mvp = player_of_week(po_done, avgs, datetime(2000, 1, 1, tzinfo=timezone.utc), now + timedelta(days=1), min_maps=3) if po_done else None
+    playoffs = {"divisions": [{"region": d.get("region"), "division": d.get("division"), "stage": d.get("stage"), "link": d.get("link")} for d in po_divs],
+                "matches": [{k: m.get(k) for k in ("id", "region", "division", "round", "t", "t1", "t2", "s1", "s2", "winner", "bo")} for m in po_matches], "mvp": mvp,
+                "links": [{"region": d.get("region"), "division": d.get("division"), "link": d.get("link")} for d in cs.get("divisions") or []]}
+    return {"awards": awards, "playoffs": playoffs, "generated": now.isoformat(timespec="seconds"), "week_start": ws.isoformat(), "season": {"name": season.get("name"), "end": season.get("end"), "start": season.get("start")},
             "formula_team": FORMULA_TEAM, "formula_player": FORMULA_PLAYER, "prior": PRIOR, "div_factor": DIV_FACTOR, "weights": W, "min_rounds": MIN_ROUNDS,
             "teams": cur, "avgs": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in avgs.items()},
             "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top}
