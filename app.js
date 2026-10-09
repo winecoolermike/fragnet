@@ -1,4 +1,4 @@
-/* FragNet v4.2 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.3 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -99,7 +99,7 @@
     var g = SECTIONS[game];
     return '<nav class="sectabs" aria-label="' + esc(g.short) + ' sections">' + g.tabs.map(function (t) {
       var on = t[0] === active;
-      return '<a href="#' + t[1] + '"' + (on ? ' class="on" aria-current="page"' : "") + ">" + (t[3] ? '<span class="lg">' + esc(t[2]) + '</span><span class="sh">' + esc(t[3]) + "</span>" : esc(t[2])) + "</a>";
+      return '<a href="#' + (game === "cs2" && t[0] === "standings" ? csHome() : t[1]) + '"' + (on ? ' class="on" aria-current="page"' : "") + ">" + (t[3] ? '<span class="lg">' + esc(t[2]) + '</span><span class="sh">' + esc(t[3]) + "</span>" : esc(t[2])) + "</a>";
     }).join("") + "</nav>";
   }
   // game header bar + sticky section tabs (tabs sit outside .std so they can stick while the page scrolls)
@@ -210,7 +210,7 @@
     TX_STATE = "loading";
     var sc = document.createElement("script");
     sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player)\/cs2\/|search|cs2(\/(?!results|players|today)|$))/.test(location.hash)) { KEEP_SCROLL = true; route(); } }
+    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player)\/cs2\/|search|cs2(\/(?!results|players)|$)|home|$)/.test(location.hash || "#")) { KEEP_SCROLL = true; route(); } }
     sc.onload = function () { done(true); };
     sc.onerror = function () { done(false); };
     document.head.appendChild(sc);
@@ -678,6 +678,95 @@
     return std(esc(title), meta, body, "today-board");
   }
 
+  /* ----- v4.3 my teams, recently viewed, last CS2 division: kept in this browser only (localStorage) ----- */
+  var LS = { fav: "fragnet-favs", rec: "fragnet-recent", div: "fragnet-cs-div" }, FAVC = null;
+  function lsGet(k, def) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch (e) { return def; } }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function favs() {
+    if (FAVC) return FAVC;
+    var f = lsGet(LS.fav, []);
+    FAVC = Array.isArray(f) ? f.filter(function (x) { return x && typeof x.k === "string" && /^(cs|val):./.test(x.k) && typeof x.n === "string"; }).slice(0, 50) : [];
+    return FAVC;
+  }
+  function isFav(k) { return favs().some(function (x) { return x.k === k; }); }
+  function toggleFav(k, n) {
+    var f = favs().slice(), i = -1;
+    f.forEach(function (x, j) { if (x.k === k) i = j; });
+    if (i >= 0) f.splice(i, 1); else f.push({ k: k, n: String(n || "").slice(0, 80) });
+    lsSet(LS.fav, f.length ? f : null); FAVC = null;
+    return i < 0;
+  }
+  function favHash(k) { return k.indexOf("cs:") === 0 ? "team/cs2/" + encodeURIComponent(k.slice(3)) : "team/val/" + k.slice(4); }
+  function star(k, n, big) {
+    var on = isFav(k);
+    return '<button type="button" class="star' + (big ? " star-lg" : "") + (on ? " on" : "") + '" data-fav="' + esc(k) + '" data-n="' + esc(n) + '" aria-pressed="' + on + '" title="' + (on ? "Remove " + esc(n) + " from" : "Add " + esc(n) + " to") + ' My Teams (saved in this browser)">' +
+      '<span aria-hidden="true">' + (on ? "&#9733;" : "&#9734;") + "</span>" + (big ? (on ? " Following" : " Follow") : '<span class="vh">' + (on ? "Unfollow " : "Follow ") + esc(n) + "</span>") + "</button>";
+  }
+  function csHome() { var v = lsGet(LS.div, ""); return typeof v === "string" && csDivs().some(function (d) { return divId(d) === v; }) ? "cs2/" + v : "cs2"; }
+  function myMatches(page) {
+    var f = favs(), cs = {}, val = {}, nCs = 0;
+    f.forEach(function (x) { if (x.k.indexOf("cs:") === 0) { cs[x.k.slice(3)] = 1; nCs++; } else val[x.k.slice(4)] = 1; });
+    if (!f.length) return page === "today" ? "" : '<div class="note my-hint" id="my-matches"><span aria-hidden="true">&#9734;</span> Tip: star a team (on its page or in the standings) to follow its matches here. Saved in this browser only.</div>';
+    if (nCs) loadTeams();
+    var seen = {}, done = [], up = [], x = teamsX();
+    function csIn(m) { return (m.t1 && cs[m.t1.id]) || (m.t2 && cs[m.t2.id]); }
+    function add(list, st, g) { list.forEach(function (m) { var k = g + (m.id || m.url); if (seen[k]) return; seen[k] = 1; (st === "done" ? done : up).push({ g: g, st: st === "done" ? "done" : m.live || st === "live" ? "live" : "up", m: m, t: m.t || m.ts || "" }); }); }
+    add(((D.cs && D.cs.live) || []).filter(csIn), "live", "cs");
+    add(csFinished().concat((x && x.matches) || []).filter(csIn), "done", "cs");
+    add(csUpcoming().concat((x && x.upcoming) || []).filter(csIn), "up", "cs");
+    function vIn(m) { return val[slug(m.team1)] || val[slug(m.team2)]; }
+    add(valResults().filter(vIn), "done", "val");
+    add(((D.valorant && D.valorant.upcoming) || []).filter(vIn), "up", "val");
+    done.sort(function (a, b) { return String(b.t).localeCompare(String(a.t)); });
+    up.sort(function (a, b) { return (a.st === "live" ? 0 : 1) - (b.st === "live" ? 0 : 1) || String(a.t).localeCompare(String(b.t)); });
+    function side(r, n) {
+      var m = r.m, isMine;
+      if (r.g === "cs") { var sd = n === 1 ? m.t1 : m.t2; isMine = sd && cs[sd.id]; return '<span class="' + (isMine ? "mine" : "") + '">' + csSide(sd) + "</span>"; }
+      var nm = n === 1 ? m.team1 : m.team2; isMine = val[slug(nm)];
+      return '<span class="' + (isMine ? "mine" : "") + '">' + (nm && nm !== "TBD" ? ilink(valHash(nm), nm) : '<span class="dim">TBD</span>') + "</span>";
+    }
+    function row(r) {
+      var m = r.m, w1, w2, mid, url, when;
+      if (r.g === "cs") { w1 = r.st === "done" && m.winner === 1; w2 = r.st === "done" && m.winner === 2; url = roomUrl(m); }
+      else { w1 = r.st === "done" && m.winner === 0; w2 = r.st === "done" && m.winner === 1; url = m.url; }
+      if (r.st === "done") mid = r.g === "cs" ? '<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>" : '<span class="' + (w1 ? "w" : "") + '">' + esc(m.score1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + esc(m.score2) + "</span>";
+      else mid = r.st === "live" ? '<span class="live-b">LIVE</span>' : "vs";
+      when = r.t ? (r.st === "done" ? fmt(r.t, "md") : fmt(r.t, "short").replace(/ [A-Z]{3,4}$/, "")) : "TBD";
+      var src = r.g === "cs" ? "match room on FACEIT" : "match page on vlr.gg";
+      var where = r.g === "cs" ? '<span class="gtag">CS2</span>' + ilink("cs2/" + divOf(m), m.region + " " + m.division) : '<span class="gtag">VAL</span>' + esc(shortEv(m.event));
+      return '<tr class="st-' + r.st + '"><td class="dim when" title="' + esc(r.t ? fmt(r.t) : "") + '">' + when + '</td><td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + side(r, 1) + '</td><td class="score">' +
+        (url && safeUrl(url) !== "#" ? '<a href="' + esc(safeUrl(url)) + '" target="_blank" rel="noopener" title="' + src + '">' + mid + "</a>" : mid) + '</td><td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + side(r, 2) + '</td><td class="hide-sm div">' + where + "</td></tr>";
+    }
+    function table(rows, head) {
+      return '<div class="my-h">' + head + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl res my-tbl"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"></colgroup><tbody>' +
+        rows.map(row).join("") + "</tbody></table></div>" : '<div class="empty">None in the data FragNet tracks.</div>');
+    }
+    var nUp = up.slice(0, 5), nDone = done.slice(0, 5);
+    var body = (nUp.length || nDone.length) ? table(nUp, "Next matches") + table(nDone, "Latest results") :
+      '<div class="empty">No recent or upcoming matches for your teams in the data FragNet tracks' + (nCs && TX_STATE === "loading" ? " (still loading&hellip;)" : "") + ".</div>";
+    var list = '<div class="note my-teams">Following: ' + f.map(function (x) { return ilink(favHash(x.k), x.n) + star(x.k, x.n); }).join(" &middot; ") +
+      '<br><span class="dim">Saved in this browser only &mdash; no account. Tap a star to follow or unfollow.</span></div>';
+    return std("My Teams", f.length + " followed", body + list, "my-matches");
+  }
+  function noteRecent(r) {
+    if (["team", "player", "guild", "match"].indexOf(r.top) < 0) return;
+    var h1 = $("#view .std-header h1"), name = h1 ? h1.textContent.trim() : "";
+    if (!name || /not tracked|unavailable/i.test(name) || $("#view .loading")) return;
+    var h = (location.hash || "").replace(/^#/, ""), kind = { team: "team", player: "player", guild: "guild", match: "match" }[r.top];
+    var game = r.top === "guild" ? "WoW" : r.parts[0] === "val" ? "Valorant" : "CS2";
+    var rec = lsGet(LS.rec, []); if (!Array.isArray(rec)) rec = [];
+    rec = [{ h: h, n: name.slice(0, 80), w: game + " " + kind }].concat(rec.filter(function (x) { return x && x.h !== h; })).slice(0, 8);
+    lsSet(LS.rec, rec);
+  }
+  function recentHtml() {
+    var rec = lsGet(LS.rec, []);
+    rec = Array.isArray(rec) ? rec.filter(function (x) { return x && typeof x.h === "string" && /^(team|player|guild|match)\//.test(x.h) && typeof x.n === "string"; }) : [];
+    if (!rec.length) return "";
+    return '<div class="sr-group recent"><div class="sr-h">Recently viewed <button type="button" class="rv-clear" title="Forget the recently viewed list in this browser">clear</button></div><ul class="sr-list">' + rec.map(function (x) {
+      return '<li><a href="#' + esc(x.h) + '">' + esc(x.n) + '</a><span class="where">' + esc(x.w || "") + "</span></li>";
+    }).join("") + '</ul><div class="note">Kept in this browser only.</div></div>';
+  }
+
   /* ================= VIEWS ================= */
   function vHome() {
     var s = D.cs && D.cs.season, raid = D.wow && D.wow.raid, tr = todayRows();
@@ -695,7 +784,7 @@
     var rk = (D.wow && D.wow.rankings) || {}, us = (rk.us || [])[0], eu = (rk.eu || [])[0];
     var wT = [raid ? esc(raid.name) : "", us ? "US #1 <b>" + esc(us.guild) + "</b> " + esc(us.progress) : "", eu ? "EU #1 <b>" + esc(eu.guild) + "</b> " + esc(eu.progress) : ""].filter(Boolean).join(" &middot; ");
     var cards = '<div class="gcards">' +
-      card("cs2", csT, [["Standings", "cs2"], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
+      card("cs2", csT, [["Standings", csHome()], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
       card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
       card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
     var news = newsItems().slice(0, 5);
@@ -703,7 +792,7 @@
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
     }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + todayBoard(true) +
+    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
@@ -722,13 +811,14 @@
         return [d.division, "cs2/" + divId(d), d === cur, d.division === "Intermediate" ? "Int" : d.division === "Advanced" ? "Adv" : d.division];
       })) + "</div>";
       setCrumbs([["CS2", "cs2"], [cur.region + " " + cur.division, "cs2/" + divId(cur)], ["Standings"]]);
+      if (parts[0] === sub && lsGet(LS.div, "") !== sub) lsSet(LS.div, sub);   // v4.3: remembered for the Standings links
     } else setCrumbs([["CS2", "cs2"], [section === "players" ? "Top Players" : section === "results" ? "Results" : "Matches Today"]]);
     var s = cs.season;
     var info = s ? '<div class="infobox">' + ext(cs.page, cs.league) + " &raquo; <b>" + esc(s.name) + "</b> &middot; " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT)" +
       " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
     var body = "", title = "";
     if (sub === "today") {
-      return gameHead("cs2", "today", "Counter-Strike 2 :: ESEA League") + todayBoard();
+      return gameHead("cs2", "today", "Counter-Strike 2 :: ESEA League") + myMatches("today") + todayBoard();
     } else if (sub === "players") {
       title = "Top Fraggers :: EU + NA";
       var ps = cs.top_players || [], pm = cs.top_players_meta || {};
@@ -768,7 +858,7 @@
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
       else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + pnav + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n hide-sm" title="rounds won-lost">Rounds</th><th class="c form-h" title="last 5 results, newest right (FF = forfeit)">Form</th></tr></thead><tbody>' +
         shown.map(function (t) {
-          return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + csTeamLink(t) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
+          return '<tr class="' + medal(t.rank) + '" data-k="' + esc("cs:" + divId(d) + ":" + t.name) + '">' + rk(t.rank) + '<td class="team">' + (csTeamId(t) ? star("cs:" + csTeamId(t), t.name) : "") + csTeamLink(t) + '<span class="cc" title="' + esc(countryName(t.country)) + '">' + esc(t.country || "") + "</span>" + (t.dq ? '<span class="cc dq" title="disqualified">DQ</span>' : "") +
             "</td>" + (multi ? '<td class="c">' + esc(t.conf || "?") + "</td>" : "") + '<td class="hide-sm dim">' + esc(t.tag || "") + '</td><td class="n w">' + num(t.w) + '</td><td class="n l">' + num(t.l) + '</td><td class="n"><b>' + num(t.pts) + '</b></td><td class="n hide-sm">' + esc(t.rounds) + '</td><td class="c fcell">' + formHtml(csForm(csTeamId(t))) + "</td></tr>";
         }).join("") + "</tbody></table></div>" + pnav + '<div class="note">All ' + nT + " teams of the " + esc(d.stage) + " stage" + (multi ? ", conferences " + esc(d.conferences.join(" + ")) + " ranked together (FACEIT stage table)" : "") +
         " &middot; tied ranks shown as ranges (e.g. 3-12) &middot; " + ext(d.link, "full table on FACEIT") + "</div>";
@@ -836,7 +926,7 @@
       title = e.title + " :: Final Standings";
       body = (e.stale ? staleRow("vlr.gg event page", e.status_note, e.fetched_at) : "") + '<div class="note">' + esc(e.dates) + " &middot; " + ext(e.url, "event page on vlr.gg") + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Team</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th><th class="c form-h" title="last 5 tracked results, newest right">Form</th></tr></thead><tbody>' +
         rows.map(function (t) {
-          return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
+          return '<tr class="' + medal(t.place) + '" data-k="' + esc("vs:" + i + ":" + t.team) + '">' + rk(t.place) + '<td class="team">' + star("val:" + slug(t.team), t.team) + ilink(valHash(t.team), t.team) + '<span class="cc">' + esc(t.country) +
             '</span></td><td class="n">' + esc(t.prize) + '</td><td class="hide-sm">' + esc([t.points, t.note].filter(Boolean).join(" ")) + '</td><td class="c fcell">' + formHtml(valForm(t.team)) + "</td></tr>";
         }).join("") + "</tbody></table></div>" : soon("Standings not available yet."));
       var etp = e.top_players || [];
@@ -907,7 +997,7 @@
       while ((j = low.indexOf(ql, i)) >= 0) { out += esc(s.slice(i, j)) + "<mark>" + esc(s.slice(j, j + ql.length)) + "</mark>"; i = j + ql.length; }
       return out + esc(s.slice(i));
     }
-    var body = !ql ? '<div class="empty">Type in the SEARCH FRAGNET box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' :
+    var body = !ql ? '<div class="empty">Type in the SEARCH FRAGNET box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' + recentHtml() :
       !hits.length ? '<div class="empty' + (lazyBusy ? ' loading">Searching all players&hellip;' : '">No matches for &ldquo;' + esc(q) + "&rdquo;.") + "</div>" :
       Object.keys(groups).map(function (g) {
         return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + groups[g].length + ')</div><ul class="sr-list">' + groups[g].slice(0, 40).map(function (h) {
@@ -958,7 +1048,7 @@
     var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)],
       sk ? ["Streak", '<span class="' + (sk[0] === "W" ? "w" : sk[0] === "L" ? "l" : "") + '">' + sk + "</span>"] : ["Rounds", esc(t.rounds || "-")]]);
     setCrumbs([["CS2", "cs2"], [d.region + " " + d.division, "cs2/" + divId(d)], [t.name]]);
-    return std(esc(t.name), "CS2 &middot; ESEA League team", tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
+    return std(esc(t.name), "CS2 &middot; ESEA League team " + (csTeamId(t) ? star("cs:" + csTeamId(t), t.name, true) : ""), tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
       '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
 
@@ -1027,7 +1117,7 @@
     var vsk = streak(valForm(v.name));
     var tl = tiles([v.results.length ? ["Recent series", '<span class="w">' + w + '</span>-<span class="l">' + l + "</span>"] : null, vsk ? ["Streak", '<span class="' + (vsk[0] === "W" ? "w" : "l") + '">' + vsk + "</span>"] : null, tm && tm.roster ? ["Roster", tm.roster.filter(function (m) { return !/coach|manager|analyst/.test(m[2] || ""); }).length] : null, tm && (tm.tag || v.country || tm.country) ? [tm.tag ? "Tag" : "Region", esc(tm.tag || tm.country || v.country)] : null]);
     setCrumbs([["Valorant", "valorant"], ["Events", "valorant/events"], [v.name]]);
-    return std(esc(v.name), "Valorant &middot; team", tl + info) + '<h2 class="subhead">Roster</h2>' + ros + '<h2 class="subhead">Event Placings</h2>' + pl +
+    return std(esc(v.name), "Valorant &middot; team " + star("val:" + sl, v.name, true), tl + info) + '<h2 class="subhead">Roster</h2>' + ros + '<h2 class="subhead">Event Placings</h2>' + pl +
       '<h2 class="subhead">Recent Results</h2>' + (v.results.length ? resultsTable(v.results, 0, false, true) : '<div class="empty">No results for this team in the tracked tier-2 results.</div>') +
       '<div class="note">Results and placings as listed on vlr.gg; dates in Pacific Time.</div>';
   }
@@ -1257,7 +1347,7 @@
   var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
-    CRUMB = null; CUR_SEC = "";
+    CRUMB = null; CUR_SEC = ""; FAVC = null;
     try {
       switch (r.top) {
         case "cs2": html = vCS2(r.parts); break;
@@ -1285,6 +1375,8 @@
       html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
     }
     $("#view").innerHTML = html;
+    try { noteRecent(r); } catch (e) {}
+    var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
     var navTop = r.top === "search" ? "" : (r.top === "player" && r.parts[0] !== "val") || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" || r.top === "player" ? "valorant" : r.top === "guild" ? "wow" : r.top;
@@ -1343,6 +1435,17 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(autoTitles);
     window.addEventListener("load", autoTitles);
     document.addEventListener("click", function (e) {
+      var sb = e.target.closest && e.target.closest("button[data-fav]");
+      if (sb) {
+        e.preventDefault();
+        var k = sb.getAttribute("data-fav"), big = sb.classList.contains("star-lg"), inMy = !!sb.closest("#my-matches");
+        toggleFav(k, sb.getAttribute("data-n"));
+        KEEP_SCROLL = true; route();
+        var again = $$('button[data-fav]').filter(function (b) { return b.getAttribute("data-fav") === k && b.classList.contains("star-lg") === big && !!b.closest("#my-matches") === inMy; })[0];
+        if (again) again.focus();
+        return;
+      }
+      if (e.target.closest && e.target.closest("button.rv-clear")) { lsSet(LS.rec, null); KEEP_SCROLL = true; route(); return; }
       var a = e.target.closest && e.target.closest("[data-hl]");
       if (a && a.dataset.hl) pendingHL = a.dataset.hl;
     });
