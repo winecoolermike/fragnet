@@ -1,4 +1,4 @@
-/* FragNet v4.6 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* Esports Scoreboard v4.7 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -501,7 +501,7 @@
     if (!x) return VX_STATE === "fail" ? '<div class="empty">Player stats could not be loaded right now.</div>' : '<div class="empty loading">Loading players&hellip;</div>';
     var list = boardSort(x.agg.filter(function (p) { return num(p.rnd) >= o.min && num(p.rnd) > 0; }), o.sort, ["rating", "acs", "rnd"]);
     var th = function (k, l, c, t) { return boardTh(base, o, defs, k, l, c, t); };
-    var note = '<div class="note">' + list.length + " of " + x.agg.length + " players" + (o.min ? " with at least " + o.min + " rounds" : "") + " across the " + num(tm.events || valEvents().length) + " events FragNet tracks (latest completed event per Challengers / Game Changers circuit), sorted by " +
+    var note = '<div class="note">' + list.length + " of " + x.agg.length + " players" + (o.min ? " with at least " + o.min + " rounds" : "") + " across the " + num(tm.events || valEvents().length) + " events Esports Scoreboard tracks (latest completed event per Challengers / Game Changers circuit), sorted by " +
       esc(VAL_SORTS.filter(function (s) { return s[0] === o.sort; })[0][1]) + "; per-event numbers are round-weighted. Colored ratings compare with players with 100+ rounds. Stats as published on vlr.gg.</div>";
     if (!list.length) return '<div class="empty">No player has ' + o.min + " rounds yet.</div>" + note;
     return staleNote(tm) + boardFrame(base, o, defs, VAL_SORTS, list.length, function (from, n) {
@@ -526,7 +526,7 @@
     if (m.nostats) return '<span class="dim" title="no match stats on FACEIT (e.g. forfeit or technical result)">no stats</span>';
     return '<span class="dim" title="map and scoreboard coming soon">&ndash;</span>';
   }
-  /* v4.4: score cells open FragNet's match page; a small arrow keeps the source link (FACEIT room / vlr.gg) */
+  /* v4.4: score cells open Esports Scoreboard's match page; a small arrow keeps the source link (FACEIT room / vlr.gg) */
   function vlrId(u) { var m = String(u || "").match(/vlr\.gg\/(\d+)\//); return m ? m[1] : ""; }
   function scoreLink(hash, inner, extUrl, extTitle) {
     var x = extUrl && safeUrl(extUrl) !== "#" ? ' <a class="xl" href="' + esc(safeUrl(extUrl)) + '" target="_blank" rel="noopener" title="' + esc(extTitle) + '" aria-label="' + esc(extTitle) + '">&#8599;</a>' : "";
@@ -539,7 +539,7 @@
   function csEmpty(what) {
     var s = csMatchSrc();
     if (!s || s.status === "MISS") return soon(/upcoming/.test(what) ? "Upcoming matches coming soon." : "Match results coming soon.");
-    return '<div class="empty">No ' + what + " in the matches FragNet tracks.</div>";
+    return '<div class="empty">No ' + what + " in the matches Esports Scoreboard tracks.</div>";
   }
   function csResultsTable(rows, opts) {
     opts = opts || {};
@@ -580,7 +580,7 @@
     return formHtml(l);
   }
   function meetingsHtml(rows, g, cur) {
-    if (!rows.length) return '<div class="empty">No other meeting between these teams in the data FragNet tracks this season.</div>';
+    if (!rows.length) return '<div class="empty">No other meeting between these teams in the data Esports Scoreboard tracks this season.</div>';
     return '<div class="rankbox"><table class="tbl res meet"><colgroup><col class="c-date"><col class="c-team"><col class="c-score"><col class="c-team"></colgroup><thead><tr><th class="first">Date</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th></tr></thead><tbody>' +
       rows.map(function (m) {
         var w = win12(m, g), t = g === "val" ? m.ts : m.t;
@@ -612,7 +612,7 @@
   function vMatchCS(id) {
     var m = findCsMatch(id);
     if (!m && TX_STATE !== "ok" && TX_STATE !== "fail") { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
-    if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in FragNet's data.", '<a href="#cs2/results">ESEA results</a>');
+    if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in Esports Scoreboard's data.", '<a href="#cs2/results">ESEA results</a>');
     loadTeams();
     var ru = roomUrl(m), w = win12(m, "cs"), maps = m.maps || [];
     var pick = (m.pick || []).filter(Boolean);
@@ -643,7 +643,7 @@
     setCrumbs([["CS2", "cs2"], ["Results", "cs2/results"], [m.t1.name + " vs " + m.t2.name]]);
     return std(esc(m.t1.name) + " vs " + esc(m.t2.name), "CS2 &middot; ESEA match", matchHead(csSide(m.t1), csSide(m.t2), num(m.s1), num(m.s2), w, "best of " + num(m.bo || 1)) + info) +
       (maps.length > 1 || maps.length && pick.length ? '<h2 class="subhead">Maps</h2>' + mapsTable(maps, m.t1.name, m.t2.name, "cs") : "") +
-      (boards || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Scoreboard not available for this match yet (FragNet adds stats for the newest matches on each refresh).") + "</div>") +
+      (boards || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Scoreboard not available for this match yet (Esports Scoreboard adds stats for the newest matches on each refresh).") + "</div>") +
       '<h2 class="subhead">Form before this match <small>last 5, newest right</small></h2>' + form +
       '<h2 class="subhead">Meetings this season</h2>' + meetingsHtml(prior, "cs") +
       '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT. Times in Pacific Time.</div>';
@@ -651,12 +651,12 @@
   function vMatchVal(id) {
     var m = null;
     valResults().forEach(function (x) { if (!m && vlrId(x.url) === id) m = x; });
-    if (!m) return notFound("Match not tracked", "No Valorant result with this id in FragNet's data (FragNet keeps the latest tier-2 / Game Changers results).", '<a href="#valorant/results">Valorant results</a>');
+    if (!m) return notFound("Match not tracked", "No Valorant result with this id in Esports Scoreboard's data (Esports Scoreboard keeps the latest tier-2 / Game Changers results).", '<a href="#valorant/results">Valorant results</a>');
     loadVal();
     var vx = window.FRAGNET_VAL, det = vx && vx.matches && vx.matches[id], w = win12(m, "val");
     var detail;
     if (!vx && VX_STATE !== "fail") detail = '<div class="empty loading">Loading map details&hellip;</div>';
-    else if (!det) detail = '<div class="empty">Map details not fetched yet (FragNet reads a few vlr.gg match pages per refresh). ' + ext(m.url, "Full match page on vlr.gg") + "</div>";
+    else if (!det) detail = '<div class="empty">Map details not fetched yet (Esports Scoreboard reads a few vlr.gg match pages per refresh). ' + ext(m.url, "Full match page on vlr.gg") + "</div>";
     else detail = (det.veto ? '<div class="infobox veto"><b>Map veto</b> <span class="dim">(as listed on vlr.gg)</span><br>' + esc(det.veto) + "</div>" : "") +
       (det.maps && det.maps.length ? mapsTable(det.maps, m.team1, m.team2, "val") : '<div class="empty">No map scores on the vlr.gg match page.</div>') +
       '<div class="note">Player scoreboards: ' + ext(m.url, "match page on vlr.gg") + (det.fetched_at ? " &middot; read " + fmt(det.fetched_at, "short") : "") + ".</div>";
@@ -798,7 +798,7 @@
     { cat: "Counter-Strike 2 Forums", items: [{ id: "cs2", name: "ESEA League Discussion", desc: "Divisions, standings and teams in the ESEA League on FACEIT." }] },
     { cat: "Valorant Forums", items: [{ id: "valorant", name: "Challengers & Game Changers", desc: "Tier-2 circuits, Game Changers events and results." }] },
     { cat: "World of Warcraft Forums", items: [{ id: "wow", name: "Mythic Raid Progression", desc: "Guild progression, raid rankings and boss kills." }] },
-    { cat: "General Forums", items: [{ id: "general", name: "General Discussion & Site Feedback", desc: "Anything else, plus feedback about FragNet." }] }
+    { cat: "General Forums", items: [{ id: "general", name: "General Discussion & Site Feedback", desc: "Anything else, plus feedback about Esports Scoreboard." }] }
   ];
   function forumById(id) { for (var i = 0; i < FORUMS.length; i++) for (var j = 0; j < FORUMS[i].items.length; j++) if (FORUMS[i].items[j].id === id) return FORUMS[i].items[j]; return null; }
   function lastPost(t) { return t.posts[t.posts.length - 1]; }
@@ -891,7 +891,7 @@
   }
 
   /* ----- v4.3 my teams, recently viewed, last CS2 division: kept in this browser only (localStorage) ----- */
-  var LS = { fav: "fragnet-favs", rec: "fragnet-recent", div: "fragnet-cs-div" }, FAVC = null;
+  var LS = { fav: "esb-favs", rec: "esb-recent", div: "esb-cs-div" }, FAVC = null;
   function lsGet(k, def) { try { var v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch (e) { return def; } }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function favs() {
@@ -951,11 +951,11 @@
     }
     function table(rows, head) {
       return '<div class="my-h">' + head + "</div>" + (rows.length ? '<div class="rankbox"><table class="tbl res my-tbl"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"></colgroup><tbody>' +
-        rows.map(row).join("") + "</tbody></table></div>" : '<div class="empty">None in the data FragNet tracks.</div>');
+        rows.map(row).join("") + "</tbody></table></div>" : '<div class="empty">None in the data Esports Scoreboard tracks.</div>');
     }
     var nUp = up.slice(0, 5), nDone = done.slice(0, 5);
     var body = (nUp.length || nDone.length) ? table(nUp, "Next matches") + table(nDone, "Latest results") :
-      '<div class="empty">No recent or upcoming matches for your teams in the data FragNet tracks' + (nCs && TX_STATE === "loading" ? " (still loading&hellip;)" : "") + ".</div>";
+      '<div class="empty">No recent or upcoming matches for your teams in the data Esports Scoreboard tracks' + (nCs && TX_STATE === "loading" ? " (still loading&hellip;)" : "") + ".</div>";
     var list = '<div class="note my-teams">Following: ' + f.map(function (x) { return ilink(favHash(x.k), x.n) + star(x.k, x.n); }).join(" &middot; ") +
       '<br><span class="dim">Saved in this browser only &mdash; no account. Tap a star to follow or unfollow.</span></div>';
     return std("My Teams", f.length + " followed", body + list, "my-matches");
@@ -1004,7 +1004,7 @@
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
     }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + myMatches("home") + todayBoard(true) +
+    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
@@ -1164,7 +1164,7 @@
       return '<div class="item' + (n.stale ? " is-stale" : "") + '" data-k="n:' + n._i + '"><span class="tag ' + esc(slug(n.tag)) + '">' + esc(n.tag) + '</span><span class="when">' + (n.date ? fmt(n.date, "short") : "") + "</span>" + ext(n.url, n.title, "ttl") +
         '<span class="src">' + esc(n.source) + "</span></div>";
     }).join("") + "</div>" + pager(shown.length, page, base) : '<div class="empty">no headlines</div>';
-    return std("FragNet News Wire", shown.length + " headlines", toolbar(tabs, sub) + srcLine("news")) + body;
+    return std("Esports Scoreboard News Wire", shown.length + " headlines", toolbar(tabs, sub) + srcLine("news")) + body;
   }
 
   function vSearch(q) {
@@ -1203,10 +1203,10 @@
       var nm = known.length ? known[0].team : "";
       var anyM = csFinished().concat(csUpcoming()).filter(function (m) { return involves(m, id); });
       if (!nm && anyM.length) nm = anyM[0].t1.id === id ? anyM[0].t1.name : anyM[0].t2.name;
-      if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the current ESEA standings FragNet shows, so there is no standings line or roster here." +
+      if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the current ESEA standings Esports Scoreboard shows, so there is no standings line or roster here." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : "") + "</div>") + teamMatchesHtml(id) +
         '<div class="note">' + (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a></div>';
-      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings FragNet shows (EU and NA Advanced, Main and Intermediate). No standings or roster data for it in the current data." +
+      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings Esports Scoreboard shows (EU and NA Advanced, Main and Intermediate). No standings or roster data for it in the current data." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
         (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
     }
@@ -1244,7 +1244,7 @@
     if (!p) loadTeams();                                   // Main/Intermediate stats + rosters are in teams.js
     if (!p && TX_STATE === "loading") return std(esc(nick), "CS2 &middot; ESEA League player", '<div class="empty loading">Loading player&hellip;</div>');
     p = p || findCsPlayer(nick); spot = spot || findRosterSpot(nick);
-    if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in FragNet's data (rosters and season stats of the ESEA teams shown).", '<a href="#cs2/players">Top fraggers</a>');
+    if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in Esports Scoreboard's data (rosters and season stats of the ESEA teams shown).", '<a href="#cs2/players">Top fraggers</a>');
     var name = p ? p.nick : spot.m.nick, pm = (D.cs && D.cs.top_players_meta) || {};
     var teamCell = spot ? csTeamLink(spot.t) + ' <span class="dim">(' + esc(spot.d.region + " " + spot.d.division) + ")</span>" :
       p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : '<span class="dim">not found in the public rosters</span>';
@@ -1276,14 +1276,14 @@
     v.results.forEach(function (m) { var me = slug(m.team1) === sl ? 0 : 1; if (m.winner === me) w++; else if (m.winner === 0 || m.winner === 1) l++; });
     var info = kv([
       v.country ? ["Country / region", esc(v.country)] : null,
-      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results Esports Scoreboard tracks" : '<span class="dim">none in the tracked results</span>'],
       ["Form", formHtml(valForm(v.name))],
       ["vlr.gg", v.url ? ext(v.url, "Team page on vlr.gg") : '<span class="dim">no team link in the scraped data</span> &middot; ' + ext("https://www.vlr.gg/search/?q=" + encodeURIComponent(v.name), "search vlr.gg")]
     ]);
     var pl = v.placings.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">Place</th><th>Event</th><th class="n">Prize</th><th class="hide-sm">Qualified / Points</th></tr></thead><tbody>' +
       v.placings.map(function (x) {
         return '<tr class="' + medal(x.t.place) + '">' + rk(x.t.place) + '<td class="team">' + ilink("valorant/" + evId(x.i), x.ev.title) + '<span class="cc">' + esc(x.ev.dates) + '</span></td><td class="n">' + esc(x.t.prize) + '</td><td class="hide-sm">' + esc([x.t.points, x.t.note].filter(Boolean).join(" ")) + "</td></tr>";
-      }).join("") + "</tbody></table></div>" : '<div class="empty">No final placings in the events FragNet tracks.</div>';
+      }).join("") + "</tbody></table></div>" : '<div class="empty">No final placings in the events Esports Scoreboard tracks.</div>';
     loadVal();
     var vx = valX(), tm = vx && vx.bySlug[sl], ros;
     if (!vx && VX_STATE === "loading") ros = '<div class="empty loading">Loading roster&hellip;</div>';
@@ -1298,7 +1298,7 @@
       if (!v.url) v.url = tm.url;
     } else ros = '<div class="empty">Roster not available yet.</div>';
     if (tm) info = kv([tm.tag ? ["Tag", esc(tm.tag)] : null, (tm.country || v.country) ? ["Country / region", esc(tm.country || v.country)] : null,
-      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
+      ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results Esports Scoreboard tracks" : '<span class="dim">none in the tracked results</span>'],
       ["Form", formHtml(valForm(v.name))],
       ["vlr.gg", ext(tm.url || v.url, "Team page on vlr.gg")]]);
     var vsk = streak(valForm(v.name));
@@ -1317,7 +1317,7 @@
     var n = String(name).toLowerCase(), cands = vx.agg.filter(function (p) { return String(p.name).toLowerCase() === n; });
     var onRoster = null;
     Object.keys(vx.teams).forEach(function (id) { (vx.teams[id].roster || []).forEach(function (m) { if (String(m[0]).toLowerCase() === n && !onRoster) onRoster = { t: vx.teams[id], m: m }; }); });
-    if (!cands.length && !onRoster) return notFound("Player not tracked", "No Valorant player named &ldquo;" + esc(name) + "&rdquo; in the events FragNet tracks.", '<a href="#valorant/players">Top players</a>');
+    if (!cands.length && !onRoster) return notFound("Player not tracked", "No Valorant player named &ldquo;" + esc(name) + "&rdquo; in the events Esports Scoreboard tracks.", '<a href="#valorant/players">Top players</a>');
     cands.sort(function (a, b) { return num(b.rnd) - num(a.rnd); });
     var p = cands[0], team = (p && p.team && vx.teams[p.team]) || (onRoster && onRoster.t);
     var pid = p ? p.pid : onRoster.m[1], nm = p ? p.name : onRoster.m[0];
@@ -1329,7 +1329,7 @@
     ]);
     var st = p ? '<div class="rankbox"><table class="tbl pstats"><thead><tr><th class="first n">Maps</th>' + VAL_TH + '<th class="n hide-sm">K</th><th class="n hide-sm">D</th></tr></thead><tbody><tr><td class="n">' + num(p.maps) + "</td>" + valStatCells(p) +
       '<td class="n hide-sm">' + num(p.k) + '</td><td class="n hide-sm">' + num(p.d) + "</td></tr></tbody></table></div>" +
-      (num(p.rnd) < 100 ? '<div class="note few-rounds">Few rounds so far (' + num(p.rnd) + "): too small a sample to rank (min. 100 rounds).</div>" : "") : '<div class="empty">No stats yet: ' + esc(nm) + " has not played in the events FragNet tracks.</div>";
+      (num(p.rnd) < 100 ? '<div class="note few-rounds">Few rounds so far (' + num(p.rnd) + "): too small a sample to rank (min. 100 rounds).</div>" : "") : '<div class="empty">No stats yet: ' + esc(nm) + " has not played in the events Esports Scoreboard tracks.</div>";
     var lines = vx.lines.filter(function (l) { return pid ? l.pid === pid : String(l.name).toLowerCase() === n; });
     var ev = lines.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Event</th><th class="hide-sm">Agents</th>' + VAL_TH + "</tr></thead><tbody>" + lines.map(function (l) {
       var e = valEvById(l.ev);
@@ -1390,7 +1390,7 @@
           '</div></td><td class="num">' + ts.length + '</td><td class="num">' + posts + '</td><td class="lastpost">' + (lp ? '<a href="#forums/t/' + esc(ts[0].id) + '">' + esc(lp.author) + '</a><div class="time">' + fmt(lp.at, "short") + "</div>" : '<span class="time">No posts yet</span>') + "</td></tr>";
       }).join("");
     }).join("");
-    return std("FragNet eSports Forums", total + " topics", "") + forumNote() +
+    return std("Esports Scoreboard eSports Forums", total + " topics", "") + forumNote() +
       '<div class="crumbs"><a href="#forums">Board Index</a></div><table class="forum-table">' + rows + "</table>";
   }
   function vForum(fid) {
@@ -1423,7 +1423,7 @@
   function vAbout() {
     var tpl = $("#about-tpl");
     var live = "The data currently shown was updated " + fmt(D.fetched_at) + ".";
-    return tpl ? tpl.innerHTML.replace("{{fetched}}", esc(live)) : std("About FragNet", "", soon());
+    return tpl ? tpl.innerHTML.replace("{{fetched}}", esc(live)) : std("About Esports Scoreboard", "", soon());
   }
 
   /* ----- site status (low-key page, linked only from the footer and About) ----- */
@@ -1449,7 +1449,7 @@
       '<tr><td class="c"><span class="stale-b">STALE</span></td><td>The latest update for this source failed, so the last good data is still shown (pages say &ldquo;Last updated&rdquo; with its date).</td></tr>' +
       '<tr><td class="c"><span class="miss-b">MISS</span></td><td>Not available: the source needs a login or key, blocks automated requests, or returned nothing usable. Pages show &ldquo;Not available yet&rdquo; / &ldquo;coming soon&rdquo; instead of guessing.</td></tr>' +
       "</tbody></table></div>";
-    return std("Site status", "data sources", html) + '<div class="note"><a href="#about">About FragNet</a> &middot; <a href="#home">Front page</a></div>';
+    return std("Site status", "data sources", html) + '<div class="note"><a href="#about">About Esports Scoreboard</a> &middot; <a href="#home">Front page</a></div>';
   }
 
   /* ================= SIDEBARS / HEADER ================= */
@@ -1553,7 +1553,7 @@
         default: r.top = "home"; html = vHome();
       }
     } catch (e) {
-      if (window.console) console.warn("FragNet: could not render view", e);
+      if (window.console) console.warn("Esports Scoreboard: could not render view", e);
       html = std("Page unavailable", "", soon("This page could not be displayed right now.")) + '<div class="empty"><a href="#home">Back to the front page</a></div>';
     }
     if (r.top !== "home") {
@@ -1565,7 +1565,7 @@
     try { noteRecent(r); } catch (e) {}
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
     var h1 = $("#view .std-header h1");
-    document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
+    document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + (r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : "Esports Scoreboard");
     var navTop = r.top === "search" ? "" : (r.top === "player" || r.top === "match" || r.top === "team") && r.parts[0] !== "val" ? "cs2" : r.top === "team" || r.top === "player" || r.top === "match" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
@@ -1589,7 +1589,7 @@
   /* v4.2 theme: default follows prefers-color-scheme; an explicit choice is kept in this browser */
   function initTheme() {
     var b = $("#theme-tg"), root = document.documentElement, mq = window.matchMedia ? matchMedia("(prefers-color-scheme: dark)") : null;
-    function stored() { try { return localStorage.getItem("fragnet-theme"); } catch (e) { return null; } }
+    function stored() { try { return localStorage.getItem("esb-theme"); } catch (e) { return null; } }
     function paint() {
       var night = root.getAttribute("data-theme") === "night";
       if (b) { b.textContent = night ? "\u00bb Classic" : "\u00bb Night"; b.setAttribute("aria-pressed", night ? "true" : "false"); b.title = night ? "Switch to the classic light theme" : "Switch to the Night theme"; }
@@ -1598,7 +1598,7 @@
     if (b) b.addEventListener("click", function () {
       var next = root.getAttribute("data-theme") === "night" ? "classic" : "night";
       root.setAttribute("data-theme", next);
-      try { localStorage.setItem("fragnet-theme", next); } catch (e) {}
+      try { localStorage.setItem("esb-theme", next); } catch (e) {}
       paint();
     });
     if (mq && mq.addEventListener) mq.addEventListener("change", function (e) { if (!stored()) { root.setAttribute("data-theme", e.matches ? "night" : "classic"); paint(); } });
@@ -1611,7 +1611,7 @@
     initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
-    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("FragNet: sidebar render failed", e); } });
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum();
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
@@ -1661,7 +1661,7 @@
   function fail() {
     var v = $("#view");
     if (v && v.hasAttribute("data-prerender")) { document.documentElement.classList.remove("deep"); return; }   // keep the static snapshot
-    v.innerHTML = soon("FragNet's data could not be loaded right now. Please try again later."); }
+    v.innerHTML = soon("Esports Scoreboard's data could not be loaded right now. Please try again later."); }
   /* data.js (same content as data.json) is used on file:// where fetch() is not allowed */
   function loadDataJs() {
     if (window.FRAGNET_DATA) return boot(window.FRAGNET_DATA);
