@@ -469,3 +469,68 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
   .tbl.today td.tm{overflow-wrap:break-word;word-break:normal;hyphens:manual}
   .std-header .meta{font-size:10px}
 }
+
+/* =====================================================================
+   v4.0 navigation: calm home hub, game -> section tabs, breadcrumbs
+   ===================================================================== */
+.crumbs{font:11.5px/1.4 var(--ui);color:#555;padding:3px 4px 6px;overflow-wrap:anywhere}
+.crumbs a{color:var(--link);text-decoration:underline}
+.crumbs .sep{color:var(--orange);font-weight:bold;margin:0 2px}
+.crumbs .cur{color:#222;font-weight:bold}
+#game-head .std-header{border-bottom:1px solid #000}
+/* section tab bar */
+.sectabs{display:flex;background:linear-gradient(#56656e,var(--slate));border:1px solid #000;border-top:none}
+.sectabs a{flex:1 1 auto;text-align:center;color:var(--slate-link);font:bold 12px/32px var(--ui);padding:0 12px;border-right:1px solid rgba(0,0,0,.35);white-space:nowrap;text-decoration:none}
+.sectabs a:last-child{border-right:none}
+.sectabs a:hover{background:rgba(255,255,255,.08);color:#fff}
+.sectabs a.on{background:#fff;color:var(--navy);box-shadow:inset 0 3px 0 var(--orange)}
+/* segmented pickers (CS2 region / division) */
+.segs{display:flex;flex-wrap:wrap;gap:6px 18px;padding:7px 8px;background:#E8ECEE;border:1px solid var(--tline);border-top:none}
+.seg{display:inline-flex;align-items:center}
+.seg-l{font:bold 10px var(--ui);text-transform:uppercase;letter-spacing:.5px;color:#5b6770;margin-right:6px}
+.seg a{display:inline-block;padding:0 12px;font:bold 12px/28px var(--ui);color:var(--navy);background:linear-gradient(#fff,#EEF1F3);border:1px solid #9FB6C6;margin-left:-1px;text-decoration:none}
+.seg a:first-of-type{border-radius:3px 0 0 3px;margin-left:0}
+.seg a:last-child{border-radius:0 3px 3px 0}
+.seg a.on{background:var(--pager);border-color:#2f62a8;color:#fff;position:relative}
+.seg .sh,.sectabs .sh{display:none}
+.ev-pick{border-top:none}
+/* home hub: game cards */
+.hub-intro{border-bottom:1px solid var(--tline)}
+.gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 8px}
+.gcard{display:flex;flex-direction:column;background:#fff;border:1px solid #000;border-top:4px solid var(--orange);min-width:0}
+.gcard.g-valorant{border-top-color:#C62828}
+.gcard.g-wow{border-top-color:#0E5DA0}
+.gc-head{display:block;padding:8px 10px 7px;background:linear-gradient(#5a5f62,var(--hdr-b));text-decoration:none!important}
+.gc-name{display:block;font:bold 16px/1.15 var(--head);color:#fff;letter-spacing:-.3px;text-shadow:1px 1px 0 #000}
+.gc-sub{display:block;font:bold 10px var(--ui);color:var(--cream);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.gc-head:hover .gc-name{color:var(--cream)}
+.gc-teaser{padding:7px 10px;font:12px/1.45 var(--ui);color:#222;flex:1}
+.gc-teaser b{color:var(--navy)}
+.gc-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:0 8px 8px}
+.gbtn{display:flex;align-items:center;justify-content:center;text-align:center;min-height:32px;padding:4px;background:linear-gradient(#fff,#E6EBEE);border:1px solid #9FB6C6;border-radius:3px;font:bold 12px/1.2 var(--ui);color:var(--navy);text-decoration:none!important}
+.gbtn:hover{background:var(--pager-hover);border-color:var(--pager);color:var(--navy)}
+.note.see-all{font-weight:bold}
+#home-news{margin-top:6px}
+/* left sidebar: one collapsible game list */
+details.gn-item>summary{list-style:none;cursor:pointer;display:flex;align-items:center}
+details.gn-item>summary::-webkit-details-marker{display:none}
+details.gn-item>summary>a{color:#fff;font:bold 11px var(--ui);text-transform:uppercase;letter-spacing:.2px;flex:1}
+.gn-caret{width:0;height:0;border-left:5px solid var(--cream);border-top:4px solid transparent;border-bottom:4px solid transparent;margin:0 2px 0 6px;transition:transform .15s}
+details.gn-item[open] .gn-caret{transform:rotate(90deg)}
+ul.gn-sub{list-style:none;padding:2px 0 2px;margin:2px 0 0}
+ul.gn-sub li a{display:block;padding:2px 0;font:bold 11px var(--ui)}
+@media (max-width:900px){.gcards{grid-template-columns:1fr}}
+@media (max-width:600px){
+  .crumbs{font-size:12px;padding:6px 4px}
+  .sectabs{position:sticky;top:0;z-index:20;overflow-x:auto;scrollbar-width:none;box-shadow:0 2px 4px rgba(0,0,0,.25)}
+  .sectabs::-webkit-scrollbar{display:none}
+  .sectabs a{flex:1 0 auto;line-height:42px;font-size:13px;padding:0 10px}
+  .segs{gap:6px 10px;padding:6px;flex-wrap:nowrap;justify-content:space-between}
+  .seg-l{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .seg a{line-height:36px;min-width:44px;text-align:center;font-size:13px}
+  .seg .lg,.sectabs .lg{display:none} .seg .sh,.sectabs .sh{display:inline}
+  .gcards{gap:8px}
+  .gc-btns{gap:6px}
+  .gbtn{min-height:42px;font-size:13px}
+  .gc-name{font-size:18px}
+}
