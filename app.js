@@ -997,7 +997,7 @@
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
     }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + myMatches("home") + todayBoard(true) +
+    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + cards + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
@@ -1477,6 +1477,12 @@
       return '<li title="' + esc(n.title + " (" + n.source + ")") + '">' + ext(n.url, n.title) + '<span class="cnt">' + (n.date ? fmt(n.date, "md") : "") + "</span></li>";
     }).join("") : '<li class="empty">no headlines</li>';
   }
+  function renderDiscordFoot() {
+    var li = $("#discord-ft"), box = discordBox("x");
+    if (!li || !box) return;
+    li.innerHTML = '<a href="' + esc(CFG.discord) + '" target="_blank" rel="noopener"><span class="bullet">&raquo;</span> Discord &#8599;</a>';
+    li.hidden = false;
+  }
   function renderSideForum() {
     var fx = forumX(), lt = fx ? (fx.latest || []).slice(0, 6) : [];
     if (CFG.forum && !fx) loadForum();
@@ -1599,7 +1605,7 @@
     initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
-    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum();
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
