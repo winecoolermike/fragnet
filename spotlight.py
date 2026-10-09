@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 PT = ZoneInfo("America/Los_Angeles")
 UPSET_RULE = ("Upset = a team outside the top 5 beats a top-5 team, by the division table built from the results "
-              "tracked here before that match (3 points per win, ties share a rank).")
+              "tracked here before that match (3 points per win, ties share a rank). Forfeits and results without FACEIT match stats are not counted as upsets.")
 
 
 def ts(s):
@@ -53,7 +53,8 @@ def upsets(results, start, end):
         table = pts.setdefault(k, {})
         if start <= t < end:
             w, l = (m["t1"], m["t2"]) if m["winner"] == 1 else (m["t2"], m["t1"])
-            if played.get(w["id"]) and played.get(l["id"]):
+            ff = int(m.get("s1") or 0) + int(m.get("s2") or 0) <= 1 or m.get("nostats")
+            if played.get(w["id"]) and played.get(l["id"]) and not ff:
                 rank = lambda tid: 1 + sum(1 for v in table.values() if v > table.get(tid, 0))
                 rw, rl = rank(w["id"]), rank(l["id"])
                 if rl <= 5 and rw > 5:
