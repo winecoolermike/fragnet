@@ -204,11 +204,20 @@ class Site:
                      std("Counter-Strike 2 :: ESEA League", e(season), table(['<th class="first">Division</th>', "<th>Leader</th>", '<th class="n">Teams</th>'], ov)))
         self.add("cs2/results", "CS2 Match Results :: ESEA League", f"Latest ESEA League ({season}) match results in North America and Europe, with scores, maps and scoreboards.",
                  std("Counter-Strike 2 :: Match Results", "EU + NA", self.cs_results(self.fin, 50)))
-        tp = cs.get("top_players") or []
-        rows = [f'<tr><td class="rk"><span>{i + 1}</span></td><td class="team">{self.plink(p.get("nick"))}</td><td class="hide-sm">{e((p.get("region") or "") + " " + (p.get("division") or ""))}</td>'
-                f'<td class="n">{num(p.get("kd")):.2f}</td><td class="n">{num(p.get("adr")):.1f}</td></tr>' for i, p in enumerate(tp)]
-        self.add("cs2/players", "Top Fraggers :: ESEA League CS2", f"Top {len(tp)} ESEA League players by K/D this season (minimum rounds apply), with ADR and headshot rate.",
-                 std("Counter-Strike 2 :: Top Fraggers", "EU + NA", table(['<th class="first c">#</th>', "<th>Player</th>", '<th class="hide-sm">Division</th>', '<th class="n">K/D</th>', '<th class="n">ADR</th>'], rows)))
+        # v4.6: every division, top 25 by K/D (min. 20 rounds) from all players with stats; the live page sorts/filters/pages the rest
+        minr = int(num((cs.get("top_players_meta") or {}).get("min_rounds") or 20))
+        body, total = "", 0
+        for dv in self.divs:
+            pool = [p for p in self.players.values() if p.get("region") == dv.get("region") and p.get("division") == dv.get("division") and num(p.get("rounds")) >= minr]
+            pool.sort(key=lambda p: (-num(p.get("kd")), -num(p.get("adr")), str(p.get("nick")).lower()))
+            total += len(pool)
+            rows = [f'<tr><td class="rk"><span>{i + 1}</span></td><td class="team">{self.plink(p.get("nick"))}</td><td class="n hide-sm">{int(num(p.get("rounds")))}</td>'
+                    f'<td class="n">{num(p.get("kd")):.2f}</td><td class="n">{num(p.get("adr")):.1f}</td><td class="n hide-sm">{round(num(p.get("hs")))}%</td></tr>' for i, p in enumerate(pool[:25])]
+            name = f'{dv.get("region")} {dv.get("division")}'
+            body += f'<h2 class="subhead">Top Fraggers :: {e(name)}</h2>' + (table(['<th class="first c">#</th>', "<th>Player</th>", '<th class="n hide-sm">Rnds</th>', '<th class="n">K/D</th>', '<th class="n">ADR</th>', '<th class="n hide-sm">HS%</th>'], rows)
+                     + f'<div class="note">Top {len(rows)} of {len(pool)} players with at least {minr} rounds, by K/D.</div>' if rows else f'<div class="empty">No player in {e(name)} has {minr} rounds yet.</div>')
+        self.add("cs2/players", "Top Fraggers :: ESEA League CS2", f"ESEA League ({season}) top fraggers in every NA and EU division: {total} players with {minr}+ rounds, by K/D with ADR and headshot rate.",
+                 std("Counter-Strike 2 :: Top Fraggers", "every division", body))
         # teams with at least one tracked match
         for tid, (t, dv) in self.team_rank.items():
             ms = self.by_team.get(tid, [])
@@ -310,9 +319,11 @@ class Site:
                     teams.setdefault(slug(m.get(side)), {"name": m.get(side), "place": [], "res": [], "country": ""})["res"].append(m)
         self.add("valorant/results", "Valorant Results :: Challengers / Game Changers", f"Latest {len(self.vres)} tier-2 and Game Changers Valorant results from vlr.gg.",
                  std("Valorant :: Recent Results", "", self.v_results(self.vres, 60)))
-        tp = val.get("top_players") or []
-        rows = [f'<tr><td class="rk"><span>{e(p.get("rank"))}</span></td><td class="team">{self.vplink(p.get("name"))}</td><td class="n">{num(p.get("rating")):.2f}</td><td class="n">{round(num(p.get("acs")))}</td></tr>' for p in tp]
-        self.add("valorant/players", "Valorant Top Players :: Challengers / Game Changers", f"Top {len(tp)} Valorant Challengers / Game Changers players by vlr.gg rating across the tracked events.",
+        acols = self.vx.get("agg_cols") or []
+        agg = [dict(zip(acols, r)) for r in self.vx.get("agg") or []]
+        tp = sorted([p for p in agg if num(p.get("rnd")) >= 100 and num(p.get("rating"))], key=lambda p: (-num(p.get("rating")), -num(p.get("acs")), str(p.get("name")).lower()))[:100] or (val.get("top_players") or [])
+        rows = [f'<tr><td class="rk"><span>{i + 1}</span></td><td class="team">{self.vplink(p.get("name"))}</td><td class="n">{num(p.get("rating")):.2f}</td><td class="n">{round(num(p.get("acs")))}</td></tr>' for i, p in enumerate(tp)]
+        self.add("valorant/players", "Valorant Top Players :: Challengers / Game Changers", f"Top {len(tp)} Valorant Challengers / Game Changers players by vlr.gg rating (100+ rounds) across the tracked events.",
                  std("Valorant :: Top Players", "", table(['<th class="first c">#</th>', "<th>Player</th>", '<th class="n">R</th>', '<th class="n">ACS</th>'], rows)))
         for sl, t in teams.items():
             if not t["res"] or not SAFE_SEG.match(sl):
