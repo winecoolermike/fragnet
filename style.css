@@ -384,3 +384,86 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 /* v3.8 Valorant players: agents column truncates (full list in the tooltip) */
 .ag{display:inline-block;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 @media (max-width:1100px){.val-pl .agc{display:none}}
+
+/* =====================================================================
+   v3.9 polish: hierarchy, stat tiles, foldable toolbars, phone chrome
+   ===================================================================== */
+#secnav .sh{display:none}
+/* logo: stronger mark with an orange rule under the tagline */
+.logo-main{font-size:40px}
+.logo-sub{color:var(--cream);opacity:.9;border-top:2px solid var(--orange);padding-top:3px;display:inline-block}
+/* section headers: taller bar, orange accent edge */
+.std-header{height:26px;border-left:4px solid var(--orange);padding-left:8px;background:linear-gradient(#5a5f62,var(--hdr-b))}
+.std-header h1,.std-header h2{font-size:13px;letter-spacing:.2px;text-shadow:1px 1px 0 #000}
+.subhead{display:flex;align-items:baseline;gap:6px;border-bottom:2px solid #E3E3E3;padding-bottom:3px;margin-top:14px}
+.subhead::before{content:"";flex:none;width:8px;height:8px;background:var(--orange);align-self:center;box-shadow:1px 1px 0 #7a2d00}
+.subhead small{margin-left:0}
+.toolbar{gap:4px 12px;padding:4px 8px 5px}
+.toolbar a.on{color:#fff;text-decoration:none;border-bottom:2px solid var(--orange)}
+/* folded long toolbar groups (e.g. 14 Valorant events) */
+.tb-fold{position:relative}
+.tb-fold summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:#fff;font:bold 11.5px var(--ui);padding:2px 8px;border:1px solid #23313a;background:#506470;border-radius:2px}
+.tb-fold summary::-webkit-details-marker{display:none}
+.tb-fold .tb-cur{color:var(--slate-link)}
+.tb-fold .tb-caret{font-size:10px;color:var(--cream)}
+.tb-fold[open] .tb-caret{transform:rotate(180deg)}
+.tb-fold .tb-list{display:flex;flex-wrap:wrap;gap:4px 12px;padding:6px 2px 2px}
+/* tables: clearer header rule, rank chips for everyone */
+.tbl thead th{border-bottom:2px solid #9FB6C6}
+.tbl td.rk span{display:inline-block;min-width:22px;padding:0 3px;border-radius:2px}
+/* stat tiles on team / player / guild pages */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:4px;padding:6px;background:#E8ECEE;border:1px solid var(--tline);border-top:none}
+.tile{background:linear-gradient(#fff,#F1F3F4);border:1px solid #C9D1D6;border-top:3px solid var(--slate);padding:5px 8px 4px;min-width:0}
+.tile b{display:block;font:bold 20px/1.15 var(--head);color:#111;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.tile>span{display:block;font:bold 10px var(--ui);text-transform:uppercase;letter-spacing:.5px;color:#5b6770;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.hi{border-top-color:var(--orange)}
+.tile .w{color:var(--green)} .tile .l{color:var(--red)}
+.tiles+.rankbox{margin-top:0;border-top-left-radius:0;border-top-right-radius:0}
+/* pager: bigger, clearer buttons */
+.pager{gap:4px}
+.pager a,.pager span.act{padding:2px 9px;border-radius:2px;font-size:12px}
+.pager span.act{background:var(--pager);color:#fff}
+/* footer */
+#footer{padding:8px 10px 10px;border-top:3px solid var(--orange)}
+#footer .menu{gap:2px 16px;margin-bottom:4px}
+/* today board: wrap long team names instead of clipping */
+.tbl.today td.tm{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+
+@media (max-width:600px){
+  /* compact phone chrome: one banner row, one scrollable tab strip */
+  #utilbar{display:none}
+  #banner{position:relative;padding:0;gap:0;flex-wrap:wrap}
+  .logo{padding:8px 12px 6px}
+  .logo-main{font-size:28px;letter-spacing:-1.5px}
+  .logo-sub{font-size:9px;letter-spacing:2px;margin-top:2px;padding-top:2px}
+  .searchbox{padding:6px 10px 7px}
+  .sb-label{display:none}
+  .searchbox input{height:34px;font-size:16px;padding:4px 8px}
+  .searchbox button{height:34px;padding:0 14px;font-size:12px}
+  .sb-upd{position:absolute;top:12px;right:12px;max-width:44%;margin:0;color:#b7b7b7;text-align:right}
+  #secnav .menu{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 4px}
+  #secnav .menu::-webkit-scrollbar{display:none}
+  #secnav .menu li{flex:none}
+  #secnav .menu a{line-height:40px;padding:0 8px;margin:0;font-size:13.5px;border-bottom:3px solid transparent}
+  #secnav .menu a.on{border-bottom-color:var(--orange)}
+  #secnav .bullet{display:none}
+  #secnav .lg{display:none} #secnav .sh{display:inline}
+  /* tap targets */
+  .toolbar{gap:2px 4px;padding:4px 6px 6px}
+  .toolbar .grp{width:100%;margin-top:2px}
+  .toolbar a{display:inline-flex;align-items:center;min-height:34px;padding:0 7px;font-size:12.5px}
+  .tb-fold{width:100%}
+  .tb-fold summary{width:100%;padding:8px 10px;font-size:12.5px}
+  .tb-fold .tb-cur{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tb-fold .tb-list{gap:2px 4px}
+  .pager{gap:6px}
+  .pager a,.pager span.act{min-width:36px;padding:8px 10px;text-align:center;font-size:13px}
+  .pager .info{width:100%;margin-left:0}
+  .side-menu li{padding:8px 6px}
+  #footer .menu a{display:inline-block;padding:7px 0;font-size:12.5px}
+  .tile b{font-size:18px}
+  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tbl.today col.c-when{width:46px}
+  .tbl.today col.c-score{width:50px}
+  .std-header .meta{font-size:10px}
+}
