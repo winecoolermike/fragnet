@@ -75,6 +75,9 @@ def table(head, rows, cls="tbl"):
             + "".join(rows) + "</tbody></table></div>")
 
 
+PLAYER_CARD_MIN_ROUNDS = 50
+
+
 class Site:
     def __init__(self, dist, site):
         self.dist, self.site = dist, site
@@ -264,8 +267,14 @@ class Site:
                        ("Division rank", f'#{int(num(p.get("drank")))} of {int(num(p.get("dpool")))}' if p.get("drank") else ""),
                        ("FACEIT", ext(p.get("url") or "https://www.faceit.com/en/players/" + nick, "Profile on FACEIT"))])
             desc = f"{nick}" + (f" ({p.get('team')})" if p.get("team") else "") + f" in ESEA {p.get('region')} {p.get('division')}: K/D {num(p.get('kd')):.2f}, ADR {num(p.get('adr')):.1f} over {int(num(p.get('rounds')))} rounds."
+            ogk = ("cs-team-" + tid) if tid and ("cs-team-" + tid) in self.og_jobs else None
+            if num(p.get("rounds")) >= PLAYER_CARD_MIN_ROUNDS:   # v5.3 season card share image (real stats only)
+                ogk = "cs-pl-" + slug(nick) + "-" + hashlib.sha1(nick.encode()).hexdigest()[:6]
+                self.og_jobs[ogk] = (nick, (f"{p.get('team')} · " if p.get("team") else "") + f"ESEA {p.get('region')} {p.get('division')} · season card"[:70],
+                                     [("K/D", f'{num(p.get("kd")):.2f}'), ("ADR", f'{num(p.get("adr")):.1f}'),
+                                      ("DIV RANK" if p.get("drank") else "ROUNDS", f'#{int(num(p.get("drank")))}/{int(num(p.get("dpool")))}' if p.get("drank") else str(int(num(p.get("rounds")))))], (217, 80, 0))
             self.add("player/cs2/" + nick, f"{nick} :: CS2 ESEA player", desc, std(e(nick), "CS2 &middot; ESEA League player", info),
-                     og=("cs-team-" + tid) if tid and ("cs-team-" + tid) in self.og_jobs else None, kind="player",
+                     og=ogk, kind="player",
                      ld={"@context": "https://schema.org", "@type": "Person", "name": nick, "url": self.site + "player/cs2/" + nick + "/"})
         # matches
         for m in self.fin:

@@ -739,3 +739,7 @@ td.score a.xl:hover{color:var(--link)}
 .spot-line{padding:4px 6px;border-bottom:1px dotted var(--line,#c9d3da);line-height:1.5}
 .spot-intro{font-size:12px}
 .tbl.spot-fr td.team{white-space:normal}
+/* v5.3 share card */
+.share-card{margin:8px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.share-card .gbtn{display:inline-flex;padding:4px 12px;cursor:pointer}
+.share-msg{font-size:12px;word-break:break-all}
