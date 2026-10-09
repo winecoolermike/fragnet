@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   pages: write
+  discussions: read
   id-token: write
 
 concurrency:
@@ -130,6 +131,14 @@ jobs:
                   print(f"{name}.js regenerated from {name}.json")
           PY
           python build_dist.py --check
+
+      - name: Community config and forum list (GitHub Discussions)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GISCUS_ENABLED: ${{ vars.GISCUS_ENABLED }}
+          DISCORD_INVITE: ${{ vars.DISCORD_INVITE }}
+        run: python discussions.py dist
 
       - name: Restore share-image cache
         uses: actions/cache/restore@v6

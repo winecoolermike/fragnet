@@ -1,0 +1,15 @@
+/* Esports Scoreboard comments (giscus) - Night: GitHub dark-dimmed with the site's night palette */
+@import url("https://giscus.app/themes/dark_dimmed.css");
+main {
+  --color-canvas-default: #14171b;
+  --color-canvas-subtle: #1b2026;
+  --color-border-default: #3a434d;
+  --color-border-muted: #2b323a;
+  --color-accent-fg: #7fb6e8;
+  --color-accent-emphasis: #2f6db8;
+  --color-btn-primary-bg: #2f6db8;
+  --color-btn-primary-hover-bg: #3a7dcc;
+  --color-fg-default: #e3e8ec;
+  --color-fg-muted: #a7b2bc;
+  font-family: Verdana, "DejaVu Sans", sans-serif;
+}

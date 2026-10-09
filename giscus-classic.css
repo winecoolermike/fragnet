@@ -1,0 +1,16 @@
+/* Esports Scoreboard comments (giscus) - Classic: GitHub light with the site's navy/orange accents */
+@import url("https://giscus.app/themes/light.css");
+main {
+  --color-canvas-default: #ffffff;
+  --color-canvas-subtle: #eef1f3;
+  --color-border-default: #b9c7d1;
+  --color-border-muted: #d6dee4;
+  --color-accent-fg: #1d4f86;
+  --color-accent-emphasis: #2f6db8;
+  --color-btn-primary-bg: #2f6db8;
+  --color-btn-primary-hover-bg: #245a99;
+  --color-fg-default: #1b1f23;
+  --color-fg-muted: #505a63;
+  font-family: Verdana, "DejaVu Sans", sans-serif;
+}
+.gsc-reactions-count, .gsc-comments-count { color: #1d4f86; }

@@ -728,3 +728,10 @@ td.score a.xl:hover{color:var(--link)}
 .pager .gap{padding:0 4px;color:inherit}
 @media (min-width:601px) and (max-width:1100px){.tbl.val-pl.board .agc{display:none}}   /* agents column: room for long names at 768-1024 */
 @media (min-width:601px) and (max-width:1100px){.tbl.val-pl.board td:nth-child(3),.tbl.val-pl.board td.team{white-space:normal}}
+/* v5.0 community */
+.forum-intro .forum-btns{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.forum-intro .gbtn,.discord-box a{display:inline-block}
+.fdesc{font-size:11px;margin-top:2px;white-space:normal}
+.tbl.forum-latest td.team,.tbl.forum-cats td.team{white-space:normal}
+.comments{margin:6px 0 10px;min-height:60px}
+.discord-box{margin:8px 0}

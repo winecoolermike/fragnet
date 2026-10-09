@@ -1,63 +1,149 @@
-# Esports Scoreboard
+# FragNet v3.8 - esports league tracker (2007 portal style)
 
-**Live site: https://winecoolermike.github.io/fragnet/**
+Static site (index.html + style.css + app.js + data.json/data.js). The look recreates
+the *style* of mid-2000s esports portals (Gotfrag circa 2007, studied via the Wayback
+Machine): black page, 1100px container, grey side panes, white centre column, gradient
+title bars, beige news list, phpBB-style forum tables. No Gotfrag logo, images or name
+are used; branding is the FragNet text logo and favicon.svg.
 
-Esports Scoreboard is an independent, fan-made tracker for **amateur and semi-pro esports**, styled
-like a classic mid-2000s esports portal:
+## Run it
 
-- **Matches today** (front page): today's ESEA matches (Pacific date) - live, finished with
-  scores and upcoming with start times - plus any Valorant results from today.
-- **Counter-Strike 2 / ESEA League**: current season, full standings (every team, paged with
-  "show all") for EU and NA Advanced, Main and Intermediate, recent results and upcoming matches with per-map
-  scoreboards, season stats for every player in those divisions and top fraggers per division.
-- **Valorant**: Challengers / VCL and Game Changers calendar, final standings for the latest
-  event in each circuit, tier-2 match results and upcoming matches, player stats (rating, ACS,
-  K/D, KAST, ADR, HS%, agents), top players, player pages and team rosters.
-- **World of Warcraft**: Mythic raid progression rankings (top 50, US and EU).
-- **News**: esports headlines that link to the original articles.
+    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    .venv/bin/python fetch_data.py      # writes data.json + data.js (~40 polite requests, ~45 s)
+    python3 -m http.server 8080         # open http://localhost:8080/
 
-Every team, player and guild name opens a detail page (CS2 team with standings and
-registered roster and recent / upcoming matches, CS2 player season stats and recent matches, Valorant team placings and results, WoW guild
-progress with first Mythic kill dates), each linking back to its source.
+## Publish folder (dist/)
+    .venv/bin/python build_dist.py              # (re)builds dist/ with ONLY the live files
+    .venv/bin/python build_dist.py --zip        # ... and writes fragnet-v3.2.zip from dist/ only
+    .venv/bin/python fetch_data.py --out dist   # refresh data straight into dist/
+dist/ = index.html (incl. the About page), style.css, app.js, favicon.svg, data.json,
+data.js, fonts/ (woff2 + licences). build_dist.py refuses to finish if shots, tests,
+backups, scripts, docs or terms listed in .banned-terms (local, untracked) end up in dist/, or if data.js != data.json.
+`--out DIR` also reads the previous data.json in DIR as the last-good (STALE) source.
 
-It shows only data from public web pages, open endpoints and the official FACEIT Data API. Nothing is invented:
-if something isn't available yet the page says so in plain words, and if an update fails
-the last good data stays up with its "Last updated" date. Per-source details (OK / STALE /
-MISS, record counts, timestamps) are on the low-key **Site status** page (`#status`, linked
-from the footer and the About page). All times are
-shown in Pacific Time. Forums are read-only for now.
+Opening index.html directly (file://) also works: the page then loads data.js, which
+holds exactly the same JSON as data.json. All paths are relative, so the folder can be
+served from any sub-path. See HOSTING.md for static hosting + a scheduled fetch.
 
-## Data sources
+Refresh: re-run fetch_data.py (cron every 30-60 min is plenty). Exit code is 0 when at
+least one source is OK/STALE, 1 when everything failed.
 
-| Source | Used for |
-|---|---|
-| [FACEIT - ESEA League](https://www.faceit.com/en/cs2/league/ESEA%20League/a14b8616-45b9-4581-8637-4dfd0b5f6af8) public pages | season info, standings, league rosters, player stats |
-| [FACEIT Data API](https://docs.faceit.com/docs/data-api/data/) (official, API key) | ESEA match results, upcoming matches, per-map scoreboards |
-| [vlr.gg](https://www.vlr.gg/) | Valorant tier-2 events, standings, results, news (RSS) |
-| [Raider.IO](https://raider.io/) public API | Mythic raid rankings and boss kill dates |
-| [Wowhead](https://www.wowhead.com/news), [Dexerto](https://www.dexerto.com/esports/), [Esports Insider](https://esportsinsider.com/) | headlines (RSS) |
+## Data status: OK / STALE / MISS
+- **OK** - fetched and parsed in the latest run.
+- **STALE** - the latest run failed for that source, so the last good data from an
+  earlier run is kept with its own `fetched_at` timestamp and flagged on the page
+  (amber STALE badge + "showing last good data from ..."). Other sources still update.
+- **MISS** - not fetched and no earlier good data; the reason is shown. Nothing is ever
+  invented or filled in.
 
-Requests are rate-limited (at least 1.2 s apart per host; 0.5 s for the FACEIT Data API, well under its
-limit) and use an identifying User-Agent.
+Known permanent MISS (no login / keys / scraping around blocks, by design):
+- Valorant Premier - only in the Riot client / Riot API (key required).
+- HLTV RSS - Cloudflare bot challenge (HTTP 403) for non-browser requests.
+- Dot Esports - the feed URL redirects to the HTML homepage (no RSS).
 
-## How the site updates
+## Sources (public pages / unauthenticated endpoints only)
+- **FACEIT ESEA League** public web JSON: current season (Season 59: Oct 3 - Dec 20 2026 PT,
+  team count, prize pool, map pool), season tree, stage standings (top 20) for EU/NA
+  Advanced, Main, Intermediate, conference membership, and player season stats for every
+  tracked division and conference (v3.7.2; 100 per request, ~35 requests). Every player with
+  >= 1 round is kept; rankings (top 15 overall Advanced, top 10 per division) need 20 rounds.
+  Ranked Advanced players are inline in data.json, all other players are compact rows in the
+  lazy teams.json ("players", columns in "player_cols").
+  Standings are the FACEIT *stage* table (conferences ranked together, exactly as the
+  FACEIT standings page shows them); columns are W, L, Pts (3 per win), rounds won-lost.
+- **vlr.gg**: Challengers (tier 61) and Game Changers (tier 63) event lists, final
+  standings of the 2 most recent completed official Challengers/VCL and 2 Game Changers
+  events, and /matches/results pages 1-3. Results from international events
+  (Valorant Champions / Masters) are excluded; tier-1 VCT partner leagues
+  ("VCT 2026: Americas Stage 2" etc.) are excluded too because FragNet tracks tier 2 -
+  set `EXCLUDE_VCT_PARTNER_LEAGUES = False` in fetch_data.py to show them. Challengers
+  events whose name contains "Masters" (e.g. "LATAM North ACE Masters") are kept.
+  vlr.gg lists times in US Central for anonymous visitors; the fetcher converts them
+  to UTC (`ts`) and the page shows Pacific Time.
+- **Raider.IO** public API: current raid auto-detected (The Venomous Abyss), Mythic
+  progress rankings top 50 for US and EU.
+- **RSS**: vlr.gg, Dexerto esports, Esports Insider, Wowhead (15 newest each).
 
-A GitHub Actions workflow (`.github/workflows/deploy.yml`) runs on every push to `main`,
-on demand, and on a schedule about every 30 minutes (at :13 and :43 past the hour;
-GitHub may delay scheduled runs). Each run:
+Requests: 1.2 s minimum gap per host, 10 s connect / 25 s read timeout, one retry on
+timeouts / 429 / 5xx, identifying User-Agent ("FragNet/3.3 (hobby tracker)").
+Only http(s) links are stored and rendered; all scraped text is HTML-escaped by app.js.
 
-1. builds `dist/` from the site files (`python build_dist.py`);
-2. restores the most recent last-good `data.json` from the Actions cache, falling back to
-   the copy in the repo;
-3. runs `python fetch_data.py --out dist`; if a source fails, its last good data is kept
-   and flagged STALE, and if the whole fetch fails the site is still deployed with the
-   previous data;
-4. checks that `data.js` matches `data.json`;
-5. pre-renders a static snapshot of the front page into `dist/index.html` (`prerender.py`) so
-   the page shows real standings, results and headlines without JavaScript and in link
-   previews (optional: if it fails, the JavaScript-only page is deployed);
-6. deploys `dist/` to GitHub Pages.
+## Routes (hash, linkable)
+`#home`, `#cs2` / `#cs2/<eu|na>-<advanced|main|intermediate>` (e.g. `#cs2/na-main`),
+`#cs2/players`, `#cs2/results`, `#valorant` / `#valorant/results[/pN]`,
+`#valorant/calendar`, `#valorant/event-1..4`, `#wow/<us|eu>[/pN]`,
+`#news/<all|wow|val|esports>[/pN]`, `#forums`, `#forums/f/<cs2|valorant|wow|general>`,
+`#forums/t/<id>`, `#search/<query>`, `#about`, `#status-box` (front page + data status),
+detail pages `#team/cs2/<faceit-team-id>`, `#player/cs2/<faceit-nickname>`, `#team/val/<name-slug>`,
+`#guild/<us|eu>/<realm-slug>/<guild-name>` (unknown ids show an honest "not tracked" page).
+Long lists are paged 25 per page. Unknown routes fall back to a sensible default view.
 
+## Detail pages (v3.3)
+Every team, player and guild name in the tables (and in search results) opens a detail page:
+- CS2 team: tag, country, division/conference, standings line, registered league roster
+  (FACEIT championship "subscription" JSON, Advanced/Main/Intermediate conferences, max 60
+  requests, stops once all listed teams are found), K/D + ADR for ranked players, FACEIT links.
+- CS2 player: team (from the public rosters), season stats (matches, rounds, K, D, K/D, ADR,
+  HS%) for players in every tracked division, rank in the division (min. 20 rounds; fewer rounds
+  shows a "few rounds" note instead of a rank), FACEIT profile link. A rostered player with no
+  matches yet gets an honest "No season stats yet".
+- Valorant team: event placings + tracked tier-2 results from data already scraped; vlr.gg
+  team link from event standings (no extra team-page fetches), otherwise a vlr.gg search link.
+- WoW guild: realm, region, faction, progress, rank, first Mythic kill date per boss (already
+  in the Raider.IO raid-rankings response - no extra requests), Raider.IO profile link.
+## Valorant depth (v3.8)
+Tracked events: the latest completed main event per Challengers / VCL circuit (up to 10, e.g.
+North America ACE, EMEA, Japan, Korea, Brazil, LATAM North/South, SEA, South Asia) and per Game
+Changers circuit (up to 4); qualifiers/LCQs are skipped. Per event: the event page (final
+standings + every linked team) and the event stats page (rating, ACS, K/D, KAST, ADR, HS%,
+agents per player). Completed events are cached (their stats never change); vlr.gg team pages
+give current rosters (max 20 per run, refreshed after 72 h). /matches gives upcoming/live tier-2
+matches for the Matches today board. All per-event player lines, per-player totals
+(round-weighted) and rosters go to the lazy val.json/val.js; data.json keeps the top 50 players
+(min. 100 rounds), per-event top 5 and upcoming matches. Routes: #valorant/players,
+#player/val/<name>; #team/val/<slug> now shows the roster. The Actions cache keeps the last-good
+teams.json and val.json too, so cached rosters/event stats survive between runs.
+
+## No-JavaScript fallback (v3.7)
+`prerender.py dist/index.html dist/data.json` (or `build_dist.py --prerender`) writes a static
+snapshot of the front page into dist/index.html: intro, CS2 top 5 per division, latest 8 ESEA
+results, 6 Valorant results, WoW top 5 and 10 headlines, plus the header update time, the side
+news and a description/og/twitter summary with the division leaders. Every value is
+HTML-escaped and only http(s) links are kept; snapshot links are real outbound links (FACEIT,
+vlr.gg, Raider.IO, articles), never #routes. It validates before an atomic write and is
+idempotent; `build_dist.py --check` validates the snapshot when present. With JavaScript,
+app.js replaces #view/#side-news on boot and removes the `data-prerender` marker; a tiny head
+script hides the snapshot on deep links (#cs2, #team/...) until then. Without JavaScript a
+noscript style hides the game nav, ticker, forum box and search box and a footnote explains
+the snapshot. The deploy workflow runs it as an optional step (on failure the JS-only page ships).
+
+## Full standings (v3.6)
+All teams of every tracked division (Oct 8: EU Adv 69, Main 153, Int 179; NA Adv 65, Main 165,
+Int 106 = 737) via paged standings JSON (limit 100 per page). Division pages show 25 per page
+(`#cs2/<div>/p2`) or everything (`#cs2/<div>/all`). The top 20 per division keep roster + FACEIT
+url inline in data.json; all other teams are compact rows, and their rosters (+ every listed
+match not kept in data.json) live in `teams.json` / `teams.js` (`window.FRAGNET_TEAMS`), loaded
+lazily by team/player pages only. Cost: ~16 standings + 42 roster requests per run; data.json
+447 -> 536 KB (gzip 116 -> 144 KB); teams.json 303 KB (gzip 105 KB, team pages only).
+
+## Matches today (v3.5)
+Front-page board (`#today-board`) under the intro: CS2 matches whose time falls on today's
+Pacific date (finished: finish time + score + map/scoreboard link; LIVE: from the Data API
+`type=ongoing` list, as of the last update; upcoming: start time + "vs" room link) plus vlr.gg
+results from today. Busy days (200+ matches) show all live matches, the latest 12 results and
+the next 12 starts, with a link to all results; empty day: "No matches scheduled today."
+Fetcher: 27 list requests (past/ongoing/upcoming x 9 conferences) and every match within
+~30 h is kept (cap 60 per division); stale fallbacks never carry LIVE entries.
+
+## Visitor-facing pages vs. #status (v3.4)
+Public pages never show fetch plumbing (no MISS/STALE badges, source/endpoint names or error
+text). Each section has a neutral "Data: FACEIT · Updated Oct 8, 12:56 PDT" line; missing data
+reads "Match results coming soon" / "Not available yet"; kept-old data reads "Last updated
+<time>". The OK/STALE/MISS table per source (counts, timestamps, reasons) is on #status
+("Site status"), linked only from the footer and the About page. tests/browser_test.py fails
+if MISS, STALE, "public web JSON", "endpoint", "403" etc. appear anywhere outside #status.
+
+## CS2 match results (v3.4, official FACEIT Data API)
 The official FACEIT Data API (`https://open.faceit.com/data/v4`) supplies CS2 match results.
 The key lives only in the `FACEIT_API_KEY` repository secret (never in the repo); the workflow
 passes it to the fetch step, and fetch_data.py sends it only as the `Authorization: Bearer`
@@ -66,53 +152,51 @@ plus up to 100 match-stats requests for matches whose stats are not cached yet, 
 at 150 requests, 0.5 s apart. Without a key (or on HTTP 401/403/429) the match sections keep
 the last good data (STALE) or show MISS - nothing is filled in.
 
-### Backup trigger
-GitHub's `schedule` event is best-effort and can be delayed or skipped. `tools/refresh_if_stale.sh`
-(needs an authenticated `gh`) dispatches `deploy.yml` only when no run is queued/running and the
-last successful run is older than 35 minutes; run it every 30 minutes from any scheduler.
+Endpoints: `GET /championships/{conference_id}/matches?type=past|upcoming&offset=0&limit=100`
+(newest round first, so one page per conference is enough) and `GET /matches/{id}/stats`
+(maps, final score and per-player K/D/ADR/HS% in one request). Kept per division: the newest
+12 finished + up to 3 per tracked team (max 40) and the next 8 upcoming + each tracked team's
+next match. Stats are cached across runs (last-good data); forfeits without stats >6 h old are
+not re-asked. Pages: division results/upcoming, #cs2/results (all, paged), front-page box,
+team pages (recent + upcoming), player pages (recent matches from scoreboards) and
+#match/cs2/<id> (scoreboards). Offline test: `python tests/test_fetch_matches.py`.
 
-### Optional visitor counter
+## Community: forums and comments (v5.0)
+The forums are the repo's **GitHub Discussions** (anyone reads; posting needs a free GitHub account).
+At each deploy `discussions.py` lists the 30 most recently active threads into `forum.js` (#forums and
+the sidebar) and writes `window.ESB_CONFIG` into the pages. Comment threads on match, team and player
+pages use giscus (data-mapping=specific, one thread per page path, themes `giscus-classic.css` /
+`giscus-night.css`, loaded only when scrolled to). They stay **off** until all of these are true:
+1. the giscus app is installed on the repo: https://github.com/apps/giscus -> Install -> Only select repositories -> fragnet;
+2. a Discussions category named exactly **Match threads** exists (type Announcement recommended);
+3. repository variable `GISCUS_ENABLED` = `1` (Settings -> Secrets and variables -> Actions -> Variables), then rerun the deploy.
+Optional `DISCORD_INVITE` (https://discord.gg/...) shows the Join-the-Discord boxes and footer link.
 
-Off by default. To count visits without cookies or personal data, create a free
-[GoatCounter](https://www.goatcounter.com/) site (for example code `fragnet`), then add a
-repository variable `GOATCOUNTER_CODE` with that code (Settings > Secrets and variables >
-Actions > Variables). The next deploy adds the counter; only the section of the page
-(`#cs2`, `#valorant`, ...) is counted, never team or player names. Delete the variable to
-turn it off again.
+## About page
+`#about` (linked in the top bar, section nav, game nav and footer). The static text lives
+in `<template id="about-tpl">` in index.html; app.js only fills in the current fetch
+time and OK/STALE/MISS counts. The footer carries a one-line disclaimer.
 
-## Run locally
+## Times
+Everything is displayed in Pacific Time (America/Los_Angeles, PDT/PST label), regardless
+of the visitor's own time zone. data.json stores UTC ISO timestamps.
 
-    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-    .venv/bin/python build_dist.py
-    .venv/bin/python fetch_data.py --out dist
-    .venv/bin/python prerender.py dist/index.html dist/data.json   # optional no-JS snapshot
-    cd dist && python3 -m http.server 8080      # http://localhost:8080/
+## Tests
+    .venv/bin/pip install -r requirements-dev.txt
+    .venv/bin/python tests/browser_test.py http://localhost:8080/ [--shots shots]
+Headless Chrome/Chromium: every view and internal link at 1280/1024/768/390 px, console
+errors/warnings, failed requests/404s, overflow and clipped tables, tooltips on truncated
+text, paging, search (incl. hostile input), read-only forums (notice, no forms, no
+storage access, seeded old local posts not shown), #about content/links, no "Gotfrag" in
+the DOM, external link attributes, skip link. Also works with `file:///.../index.html`
+and sub-path URLs, e.g. `http://localhost:8080/dist/` and `file:///.../dist/index.html`.
+v3.7 adds JS-off checks of the pre-rendered snapshot (skipped on the source root, which is
+not pre-rendered) and hostile-data escaping. Offline: `tests/test_prerender.py`,
+`tests/test_fetch_matches.py`.
 
-`dist/index.html` also works when opened directly from disk (it then loads `data.js`).
-
-## Disclaimer
-
-Esports Scoreboard is an independent fan project. It is not affiliated with, endorsed by, or
-sponsored by FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg
-or any of the news sites listed above. Counter-Strike, Valorant, World of Warcraft and
-all other trademarks belong to their respective owners. Fonts: see `fonts/README.txt`
-and the licence files in `fonts/`.
-
-## Path pages, sitemap and share images (v4.5)
-
-Every deploy also writes real URLs such as `team/cs2/<id>/`, `player/cs2/<nick>/`, `match/cs2/<id>/` and
-`cs2/na-advanced/` (`pages.py`, run by the workflow before the front-page snapshot). Each page has its own
-title, description, canonical URL, share tags and a static snapshot that works without JavaScript; with
-JavaScript the normal app takes over. Only teams, players and matches with at least one tracked match get a
-page. `sitemap.xml` and `robots.txt` are written alongside. Share images (1200x630 PNG, no logos) are drawn
-with Pillow for teams and matches and cached between runs, so only changed ones are redrawn. Generated files
-are never committed; they go straight into the Pages artifact. Local build: `python build_dist.py --pages --prerender`.
-
-## Custom domain (esportsscoreboard.com)
-
-Pages is deployed by the Actions workflow, so the custom domain is a Pages setting (a CNAME file is not used):
-`gh api -X PUT repos/winecoolermike/fragnet/pages -f cname=esportsscoreboard.com`, then, once GitHub has issued the
-certificate, `gh api -X PUT repos/winecoolermike/fragnet/pages -F https_enforced=true`. The repository variable
-`SITE_URL` (`gh variable set SITE_URL --body https://esportsscoreboard.com/`) switches canonical URLs, og tags,
-sitemap.xml, robots.txt and share images on the next deploy. All links inside the site are relative, so it works both
-under /fragnet/ and at the domain root.
+## Files
+index.html, style.css, app.js, favicon.svg, data.json + data.js (generated),
+fetch_data.py, build_dist.py, dist/ (generated publish folder), fonts/ (subset fallback
+fonts + licences), shots/ (screenshots; ref-gotfrag-* are local reference captures of a
+third-party site - never publish them; they are excluded from dist/ and the v3.2 zip),
+tests/, HOSTING.md. Previous versions: v1-backup/, v2-backup/.

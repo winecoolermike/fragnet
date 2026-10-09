@@ -782,33 +782,26 @@
     return list;
   }
 
-  /* ---------- forums: read-only for launch ----------
-     Posting stays off until shared accounts + moderation exist. ForumBackend is the
-     single seam for a future server API: implement topics(forumId) / topic(id) and,
-     once FORUM_POSTING_ENABLED is true, add create/reply/remove plus the posting UI
-     (see renderPostingUI). Nothing is read from or written to browser storage. */
-  var FORUM_POSTING_ENABLED = false;
-  var FORUM_NOTICE = "Forums coming soon. Posting opens once shared accounts and moderation are in place.";
-  var ForumBackend = {
-    postingEnabled: FORUM_POSTING_ENABLED,
-    topics: function (forumId) { return []; },   // -> [{id, forum, subject, views, posts:[{author, body, at}]}]
-    topic: function (id) { return null; }
-  };
-  var FORUMS = [
-    { cat: "Counter-Strike 2 Forums", items: [{ id: "cs2", name: "ESEA League Discussion", desc: "Divisions, standings and teams in the ESEA League on FACEIT." }] },
-    { cat: "Valorant Forums", items: [{ id: "valorant", name: "Challengers & Game Changers", desc: "Tier-2 circuits, Game Changers events and results." }] },
-    { cat: "World of Warcraft Forums", items: [{ id: "wow", name: "Mythic Raid Progression", desc: "Guild progression, raid rankings and boss kills." }] },
-    { cat: "General Forums", items: [{ id: "general", name: "General Discussion & Site Feedback", desc: "Anything else, plus feedback about Esports Scoreboard." }] }
-  ];
-  function forumById(id) { for (var i = 0; i < FORUMS.length; i++) for (var j = 0; j < FORUMS[i].items.length; j++) if (FORUMS[i].items[j].id === id) return FORUMS[i].items[j]; return null; }
-  function lastPost(t) { return t.posts[t.posts.length - 1]; }
-  function byLast(a, b) { return String(lastPost(b).at).localeCompare(String(lastPost(a).at)); }
-  function forumTopics(fid) {
-    var ts = [];
-    try { ts = ForumBackend.topics(fid) || []; } catch (e) { ts = []; }
-    return ts.filter(function (t) { return t && t.id && t.posts && t.posts.length; });
+  /* ---------- v5.0 community: GitHub Discussions + giscus comments ----------
+     window.ESB_CONFIG is written at deploy time (discussions.py): {repo, discussions, forum, giscus?, discord?}.
+     Nothing third-party loads unless the owner switched it on there. The forum list (forum.js) is
+     a build-time snapshot of the latest Discussions; posting happens on GitHub (free account). */
+  var CFG = window.ESB_CONFIG || {}, FX_STATE = "";
+  var DISC_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/discussions$/.test(CFG.discussions || "") ? CFG.discussions : "https://github.com/winecoolermike/fragnet/discussions";
+  function forumX() { return window.ESB_FORUM || null; }
+  function loadForum() {
+    if (FX_STATE || !CFG.forum) return;
+    FX_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { FX_STATE = forumX() ? "ok" : "fail"; try { renderSideForum(); } catch (e) {} if (/^#forums/.test(curHash())) { KEEP_SCROLL = true; route(); } }
+    s.src = "forum.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
   }
-
+  function safeGh(u) { return /^https:\/\/github\.com\//.test(String(u || "")) ? String(u) : DISC_URL; }
+  function discordBox(where) {
+    if (!CFG.discord || !/^https:\/\/(discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}\/?$/.test(CFG.discord)) return "";
+    return '<div class="infobox discord-box ' + where + '"><b>Join the Discord</b> &middot; chat with amateur and semi-pro players, find scrims and talk about this week&rsquo;s matches. ' + ext(CFG.discord, "Join the Esports Scoreboard Discord") + "</div>";
+  }
   /* ---------- reusable blocks ---------- */
   function resultsTable(rows, offset, compact, noKeys) {
     if (!rows.length) return '<div class="empty">no results</div>';
@@ -1366,57 +1359,49 @@
       '<div class="note">' + ext(g.url, "Guild profile on Raider.IO") + " &middot; kill dates from Raider.IO raid rankings, Pacific Time.</div>";
   }
 
-  /* ----- forums (board index / topic list / topic view) ----- */
-  function forumNote() {
-    return '<div class="local-note forum-note" role="status"><span class="lbl">COMING SOON</span><span>' + esc(FORUM_NOTICE) + "</span></div>";
+  /* ----- forums (v5.0): GitHub Discussions index ----- */
+  function vForums() {
+    setCrumbs([["Forums"]]);
+    if (CFG.forum && !forumX() && FX_STATE !== "fail") { loadForum(); return std("Community Forums", "GitHub Discussions", "") + '<div class="empty loading">Loading the forum list&hellip;</div>'; }
+    var fx = forumX(), intro = '<div class="infobox forum-intro">The Esports Scoreboard forums live on <b>GitHub Discussions</b>: anyone can read, posting needs a free GitHub account.' +
+      (CFG.giscus ? " Match, team and player pages have their own comment threads there too." : "") + '<div class="forum-btns"><a class="gbtn" href="' + esc(DISC_URL) + '" target="_blank" rel="noopener">Open the forums &#8599;</a> <a class="gbtn" href="' + esc(DISC_URL) + '/new/choose" target="_blank" rel="noopener">Start a discussion &#8599;</a></div></div>';
+    var body = intro + discordBox("forums");
+    if (!fx) return std("Community Forums", "GitHub Discussions", "") + body + '<div class="empty">The latest threads appear here after the next site update.</div>';
+    var cats = (fx.categories || []).filter(function (c) { return c && c.name; });
+    if (cats.length) body += '<h2 class="subhead">Categories</h2><div class="rankbox"><table class="tbl forum-cats"><thead><tr><th class="first">Category</th><th class="n" title="threads among the 30 most recently active">Recent threads</th></tr></thead><tbody>' + cats.map(function (c) {
+      return '<tr><td class="team">' + ext(DISC_URL + "/categories/" + encodeURIComponent(c.slug || ""), c.name) + (c.desc ? '<div class="dim fdesc">' + esc(c.desc) + "</div>" : "") + '</td><td class="n">' + num(c.recent) + "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+    var lt = (fx.latest || []).slice(0, 30);
+    body += '<h2 class="subhead">Latest Threads</h2>' + (lt.length ? '<div class="rankbox"><table class="tbl forum-latest"><thead><tr><th class="first">Thread</th><th class="hide-sm">Category</th><th class="n">Replies</th><th class="hide-sm">Last activity</th></tr></thead><tbody>' + lt.map(function (d) {
+      return '<tr><td class="team">' + ext(safeGh(d.url), d.title) + '<div class="dim fdesc">by ' + esc(d.author) + " &middot; " + fmt(d.created, "short") + '</div></td><td class="hide-sm">' + esc(d.cat) + '</td><td class="n">' + num(d.comments) + '</td><td class="hide-sm dim">' + fmt(d.updated, "short") + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty">No threads yet &ndash; <a href="' + esc(DISC_URL) + '/new/choose" target="_blank" rel="noopener">start the first one</a>.</div>');
+    return std("Community Forums", num(fx.total) + " threads", "") + body + '<div class="note">Thread list as of ' + fmt(fx.fetched_at, "short") + " (refreshed with every site update).</div>";
   }
-  function renderPostingUI() {
-    // New topic / reply / delete forms plug in here once a real backend exists
-    // (only when FORUM_POSTING_ENABLED and ForumBackend implement posting).
-    return "";
+  /* giscus comment threads on match, team and player pages (only when switched on in ESB_CONFIG) */
+  function commentsBox(term) {
+    var g = CFG.giscus;
+    if (!g || !g.repo_id || !g.category_id || location.protocol !== "https:") return "";
+    return '<h2 class="subhead" id="comments-h">Comments</h2><div class="comments" data-term="' + esc(term) + '"><div class="empty">Comments load when you scroll here (GitHub Discussions; posting needs a free GitHub account).</div></div>';
   }
-  function vForums(parts) {
-    var mode = parts[0] || "", id = parts[1] || "";
-    if (mode === "t") return vTopic(id);
-    if (mode === "f" && forumById(id)) return vForum(id);
-    var total = 0;
-    var rows = FORUMS.map(function (c) {
-      return '<tr class="row-header"><td><span class="ic"></span>' + esc(c.cat) + '</td><td class="c">Topics</td><td class="c">Posts</td><td class="lastc">Last Post</td></tr>' + c.items.map(function (fo) {
-        var ts = forumTopics(fo.id).sort(byLast);
-        var posts = ts.reduce(function (n, t) { return n + t.posts.length; }, 0);
-        var lp = ts[0] && lastPost(ts[0]);
-        total += ts.length;
-        return '<tr class="row-item"><td class="title"><a class="name" href="#forums/f/' + fo.id + '">' + esc(fo.name) + '</a><div class="description">' + esc(fo.desc) +
-          '</div></td><td class="num">' + ts.length + '</td><td class="num">' + posts + '</td><td class="lastpost">' + (lp ? '<a href="#forums/t/' + esc(ts[0].id) + '">' + esc(lp.author) + '</a><div class="time">' + fmt(lp.at, "short") + "</div>" : '<span class="time">No posts yet</span>') + "</td></tr>";
-      }).join("");
-    }).join("");
-    return std("Esports Scoreboard eSports Forums", total + " topics", "") + forumNote() +
-      '<div class="crumbs"><a href="#forums">Board Index</a></div><table class="forum-table">' + rows + "</table>";
+  function giscusTheme() { return new URL("giscus-" + (document.documentElement.getAttribute("data-theme") === "night" ? "night" : "classic") + ".css", document.baseURI).href; }
+  function mountComments() {
+    var box = $("#view .comments[data-term]"), g = CFG.giscus;
+    if (!box || !g) return;
+    function load() {
+      if (box.dataset.loaded) return;
+      box.dataset.loaded = "1";
+      var s = document.createElement("script"), a = { "data-repo": CFG.repo, "data-repo-id": g.repo_id, "data-category": g.category, "data-category-id": g.category_id, "data-mapping": "specific",
+        "data-term": box.getAttribute("data-term"), "data-strict": "1", "data-reactions-enabled": "1", "data-emit-metadata": "0", "data-input-position": "top", "data-theme": giscusTheme(), "data-lang": "en", "data-loading": "lazy", crossorigin: "anonymous" };
+      s.src = "https://giscus.app/client.js"; s.async = true;
+      Object.keys(a).forEach(function (k) { s.setAttribute(k, a[k]); });
+      box.innerHTML = ""; box.appendChild(s);
+    }
+    if (window.IntersectionObserver) { var io = new IntersectionObserver(function (es) { if (es.some(function (x) { return x.isIntersecting; })) { io.disconnect(); load(); } }, { rootMargin: "300px" }); io.observe(box); }
+    else load();
   }
-  function vForum(fid) {
-    var fo = forumById(fid);
-    var ts = forumTopics(fid).sort(byLast);
-    var rows = ts.length ? ts.map(function (t) {
-      var lp = lastPost(t);
-      return '<tr class="row-item"><td class="title"><a class="name" href="#forums/t/' + esc(t.id) + '">' + esc(t.subject) + '</a><div class="description">by ' + esc(t.posts[0].author) + " &middot; " + fmt(t.posts[0].at, "short") +
-        '</div></td><td class="num">' + (t.posts.length - 1) + '</td><td class="num">' + num(t.views) + '</td><td class="lastpost">' + esc(lp.author) + '<div class="time">' + fmt(lp.at, "short") + "</div></td></tr>";
-    }).join("") : '<tr class="row-item"><td colspan="4" class="emptyrow">No topics yet.</td></tr>';
-    return std(esc(fo.name), ts.length + " topics", "") + forumNote() +
-      '<div class="crumbs"><a href="#forums">Board Index</a> &raquo; <span>' + esc(fo.name) + "</span></div>" +
-      '<table class="forum-table"><tr class="row-header"><td><span class="ic"></span>Topics</td><td class="c">Replies</td><td class="c">Views</td><td class="lastc">Last Post</td></tr>' + rows + "</table>" + renderPostingUI();
-  }
-  function vTopic(tid) {
-    var t = null;
-    try { t = ForumBackend.topic(tid); } catch (e) { t = null; }
-    if (!t || !t.posts || !t.posts.length) return std("Topic not available", "", "") + forumNote() + '<div class="empty">There are no forum topics yet. <a href="#forums">Back to the board index</a></div>';
-    var fo = forumById(t.forum) || { name: "General", id: "general" };
-    var posts = t.posts.map(function (p, i) {
-      return '<div class="post"><div class="ubox"><div class="av" aria-hidden="true">' + esc(String(p.author || "?").charAt(0).toUpperCase()) + '</div><div><div class="uname">' + esc(p.author) + '</div><div class="urank">' + (i === 0 ? "Topic Starter" : "Member") +
-        '</div></div></div><div class="pc"><div class="phead"><b>#' + (i + 1) + "</b> &middot; " + (i === 0 ? "<b>" + esc(t.subject) + "</b>" : "Re: " + esc(t.subject)) + " &middot; posted " + fmt(p.at) +
-        '</div><div class="pbody">' + esc(p.body) + "</div></div></div>";
-    }).join("");
-    return std(esc(t.subject), (t.posts.length - 1) + " replies", "") + forumNote() +
-      '<div class="crumbs"><a href="#forums">Board Index</a> &raquo; <a href="#forums/f/' + fo.id + '">' + esc(fo.name) + '</a> &raquo; <span class="subj">' + esc(t.subject) + "</span></div>" + posts + renderPostingUI();
+  function retintComments() {
+    var f = document.querySelector("iframe.giscus-frame");
+    if (f && f.contentWindow) f.contentWindow.postMessage({ giscus: { setConfig: { theme: giscusTheme() } } }, "https://giscus.app");
   }
 
   /* ----- about (static text lives in index.html <template id="about-tpl">) ----- */
@@ -1493,13 +1478,13 @@
     }).join("") : '<li class="empty">no headlines</li>';
   }
   function renderSideForum() {
-    var ts = [];
-    FORUMS.forEach(function (c) { c.items.forEach(function (fo) { ts = ts.concat(forumTopics(fo.id)); }); });
-    ts = ts.sort(byLast).slice(0, 8);
-    $("#side-forum").innerHTML = (ts.length ? ts.map(function (t) {
-      return '<li title="' + esc(t.subject) + '"><a href="#forums/t/' + esc(t.id) + '">' + esc(t.subject) + '</a><span class="cnt" title="replies">' + (t.posts.length - 1) + "</span></li>";
-    }).join("") : '<li class="empty">No topics yet.</li>') + '<li class="note">' + esc(FORUM_NOTICE) + "</li>";
+    var fx = forumX(), lt = fx ? (fx.latest || []).slice(0, 6) : [];
+    if (CFG.forum && !fx) loadForum();
+    $("#side-forum").innerHTML = (lt.length ? lt.map(function (d) {
+      return '<li title="' + esc(d.title) + '"><a href="' + esc(safeGh(d.url)) + '" target="_blank" rel="noopener">' + esc(d.title) + '</a><span class="cnt" title="replies">' + num(d.comments) + "</span></li>";
+    }).join("") : '<li class="empty">No threads yet.</li>') + '<li class="note">Forums run on GitHub Discussions. <a href="' + esc(DISC_URL) + '" target="_blank" rel="noopener">Open the forums &#8599;</a></li>';
   }
+
   function renderTicker() {
     var bits = [];
     newsItems().slice(0, 10).forEach(function (i) { bits.push('<span class="it"><b>' + esc(i.source) + ":</b> " + ext(i.url, i.title) + "</span>"); });
@@ -1541,7 +1526,7 @@
         case "valorant": html = vValorant(r.parts); break;
         case "wow": html = vWow(r.parts); break;
         case "news": html = vNews(r.parts); break;
-        case "forums": html = vForums(r.parts); break;
+        case "forums": html = vForums(); break;
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
@@ -1561,7 +1546,9 @@
       var th = tmp.querySelector(".std-header h1"), gm = { player: 1, team: 1, guild: 1, match: 1 };
       html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
     }
+    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
+    try { mountComments(); } catch (e) {}
     try { noteRecent(r); } catch (e) {}
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
     var h1 = $("#view .std-header h1");
@@ -1600,6 +1587,7 @@
       root.setAttribute("data-theme", next);
       try { localStorage.setItem("esb-theme", next); } catch (e) {}
       paint();
+      try { retintComments(); } catch (e) {}
     });
     if (mq && mq.addEventListener) mq.addEventListener("change", function (e) { if (!stored()) { root.setAttribute("data-theme", e.matches ? "night" : "classic"); paint(); } });
     paint();

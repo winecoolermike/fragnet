@@ -29,7 +29,8 @@ DIST = os.path.join(HERE, "dist")
 VERSION = "3.2"
 FILES = ["index.html", "style.css", "app.js", "favicon.svg", "data.json", "data.js"]
 OPTIONAL = ["teams.json", "teams.js",   # lazy team rosters / match lines / player stats (v3.6+); copied when present
-            "val.json", "val.js"]       # lazy Valorant players + rosters (v3.8)
+            "val.json", "val.js",       # lazy Valorant players + rosters (v3.8)
+            "giscus-classic.css", "giscus-night.css"]   # v5.0 comment themes (used only when comments are switched on)
 FONT_PATTERNS = ["*.woff2", "LICENSE*", "README.txt"]
 BANNED_TERMS_FILE = os.path.join(HERE, ".banned-terms")   # optional, untracked: one term per line
 FORBIDDEN = ["shots", "tests", "v1-backup", "v2-backup", ".venv", "fetch_data.py", "build_dist.py",
