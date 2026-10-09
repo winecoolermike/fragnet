@@ -1,0 +1,5 @@
+{
+  "_readme": "Reviewed team extras. Add entries ONLY by merging a reviewed pull request for a 'Claim this team' or 'Recruiting post' issue. Keys: cs2:<FACEIT team id> or val:<team slug>. Logos: https image on i.imgur.com / raw.githubusercontent.com / FACEIT or vlr CDN, no query string. Socials are handles (x, twitch, youtube, discord invite code, faceit team id). recruiting/players: type LFP (team wants a player) or LFT (player wants a team), role, note (200 chars), updated YYYY-MM-DD, contact {one social handle}.",
+  "teams": {},
+  "players": []
+}

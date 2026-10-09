@@ -1455,6 +1455,54 @@
     }).catch(function () { msg.textContent = "Card not available here."; });
   }
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".share-btn"); if (b) shareCard(b); });
+  /* v5.4 team-owned extras: extra.js is the reviewed teams-extra.json, validated at deploy (teams_extra.py) */
+  var EX_STATE = "";
+  function extraX() { return window.ESB_EXTRA || null; }
+  function loadExtra() {
+    if (EX_STATE || !CFG.extra) return;
+    EX_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { EX_STATE = extraX() ? "ok" : "fail"; if (/^#(team|recruiting)\//.test(curHash() + "/")) { KEEP_SCROLL = true; route(); } }
+    s.src = "extra.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
+  }
+  var ISSUE_NEW = DISC_URL.replace(/\/discussions$/, "/issues/new");
+  function okUrl(u, re) { return typeof u === "string" && re.test(u); }
+  var SOC_RE = /^https:\/\/(x\.com|www\.twitch\.tv|www\.youtube\.com|discord\.gg|www\.faceit\.com)\//;
+  function socLink(o) { return okUrl(o.url, SOC_RE) ? '<a href="' + esc(o.url) + '" target="_blank" rel="nofollow noopener ugc">' + esc(o.label) + " &#8599;</a>" : ""; }
+  function teamExtraKey(parts) { return parts[0] === "cs2" ? "cs2:" + parts[1] : parts[0] === "val" ? "val:" + parts[1] : ""; }
+  function teamExtraBox(parts) {
+    var key = teamExtraKey(parts);
+    if (!key) return "";
+    if (CFG.extra && !extraX() && EX_STATE !== "fail") loadExtra();
+    var x = extraX() && extraX().teams && extraX().teams[key], out = "";
+    if (x) {
+      var logo = okUrl(x.logo, /^https:\/\/[a-z0-9.-]+\/[^?#]+\.(png|jpe?g|webp|gif)$/i) ? '<img class="team-logo" src="' + esc(x.logo) + '" alt="" width="64" height="64" loading="lazy" referrerpolicy="no-referrer" decoding="async">' : "";
+      var soc = (x.socials || []).map(function (o) { return '<span class="soc soc-' + esc(o.kind) + '">' + esc(o.kind) + " " + socLink(o) + "</span>"; }).join(" ");
+      var rec = (x.recruiting || []).map(function (r) { return '<div class="rec-line"><span class="rec-tag">' + esc(r.type) + "</span> <b>" + esc(r.role) + "</b>" + (r.note ? " &middot; " + esc(r.note) : "") + (r.contact ? " &middot; " + socLink(r.contact) : "") + ' <span class="dim">(' + esc(r.updated) + ")</span></div>"; }).join("");
+      out = '<h2 class="subhead">Team info</h2><div class="infobox team-extra">' + logo + '<div class="te-body">' + (soc ? '<div class="te-soc">' + soc + "</div>" : "") + rec + '<div class="dim te-note">Provided by the team, reviewed before publishing.</div></div></div>';
+    }
+    var q = "?template=claim-team.yml&title=" + encodeURIComponent("Claim: " + key) + "&team_url=" + encodeURIComponent(location.href.split("#")[0].replace(/[^/]*$/, "") + "#team/" + parts.join("/"));
+    return out + '<div class="claim"><a href="' + esc(ISSUE_NEW + q) + '" target="_blank" rel="noopener">' + (x ? "Update this team&rsquo;s info" : "Claim this team") + ' &#8599;</a> <span class="dim">add a logo, socials or a recruiting note (GitHub account; reviewed by hand)</span></div>';
+  }
+  function vRecruiting() {
+    setCrumbs([["Recruiting"]]);
+    var post = '<div class="forum-btns"><a class="gbtn" href="' + esc(ISSUE_NEW) + '?template=recruiting-post.yml" target="_blank" rel="noopener">Post LFT / LFP &#8599;</a></div>';
+    var intro = '<div class="infobox">LFP = team looking for a player, LFT = player looking for a team. Posts are sent as a GitHub issue and appear here after review. ' + post + "</div>";
+    if (CFG.extra && !extraX() && EX_STATE !== "fail") { loadExtra(); return std("LFP / LFT Recruiting Board", "", intro + '<div class="empty loading">Loading&hellip;</div>'); }
+    var x = extraX() || { teams: {}, players: [] }, rows = [];
+    Object.keys(x.teams || {}).forEach(function (k) {
+      var t = x.teams[k], g = k.split(":")[0], id = k.slice(g.length + 1);
+      (t.recruiting || []).forEach(function (r) { rows.push({ r: r, who: ilink("team/" + (g === "cs2" ? "cs2/" + id : "val/" + id), t.name || id) }); });
+    });
+    (x.players || []).forEach(function (r) { rows.push({ r: r, who: esc(r.nick) }); });
+    rows.sort(function (a, b) { return String(b.r.updated).localeCompare(String(a.r.updated)); });
+    var tbl = rows.length ? '<div class="rankbox"><table class="tbl rec-board"><thead><tr><th class="first">Type</th><th>Who</th><th>Role</th><th class="hide-sm">Note</th><th>Contact</th><th class="hide-sm">Updated</th></tr></thead><tbody>' + rows.map(function (o) {
+      var r = o.r;
+      return '<tr><td><span class="rec-tag">' + esc(r.type) + "</span> " + (r.game === "val" ? "VAL" : "CS2") + '</td><td class="team">' + o.who + "</td><td>" + esc(r.role) + (r.region ? ' <span class="dim">' + esc(r.region) + "</span>" : "") + '</td><td class="hide-sm">' + esc(r.note) + "</td><td>" + (r.contact ? socLink(r.contact) : "") + '</td><td class="hide-sm dim">' + esc(r.updated) + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty">No recruiting posts yet. Be the first: use &ldquo;Post LFT / LFP&rdquo; above.</div>';
+    return std("LFP / LFT Recruiting Board", rows.length + " posts", intro + tbl);
+  }
   function giscusTheme() { return new URL("giscus-" + (document.documentElement.getAttribute("data-theme") === "night" ? "night" : "classic") + ".css", document.baseURI).href; }
   function mountComments() {
     var box = $("#view .comments[data-term]"), g = CFG.giscus;
@@ -1594,7 +1642,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
     CRUMB = null; CUR_SEC = ""; FAVC = null;
@@ -1606,6 +1654,7 @@
         case "news": html = vNews(r.parts); break;
         case "forums": html = vForums(); break;
         case "roundup": html = vRoundup(r.parts); break;
+        case "recruiting": html = vRecruiting(); break;
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
@@ -1625,7 +1674,7 @@
       var th = tmp.querySelector(".std-header h1"), gm = { player: 1, team: 1, guild: 1, match: 1 };
       html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
     }
-    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top !== "match" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
+    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" ? teamExtraBox(r.parts) : "") + (r.top !== "match" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
     try { mountComments(); } catch (e) {}
     try { noteRecent(r); } catch (e) {}

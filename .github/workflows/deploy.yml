@@ -132,6 +132,10 @@ jobs:
           PY
           python build_dist.py --check
 
+      - name: Reviewed team extras (teams-extra.json)
+        continue-on-error: true
+        run: python teams_extra.py dist --src teams-extra.json
+
       - name: Spotlights and weekly roundups
         continue-on-error: true
         run: python spotlight.py dist --archive roundups

@@ -1,0 +1,28 @@
+name: Claim this team
+description: Add a logo, socials or a recruiting note to your team's page. Reviewed by hand before anything is published.
+title: "Claim: "
+labels: ["claim-team"]
+body:
+  - type: markdown
+    attributes:
+      value: "Nothing here is published automatically. The site owner checks that you belong to the team (e.g. the FACEIT team leader or a post on your team's socials) and then adds the entry to teams-extra.json."
+  - type: input
+    id: team_url
+    attributes: {label: Team page on Esports Scoreboard, placeholder: "https://esportsscoreboard.com/team/cs2/..."}
+    validations: {required: true}
+  - type: input
+    id: proof
+    attributes: {label: How can we verify you represent the team?, placeholder: "I am the FACEIT team leader / tweet from our team account: https://..."}
+    validations: {required: true}
+  - type: input
+    id: logo
+    attributes: {label: Logo URL (optional), description: "https link to a PNG/JPG/WebP on i.imgur.com or raw.githubusercontent.com, square, no query string"}
+  - type: textarea
+    id: socials
+    attributes: {label: Socials (optional), description: "Handles only, one per line: x, twitch, youtube, discord (invite code)", placeholder: "x: myteam\ntwitch: myteam"}
+  - type: input
+    id: recruiting
+    attributes: {label: Recruiting note (optional), placeholder: "LFP: AWPer, EU, 3 evenings a week"}
+  - type: input
+    id: contact
+    attributes: {label: Recruiting contact (optional), placeholder: "discord invite code or x handle"}

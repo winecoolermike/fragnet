@@ -1,0 +1,31 @@
+name: Recruiting post (LFT / LFP)
+description: Looking for a team (LFT) or a player (LFP)? Posts are reviewed before they appear on the recruiting board.
+title: "LFT/LFP: "
+labels: ["recruiting"]
+body:
+  - type: dropdown
+    id: type
+    attributes: {label: Type, options: ["LFT - player looking for a team", "LFP - team looking for a player"]}
+    validations: {required: true}
+  - type: dropdown
+    id: game
+    attributes: {label: Game, options: ["CS2", "Valorant"]}
+    validations: {required: true}
+  - type: input
+    id: name
+    attributes: {label: Your nickname or team name}
+    validations: {required: true}
+  - type: input
+    id: role
+    attributes: {label: Role, placeholder: "AWPer / IGL / Duelist ..."}
+    validations: {required: true}
+  - type: input
+    id: region
+    attributes: {label: Region / division, placeholder: "NA Main"}
+  - type: textarea
+    id: note
+    attributes: {label: Short note (200 characters max)}
+  - type: input
+    id: contact
+    attributes: {label: Contact handle, description: "One of: x handle, twitch, discord invite code"}
+    validations: {required: true}

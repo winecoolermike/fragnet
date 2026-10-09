@@ -743,3 +743,10 @@ td.score a.xl:hover{color:var(--link)}
 .share-card{margin:8px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .share-card .gbtn{display:inline-flex;padding:4px 12px;cursor:pointer}
 .share-msg{font-size:12px;word-break:break-all}
+/* v5.4 team extras + recruiting */
+.team-extra{display:flex;gap:10px;align-items:flex-start}
+.team-logo{width:64px;height:64px;object-fit:contain;flex:none;background:#fff;border:1px solid #9FB6C6}
+.te-soc{display:flex;flex-wrap:wrap;gap:4px 12px;margin-bottom:4px}
+.rec-tag{display:inline-block;padding:0 4px;font:bold 11px/16px var(--ui);background:#B03F00;color:#fff;border-radius:2px}
+.claim{margin:8px 0;font-size:12px}
+.tbl.rec-board td{white-space:normal}
