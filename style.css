@@ -735,3 +735,7 @@ td.score a.xl:hover{color:var(--link)}
 .tbl.forum-latest td.team,.tbl.forum-cats td.team{white-space:normal}
 .comments{margin:6px 0 10px;min-height:60px}
 .discord-box{margin:8px 0}
+/* v5.2 spotlights */
+.spot-line{padding:4px 6px;border-bottom:1px dotted var(--line,#c9d3da);line-height:1.5}
+.spot-intro{font-size:12px}
+.tbl.spot-fr td.team{white-space:normal}

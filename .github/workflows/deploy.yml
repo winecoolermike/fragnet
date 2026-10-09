@@ -132,6 +132,10 @@ jobs:
           PY
           python build_dist.py --check
 
+      - name: Spotlights and weekly roundups
+        continue-on-error: true
+        run: python spotlight.py dist
+
       - name: Community config and forum list (GitHub Discussions)
         continue-on-error: true
         env:

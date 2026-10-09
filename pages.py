@@ -397,6 +397,49 @@ class Site:
             self.add("news", "Esports News :: Esports Scoreboard", f"Latest esports headlines (CS2, Valorant, WoW) from {', '.join(sorted({str(n.get('source')) for n in news})[:5])}.",
                      std("Esports Scoreboard News Wire", f"{len(news)} headlines", '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news) + "</div>"))
 
+    # ------------------------------------------------------------- v5.2 weekly roundups (spot.json from spotlight.py)
+    def spot_html(self, b, routes):
+        def lk(route, text):
+            return ilink(route, text) if route in routes else e(text)
+        out = []
+        ups = b.get("upsets") or []
+        out.append('<h2 class="subhead">Upset of the week</h2>' + (
+            "".join(f'<div class="spot-line">{lk("team/cs2/" + u["winner"]["id"], u["winner"]["name"])} (#{u["winner"]["rank"]}) beat '
+                    f'{lk("team/cs2/" + u["loser"]["id"], u["loser"]["name"])} (#{u["loser"]["rank"]}) {lk("match/cs2/" + u["id"], u["score"])} '
+                    f'<span class="dim">{e(u["region"])} {e(u["division"])}</span></div>' for u in ups[:3])
+            or '<div class="empty">No upset by this rule in this period.</div>'))
+        fr = b.get("fraggers") or []
+        out.append('<h2 class="subhead">Top fragger by division</h2>' + (table(["<th class=\"first\">Division</th>", "<th>Player</th>", "<th class=\"n\">Kills</th>", "<th class=\"n\">Maps</th>"],
+            [f'<tr><td>{e(f["div"])}</td><td class="team">{lk("player/cs2/" + f["nick"], f["nick"])} <span class="dim">{e(f["team"])}</span></td><td class="n">{lk("match/cs2/" + str(f["match"]), str(f["kills"]))}</td><td class="n">{f["maps"]}</td></tr>' for f in fr])
+            or '<div class="empty">No FACEIT scoreboards in this period.</div>'))
+        st = b.get("streaks") or []
+        out.append('<h2 class="subhead">Hottest streak</h2>' + ("".join(f'<div class="spot-line">{lk("team/cs2/" + x["id"], x["name"])}: {x["n"]} wins in a row <span class="dim">{e(x["div"])}</span></div>' for x in st[:3])
+                   or '<div class="empty">No team is on a 3+ win streak.</div>'))
+        w = b.get("wow") or {}
+        out.append(f'<h2 class="subhead">WoW Mythic kills</h2>' + ("".join(f'<div class="spot-line">{ext(g.get("url"), g.get("guild"))} ({e(g.get("region", "").upper())}): {g["kills"]} kill{"s" if g["kills"] != 1 else ""} &middot; {e(", ".join(g.get("bosses") or []))}</div>' for g in w.get("guilds") or [])
+                   or '<div class="empty">No Mythic kills by tracked guilds in this period.</div>'))
+        return "".join(out)
+
+    def build_roundups(self):
+        sp = load(os.path.join(self.dist, "spot.json"))
+        weeks = sp.get("weeks") or []
+        if not weeks:
+            return
+        routes = {p["route"] for p in self.pages}
+        rows = []
+        for w in weeks:
+            if not re.match(r"^\d{4}-w\d{2}$", str(w.get("id"))):
+                continue
+            num_ = int(w["id"][-2:])
+            intro = (f'<div class="infobox">Week {num_}{" (so far)" if w.get("current") else ""}: {w["cs_matches"]} CS2 results tracked ({w["cs_with_scoreboards"]} with scoreboards) '
+                     f'and {(w.get("wow") or {}).get("kills", 0)} WoW Mythic boss kills by tracked guilds. {e(sp.get("upset_rule"))}</div>')
+            self.add("roundup/" + w["id"], f"Weekly Roundup {w['id'].upper()} ({w['label']})",
+                     f"Esports Scoreboard weekly roundup, {w['label']}: upsets, top fraggers per ESEA division, win streaks and WoW Mythic kills, from tracked results.",
+                     std(f"Weekly Roundup :: {e(w['label'])}", "week " + str(num_), intro + self.spot_html(w, routes) + '<div class="crumbs"><a href="roundup/">All roundups</a></div>'))
+            rows.append(f'<tr><td class="team">{ilink("roundup/" + w["id"], w["label"])}</td><td class="n">{w["cs_matches"]}</td><td class="n">{(w.get("wow") or {}).get("kills", 0)}</td></tr>')
+        self.add("roundup", "Weekly Roundups", "Archive of Esports Scoreboard weekly roundups built from tracked ESEA League, Valorant and WoW data.",
+                 std("Weekly Roundups", f"{len(rows)} weeks", table(['<th class="first">Week</th>', '<th class="n">CS2 results</th>', '<th class="n">WoW kills</th>'], rows)))
+
     # ------------------------------------------------------------- output
     def head_tags(self, p, rel, og_url):
         url = self.site + (p["route"] + "/" if p["route"] else "")
@@ -497,6 +540,7 @@ def build(dist, site, og_cache, do_og=True):
     s.build_cs()
     s.build_val()
     s.build_rest()
+    s.build_roundups()
     tpl_path = os.path.join(dist, "index.html")
     with open(tpl_path, encoding="utf-8") as fh:
         tpl = fh.read()

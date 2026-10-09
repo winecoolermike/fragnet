@@ -107,6 +107,8 @@ def main(argv=None):
     cfg = config(a.repo, giscus, os.environ)
     if wrote:
         cfg["forum"] = True
+    if os.path.exists(os.path.join(a.dist, "spot.js")):
+        cfg["spot"] = True
     inject(os.path.join(a.dist, "index.html"), cfg)
     print(f"[discussions] config: comments {'on' if 'giscus' in cfg else 'off'}, discord {'on' if 'discord' in cfg else 'off'}")
     return 0

@@ -797,6 +797,58 @@
     s.src = "forum.js"; s.onload = done; s.onerror = done;
     document.body.appendChild(s);
   }
+  /* v5.2 spotlights + weekly roundups: spot.js is computed at deploy time by spotlight.py */
+  var SP_STATE = "";
+  function spotX() { return window.ESB_SPOT || null; }
+  function loadSpot() {
+    if (SP_STATE || !CFG.spot) return;
+    SP_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { SP_STATE = spotX() ? "ok" : "fail"; var h = curHash(); if (/^#(home|roundup)?(\/|$)/.test(h) || h === "" || h === "#") { KEEP_SCROLL = true; route(); } }
+    s.src = "spot.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
+  }
+  function spotHtml(b) {
+    var out = "", ups = b.upsets || [], fr = b.fraggers || [], st = b.streaks || [], w = b.wow || {};
+    function tl(t) { return /^[0-9a-f-]{36}$/.test(String(t.id)) ? ilink("team/cs2/" + t.id, t.name) : esc(t.name); }
+    out += '<h2 class="subhead">Upset of the week</h2>' + (ups.length ? ups.slice(0, 3).map(function (u) {
+      return '<div class="spot-line">' + tl(u.winner) + " (#" + u.winner.rank + ") beat " + tl(u.loser) + " (#" + u.loser.rank + ") " + ilink(csMatchHash(u), u.score) + ' <span class="dim">' + esc(u.region + " " + u.division) + "</span></div>";
+    }).join("") : '<div class="empty">No upset by this rule in this period.</div>');
+    out += '<h2 class="subhead">Top fragger by division</h2>' + (fr.length ? '<div class="rankbox"><table class="tbl spot-fr"><thead><tr><th class="first">Division</th><th>Player</th><th class="n">Kills</th><th class="n">Maps</th></tr></thead><tbody>' + fr.map(function (f) {
+      return "<tr><td>" + esc(f.div) + '</td><td class="team">' + ilink(playerHash(f.nick), f.nick) + ' <span class="dim">' + esc(f.team) + '</span></td><td class="n">' + (f.match ? ilink(csMatchHash({ id: f.match }), String(f.kills)) : num(f.kills)) + '</td><td class="n">' + num(f.maps) + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty">No FACEIT scoreboards in this period.</div>');
+    out += '<h2 class="subhead">Hottest streak</h2>' + (st.length ? st.slice(0, 3).map(function (x) {
+      return '<div class="spot-line">' + tl(x) + ": " + x.n + ' wins in a row <span class="dim">' + esc(x.div) + "</span></div>";
+    }).join("") : '<div class="empty">No team is on a 3+ win streak.</div>');
+    out += '<h2 class="subhead">WoW Mythic kills</h2>' + ((w.guilds || []).length ? w.guilds.map(function (g) {
+      var reg = g.region === "eu" ? "eu" : "us";
+      return '<div class="spot-line">' + ilink(guildHash(reg, g), g.guild) + " (" + reg.toUpperCase() + "): " + g.kills + " kill" + (g.kills === 1 ? "" : "s") + " &middot; " + esc((g.bosses || []).join(", ")) + " " + ext(g.url, "Raider.IO") + "</div>";
+    }).join("") : '<div class="empty">No Mythic kills by tracked guilds in this period.</div>');
+    return out;
+  }
+  function homeSpot() {
+    if (!CFG.spot) return "";
+    var sp = spotX();
+    if (!sp) { loadSpot(); return SP_STATE === "fail" ? "" : std("This Week", "", '<div class="empty loading-sp">Loading this week&hellip;</div>', "home-spot"); }
+    var b = sp.last7 || {};
+    return std("This Week", '<a href="#roundup">weekly roundups &raquo;</a>', '<div class="infobox spot-intro">Last 7 days: ' + num(b.cs_matches) + " CS2 results tracked, " + num((b.wow || {}).kills) + " WoW Mythic boss kills. " + esc(sp.upset_rule) + "</div>" + spotHtml(b), "home-spot");
+  }
+  function vRoundup(parts) {
+    setCrumbs(parts[0] ? [["Weekly Roundups", "roundup"], [parts[0].toUpperCase()]] : [["Weekly Roundups"]]);
+    if (!CFG.spot) return std("Weekly Roundups", "", '<div class="empty">Weekly roundups are not available on this copy of the site.</div>');
+    var sp = spotX();
+    if (!sp) { loadSpot(); return SP_STATE === "fail" ? std("Weekly Roundups", "", '<div class="empty">Roundups could not be loaded.</div>') : std("Weekly Roundups", "", '<div class="empty loading">Loading&hellip;</div>'); }
+    var weeks = sp.weeks || [];
+    if (parts[0]) {
+      var w = weeks.filter(function (x) { return x.id === parts[0]; })[0];
+      if (!w) return std("Roundup not found", "", '<div class="empty miss">No roundup for that week. <a href="#roundup">All roundups</a></div>');
+      var n = +w.id.slice(-2);
+      return std("Weekly Roundup :: " + esc(w.label), "week " + n, '<div class="infobox">Week ' + n + (w.current ? " (so far)" : "") + ": " + num(w.cs_matches) + " CS2 results tracked (" + num(w.cs_with_scoreboards) + " with scoreboards) and " + num((w.wow || {}).kills) + " WoW Mythic boss kills by tracked guilds. " + esc(sp.upset_rule) + "</div>" + spotHtml(w) + '<div class="crumbs"><a href="#roundup">All roundups</a></div>');
+    }
+    return std("Weekly Roundups", weeks.length + " weeks", weeks.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Week</th><th class="n">CS2 results</th><th class="n">WoW kills</th></tr></thead><tbody>' + weeks.map(function (w) {
+      return '<tr><td class="team">' + ilink("roundup/" + w.id, w.label + (w.current ? " (so far)" : "")) + '</td><td class="n">' + num(w.cs_matches) + '</td><td class="n">' + num((w.wow || {}).kills) + "</td></tr>";
+    }).join("") + '</tbody></table></div><div class="note">Roundups are built from the results this site still tracks; a week is listed once its results are fully covered.</div>' : '<div class="empty">No complete weeks tracked yet.</div>');
+  }
   function safeGh(u) { return /^https:\/\/github\.com\//.test(String(u || "")) ? String(u) : DISC_URL; }
   function discordBox(where) {
     if (!CFG.discord || !/^https:\/\/(discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}\/?$/.test(CFG.discord)) return "";
@@ -997,7 +1049,7 @@
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
     }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + cards + myMatches("home") + todayBoard(true) +
+    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + cards + homeSpot() + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
@@ -1522,7 +1574,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
     CRUMB = null; CUR_SEC = ""; FAVC = null;
@@ -1533,6 +1585,7 @@
         case "wow": html = vWow(r.parts); break;
         case "news": html = vNews(r.parts); break;
         case "forums": html = vForums(); break;
+        case "roundup": html = vRoundup(r.parts); break;
         case "about": html = vAbout(); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
