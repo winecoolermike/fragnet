@@ -726,3 +726,5 @@ td.score a.xl:hover{color:var(--link)}
 .segs + .segs{border-top:1px dotted var(--tline)}
 @media (max-width:600px){.segs2 .seg{flex-wrap:wrap;row-gap:4px} .segs2 .seg a{padding:0 9px;min-width:0}}
 .pager .gap{padding:0 4px;color:inherit}
+@media (min-width:601px) and (max-width:1100px){.tbl.val-pl.board .agc{display:none}}   /* agents column: room for long names at 768-1024 */
+@media (min-width:601px) and (max-width:1100px){.tbl.val-pl.board td:nth-child(3),.tbl.val-pl.board td.team{white-space:normal}}
