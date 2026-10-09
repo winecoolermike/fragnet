@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""FragNet data fetcher (v3.4).
+"""Esports Scoreboard data fetcher (v3.4).
 
 Pulls REAL public data (no accounts, no API keys, no logins) and writes
 data.json + data.js (identical content; data.js lets index.html work from
@@ -32,10 +32,10 @@ import requests
 from bs4 import BeautifulSoup
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GENERATOR = "FragNet fetch_data.py v3.4"
+GENERATOR = "Esports Scoreboard fetch_data.py v3.4"
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 FragNet/3.4 (hobby tracker)")
+      "(KHTML, like Gecko) Chrome/128.0 Safari/537.36 EsportsScoreboard/4.7 (hobby tracker)")
 S = requests.Session()
 S.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
 DELAY = 1.2            # minimum seconds between two requests to the same host
@@ -828,7 +828,7 @@ TIER2_RE = re.compile(r"^(Challengers|VCL|Game Changers|GC)\b", re.I)
 # "Champions Tour 2025: Masters Bangkok", ...
 INTL_RE = re.compile(r"\b(Champions|Masters)\b")
 # Franchised tier-1 partner leagues ("VCT 2026: Americas Stage 2"). They are not
-# international, but FragNet tracks Challengers / Game Changers / tier-2, so they
+# international, but Esports Scoreboard tracks Challengers / Game Changers / tier-2, so they
 # are excluded too. Set to False to show them.
 EXCLUDE_VCT_PARTNER_LEAGUES = True
 PARTNER_RE = re.compile(r"^(VCT|Champions Tour) 20\d\d:")
@@ -1626,7 +1626,7 @@ def write_atomic(path, text):
 
 
 def parse_args(argv=None):
-    ap = argparse.ArgumentParser(description="Fetch public FragNet data into data.json + data.js.")
+    ap = argparse.ArgumentParser(description="Fetch public Esports Scoreboard data into data.json + data.js.")
     ap.add_argument("--out", metavar="DIR", default=HERE,
                     help="output folder (default: next to this script). e.g. --out dist")
     return ap.parse_args(argv)

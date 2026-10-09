@@ -1,8 +1,8 @@
-# FragNet
+# Esports Scoreboard
 
 **Live site: https://winecoolermike.github.io/fragnet/**
 
-FragNet is an independent, fan-made tracker for **amateur and semi-pro esports**, styled
+Esports Scoreboard is an independent, fan-made tracker for **amateur and semi-pro esports**, styled
 like a classic mid-2000s esports portal:
 
 - **Matches today** (front page): today's ESEA matches (Pacific date) - live, finished with
@@ -92,7 +92,7 @@ turn it off again.
 
 ## Disclaimer
 
-FragNet is an independent fan project. It is not affiliated with, endorsed by, or
+Esports Scoreboard is an independent fan project. It is not affiliated with, endorsed by, or
 sponsored by FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg
 or any of the news sites listed above. Counter-Strike, Valorant, World of Warcraft and
 all other trademarks belong to their respective owners. Fonts: see `fonts/README.txt`

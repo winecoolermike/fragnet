@@ -145,6 +145,9 @@ jobs:
       - name: Path pages, sitemap and share images
         id: pages
         continue-on-error: true
+        env:
+          # public base URL (canonical, og:url, sitemap, robots, share images); empty = the github.io URL
+          SITE_URL: ${{ vars.SITE_URL }}
         run: |
           cp dist/index.html /tmp/index.nopages.html
           start=$(date +%s)
