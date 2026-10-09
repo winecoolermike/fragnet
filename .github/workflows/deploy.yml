@@ -8,7 +8,7 @@ on:
     - cron: "13,43 * * * *"   # about every 30 min, off-peak minutes (GitHub may delay scheduled runs; backup trigger: see README)
 
 permissions:
-  contents: write   # only used to append roundups/YYYY-wNN.json
+  contents: write   # only used to append roundups/ and rankings/YYYY-wNN.json
   pages: write
   discussions: read
   id-token: write
@@ -136,6 +136,10 @@ jobs:
         continue-on-error: true
         run: python teams_extra.py dist --src teams-extra.json
 
+      - name: ESB Team Ranking and Player Rating (v6)
+        continue-on-error: true
+        run: python ranking.py dist --archive rankings
+
       - name: Spotlights and weekly roundups
         continue-on-error: true
         run: python spotlight.py dist --archive roundups
@@ -144,10 +148,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
-          [ -d roundups ] || exit 0
-          git add roundups/*.json
+          for d in roundups rankings; do [ -d $d ] && ls $d/*.json >/dev/null 2>&1 && git add $d/*.json; done
           git diff --cached --quiet && { echo "no new roundup weeks"; exit 0; }
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "roundups: archive finished weeks [skip ci]"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "archive finished weeks (roundups, rankings) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
           exit 1
 

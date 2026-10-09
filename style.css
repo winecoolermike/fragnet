@@ -793,3 +793,11 @@ td.score a.xl:hover{color:var(--link)}
 [data-theme=night] .offline-note{background:#2a2117;border-color:#6b4a25;color:#e3e8ec}
 [data-theme=night] .pin{background:#1b2026;color:#cfe0ee;border-color:#56656e}
 [data-theme=night] .pin.on{background:#2f6db8;color:#fff;border-color:#2f6db8}
+/* v6 ranking + rating */
+.arw{font:bold 10px var(--ui)}
+.arw.up{color:#1a7f37}.arw.dn{color:#B3261E}.arw.eq,.arw.new{color:#5b6770}
+[data-theme=night] .arw.up{color:#6fd18b}[data-theme=night] .arw.dn{color:#ff8a80}[data-theme=night] .arw.eq,[data-theme=night] .arw.new{color:#a7b2bc}
+.esbr.hi{font-weight:bold;color:#1a7f37}.esbr.lo{color:#9a3412}
+[data-theme=night] .esbr.hi{color:#6fd18b}[data-theme=night] .esbr.lo{color:#fdba74}
+.rank-line{margin:6px 0}
+.method h3{margin:8px 0 4px;font-size:13px}.method p{margin:0 0 6px}

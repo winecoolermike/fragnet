@@ -83,7 +83,7 @@
   }
   /* v4.0 navigation: game -> section tabs, segmented pickers, breadcrumbs */
   var SECTIONS = {
-    cs2: { name: "Counter-Strike 2", short: "CS2", sub: "ESEA League", tabs: [["standings", "cs2", "Standings"], ["results", "cs2/results", "Results"], ["players", "cs2/players", "Top Players"], ["today", "cs2/today", "Matches Today", "Today"]] },
+    cs2: { name: "Counter-Strike 2", short: "CS2", sub: "ESEA League", tabs: [["standings", "cs2", "Standings"], ["results", "cs2/results", "Results"], ["players", "cs2/players", "Top Players"], ["today", "cs2/today", "Matches Today", "Today"], ["ranking", "cs2/ranking", "ESB Ranking", "Ranking"], ["top20", "cs2/top20", "Top 20", "Top 20"]] },
     valorant: { name: "Valorant", short: "Valorant", sub: "Challengers / Game Changers", tabs: [["events", "valorant/events", "Events"], ["results", "valorant/results", "Results"], ["players", "valorant/players", "Top Players"]] },
     wow: { name: "World of Warcraft", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
   };
@@ -470,7 +470,77 @@
     if (page < pages) h += '<a href="#' + esc(base) + "/p" + (page + 1) + '">Next &raquo;</a>';
     return h + '<span class="info">showing ' + ((page - 1) * PER_PAGE + 1) + "&ndash;" + Math.min(total, page * PER_PAGE) + " of " + total + "</span></nav>";
   }
-  var CS_SORTS = [["kd", "K/D"], ["adr", "ADR"], ["hs", "HS%"], ["kills", "Kills"], ["rounds", "Rounds"], ["matches", "Matches"]];
+  /* ---------- v6 ESB Team Ranking + ESB Rating 1.0 (rank.js from ranking.py at deploy; formulas on #cs2/methodology) ---------- */
+  var RK_STATE = "";
+  function rankX() { return window.ESB_RANK || null; }
+  function loadRank() {
+    if (RK_STATE || !CFG.rank) return;
+    RK_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { RK_STATE = rankX() ? "ok" : "fail"; RKIDX = null; if (/^#(cs2|team\/cs2|player\/cs2|match\/cs2|home)?/.test(curHash())) { KEEP_SCROLL = true; route(); } }
+    s.src = "rank.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
+  }
+  var RKIDX = null;
+  function teamRank(id) {
+    var x = rankX(); if (!x) { loadRank(); return null; }
+    if (!RKIDX) { RKIDX = {}; (x.teams || []).forEach(function (t) { RKIDX[t.id] = t; }); }
+    return RKIDX[id] || null;
+  }
+  function esbRating(k, d, r, adr, hs, avg) {
+    if (!avg || !(r > 0)) return null;
+    var kpr = k / r, dpr = Math.max(d, 1) / r, kd = k / Math.max(d, 1);
+    var v = 0.30 * kpr / avg.kpr + 0.25 * avg.dpr / dpr + 0.30 * adr / avg.adr + 0.10 * kd / avg.kd + 0.05 * (avg.hs ? hs / avg.hs : 1);
+    return Math.round(v * 100) / 100;
+  }
+  function divAvg(region, division) { var x = rankX(); return x && x.avgs ? x.avgs[region + " " + division] : null; }
+  function playerEsbr(p) {
+    var x = rankX(); if (!x) { loadRank(); return null; }
+    if (num(p.rounds) < (x.min_rounds || 20)) return null;
+    return esbRating(num(p.kills), num(p.deaths), num(p.rounds), num(p.adr), num(p.hs), divAvg(p.region, p.division));
+  }
+  function rtCell(v) { return v == null ? '<span class="dim">&ndash;</span>' : '<span class="esbr' + (v >= 1.15 ? " hi" : v < 0.9 ? " lo" : "") + '">' + v.toFixed(2) + "</span>"; }
+  function arrow(t) {
+    if (!t.prev) return '<span class="arw new" title="newly ranked this week">new</span>';
+    var d = t.prev - t.rank;
+    return d > 0 ? '<span class="arw up" title="up ' + d + ' since last week">&#9650;' + d + "</span>" : d < 0 ? '<span class="arw dn" title="down ' + (-d) + ' since last week">&#9660;' + (-d) + "</span>" : '<span class="arw eq" title="no change">&ndash;</span>';
+  }
+  function vRanking(reg) {
+    var x = rankX();
+    reg = reg === "eu" ? "EU" : reg === "all" ? "all" : "NA";
+    setCrumbs([["CS2", "cs2"], ["ESB Ranking"]]);
+    var segs = '<div class="segs"><div class="seg"><span class="seg-l">Region</span>' + [["NA", "na"], ["EU", "eu"], ["All", "all"]].map(function (r) { return '<a href="#cs2/ranking/' + r[1] + '"' + ((reg === r[0] || (reg === "all" && r[1] === "all")) ? ' class="on"' : "") + ">" + r[0] + "</a>"; }).join("") + "</div></div>";
+    if (!x) { loadRank(); return segs + '<div class="empty' + (RK_STATE === "fail" || !CFG.rank ? "" : " loading") + '">' + (CFG.rank && RK_STATE !== "fail" ? "Loading the ranking&hellip;" : "The ranking is not available on this copy of the site.") + "</div>"; }
+    var rows = (x.teams || []).filter(function (t) { return reg === "all" || t.region === reg; });
+    var intro = '<div class="infobox">One Elo-style ranking across every ESEA division, updated with each site refresh; arrows compare with the ranking at the end of last week. Teams appear after 3 matches. <a href="#cs2/methodology">How it works</a></div>';
+    if (!rows.length) return segs + intro + '<div class="empty">No team has played 3 matches yet this season, so nobody is ranked yet. The first ranking appears after round 3.</div>';
+    return segs + intro + '<div class="rankbox"><table class="tbl esb-rank"><thead><tr><th class="first c">#</th><th class="c">+/-</th><th>Team</th><th class="hide-sm">Division</th><th class="n">Points</th><th class="n">W-L</th>' + (reg === "all" ? "" : '<th class="n hide-sm" title="rank across all regions">Overall</th>') + "</tr></thead><tbody>" +
+      rows.slice(0, 200).map(function (t) {
+        var r = reg === "all" ? t.rank : t.rank_region;
+        return '<tr class="' + medal(r) + '">' + rk(r) + '<td class="c">' + arrow(t) + '</td><td class="team">' + ilink("team/cs2/" + encodeURIComponent(t.id), t.name) + '</td><td class="hide-sm dim">' + esc(t.region + " " + t.division) + '</td><td class="n"><b>' + Math.round(t.pts) + '</b></td><td class="n">' + t.w + "-" + t.l + "</td>" + (reg === "all" ? "" : '<td class="n hide-sm dim">#' + t.rank + "</td>") + "</tr>";
+      }).join("") + "</tbody></table></div>" + '<div class="note">' + rows.length + " ranked teams" + (rows.length > 200 ? ", top 200 shown" : "") + " &middot; as of " + fmt(x.generated, "short") + ". Built only from FACEIT results tracked here.</div>";
+  }
+  function vTop20() {
+    var x = rankX();
+    setCrumbs([["CS2", "cs2"], ["Top 20 players"]]);
+    if (!x) { loadRank(); return '<div class="empty loading">Loading&hellip;</div>'; }
+    var t = x.top20 || [];
+    var intro = '<div class="infobox">Season Top 20 across all ESEA divisions by ESB Rating 1.0 with a division-strength factor (Advanced &times;' + x.div_factor.Advanced.toFixed(2) + ", Main &times;" + x.div_factor.Main.toFixed(2) + ", Intermediate &times;" + x.div_factor.Intermediate.toFixed(2) + '), at least 60 rounds. <a href="#cs2/methodology">Methodology</a></div>';
+    if (!t.length) return intro + '<div class="empty">No player has 60 rounds yet this season.</div>';
+    return intro + '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n" title="rating x division factor">Adjusted</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
+      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team || "")) + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n">' + rtCell(p.rating) + '</td><td class="n"><b>' + p.adj.toFixed(2) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>" +
+      (t.length < 20 ? '<div class="note">Only ' + t.length + " players have 60+ rounds so far.</div>" : "");
+  }
+  function vMethod() {
+    var x = rankX();
+    setCrumbs([["CS2", "cs2"], ["Methodology"]]);
+    if (!x) { loadRank(); }
+    var ft = x ? x.formula_team : "", fp = x ? x.formula_player : "";
+    return '<div class="infobox method"><h3>ESB Team Ranking</h3><p>' + esc(ft || "Loading…") + '</p><p>Map scores come from FACEIT; a Bo1 without map stats counts as one map from the series score; a series without map stats counts as one game without a margin bonus. NA and EU teams never meet, so their relative order comes only from the division starting values. Arrows compare with the ranking replayed up to the start of this week (Monday 00:00 PT); finished weeks are archived in the repo (rankings/).</p>' +
+      "<h3>ESB Rating 1.0</h3><p>" + esc(fp) + "</p><p>KPR = kills per round, DPR = deaths per round, ADR = average damage per round, HS% = headshot kill percentage, all as published by FACEIT. Win rate is not included: FACEIT gives team records, not per-player ones. A per-map rating on match scoreboards uses the same formula with that map&rsquo;s rounds. This is an Esports Scoreboard formula, not an official FACEIT or ESEA rating.</p>" +
+      "<h3>Player and Team of the Week</h3><p>Player of the Week: highest rounds-weighted per-map rating over the week (Monday-Sunday PT), at least 2 maps with FACEIT scoreboards, multiplied by the division factor. Team of the Week: largest ranking-points gain over the week with at least 2 matches that week, among ranked teams.</p></div>";
+  }
+  var CS_SORTS = [["esbr", "Rating"], ["kd", "K/D"], ["adr", "ADR"], ["hs", "HS%"], ["kills", "Kills"], ["rounds", "Rounds"], ["matches", "Matches"]];
   function csBoard(parts) {
     var divs = csDivs(), ids = divs.map(divId);
     if (!ids.length) return '<div class="empty">Player stats coming soon.</div>';
@@ -490,6 +560,7 @@
     var seen = {}, all = allCsPlayers().filter(function (p) {
       var k = fold(p.nick); if (seen[k] || p.region !== cur.region || p.division !== cur.division) return false; seen[k] = 1; return true;
     });
+    all.forEach(function (p) { p.esbr = playerEsbr(p); });
     var list = boardSort(all.filter(function (p) { return num(p.rounds) >= o.min && num(p.rounds) > 0; }), o.sort, ["kd", "adr", "rounds"]);
     var tName = {}; (cur.teams || []).forEach(function (t) { if (t.id) tName[t.id] = t.name; });
     var th = function (k, l, c, t) { return boardTh(base, o, defs, k, l, c, t); };
@@ -498,11 +569,11 @@
     if (!list.length) return '<div class="segs">' + dsegs + '</div><div class="empty">No ' + esc(dn) + " player has " + o.min + " rounds yet.</div>" + note;
     return boardFrame(base, o, defs, CS_SORTS, list.length, function (from, n) {
       return '<div class="rankbox"><table class="tbl board cs-board"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th>' +
-        th("matches", "Matches", "n hide-sm", "matches played") + th("rounds", "Rnds", "n hide-sm", "rounds played") + th("kills", "K", "n", "kills") + th("kd", "K/D", "n", "kills per death") + th("adr", "ADR", "n", "average damage per round") + th("hs", "HS%", "n hide-sm", "headshot kill percentage") +
+        th("matches", "Matches", "n hide-sm", "matches played") + th("rounds", "Rnds", "n hide-sm", "rounds played") + th("esbr", "Rating", "n", "ESB Rating 1.0 (division average = 1.00)") + th("kills", "K", "n hide-sm", "kills") + th("kd", "K/D", "n", "kills per death") + th("adr", "ADR", "n", "average damage per round") + th("hs", "HS%", "n hide-sm", "headshot kill percentage") +
         "</tr></thead><tbody>" + list.slice(from, from + n).map(function (p, i) {
           var r = from + i + 1, tn = p.team || tName[p.team_id];
           return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim">&ndash;</span>') +
-            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + rtCell(p.esbr) + '</td><td class="n hide-sm">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }, dsegs) + note;
   }
@@ -675,6 +746,22 @@
       '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') +
       '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). No predictions. Times in Pacific Time.</div>';
   }
+  function rankLine(id) {
+    if (!CFG.rank) return "";
+    try { id = decodeURIComponent(id); } catch (e) {}
+    var t = teamRank(id);
+    if (!rankX()) return "";
+    return '<div class="infobox rank-line"><b>ESB Ranking:</b> ' + (t ? "#" + t.rank_region + " " + esc(t.region) + " / #" + t.rank + " overall &middot; " + Math.round(t.pts) + " points " + arrow(t) : "not ranked yet (needs 3 matches)") + ' &middot; <a href="#cs2/ranking/' + (t && t.region === "EU" ? "eu" : "na") + '">full ranking</a></div>';
+  }
+  function ratingLine(nick) {
+    if (!CFG.rank) return "";
+    try { nick = decodeURIComponent(nick); } catch (e) {}
+    var x = rankX(); if (!x) { loadRank(); return ""; }
+    var ps = allCsPlayers().filter(function (p) { return fold(p.nick) === fold(nick); });
+    if (!ps.length) return "";
+    var p = ps.sort(function (a, b) { return num(b.rounds) - num(a.rounds); })[0], v = playerEsbr(p);
+    return '<div class="infobox rank-line"><b>ESB Rating 1.0:</b> ' + (v == null ? "needs " + (x.min_rounds || 20) + " rounds" : rtCell(v) + " (" + esc(p.region + " " + p.division) + " average = 1.00, " + num(p.rounds) + " rounds)") + ' &middot; <a href="#cs2/methodology">formula</a></div>';
+  }
   function vMatchCS(id) {
     var m = findCsMatch(id);
     if (!m && TX_STATE !== "ok" && TX_STATE !== "fail") { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
@@ -690,15 +777,16 @@
       ["Map veto", pick.length ? "Picked: <b>" + pick.map(esc).join(", ") + '</b> <span class="dim">(FACEIT lists the chosen map' + (pick.length > 1 ? "s" : "") + " only)</span>" : '<span class="dim">not published for this match</span>'],
       ["FACEIT", ru ? ext(ru, "Match room on FACEIT") : "-"]
     ]);
-    function board(lines, side) {
-      return '<div class="rankbox"><table class="tbl sb"><thead><tr><th class="first">' + esc(side.name) + '</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
+    var mAvg = CFG.rank ? (rankX() ? divAvg(m.region, m.division) : (loadRank(), null)) : null;
+    function board(lines, side, mr) {
+      return '<div class="rankbox"><table class="tbl sb"><thead><tr><th class="first">' + esc(side.name) + '</th>' + (mAvg ? '<th class="n" title="ESB Rating 1.0 on this map (division average = 1.00)">Rtg</th>' : "") + '<th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
         (lines || []).map(function (p) {
           var kd = num(p[2]) ? num(p[1]) / num(p[2]) : num(p[1]);
-          return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + '</td><td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
+          return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + "</td>" + (mAvg ? '<td class="n">' + rtCell(mr >= 13 ? esbRating(num(p[1]), num(p[2]), mr, num(p[3]), num(p[4]), mAvg) : null) + "</td>" : "") + '<td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }
     var boards = maps.map(function (x, i) {
-      return '<h2 class="subhead">' + (maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1) + board(x.p2, m.t2);
+      return '<h2 class="subhead">' + (maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1, num(x.s1) + num(x.s2)) + board(x.p2, m.t2, num(x.s1) + num(x.s2));
     }).join("");
     var other = {}, prior = [];
     ((D.cs && D.cs.matches) || []).concat((teamsX() && teamsX().matches) || []).forEach(function (x) {
@@ -1224,6 +1312,10 @@
   function vCS2(parts) {
     var sub = parts[0];
     var cs = D.cs || {}, divs = csDivs(), ids = divs.map(divId);
+    if (sub === "ranking" || sub === "top20" || sub === "methodology") {
+      var bodyR = sub === "ranking" ? vRanking(parts[1]) : sub === "top20" ? vTop20() : vMethod();
+      return gameHead("cs2", sub === "methodology" ? "ranking" : sub, "Counter-Strike 2 :: " + (sub === "ranking" ? "ESB Team Ranking" : sub === "top20" ? "Top 20 Players of the Season" : "Ranking &amp; Rating Methodology")) + bodyR;
+    }
     if (!sub || (ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results" && sub !== "today")) sub = ids[0] || "players";
     var section = sub === "players" || sub === "results" || sub === "today" ? sub : "standings", segs = "";
     if (section === "standings" && ids.length) {
@@ -1846,7 +1938,7 @@
       var th = tmp.querySelector(".std-header h1"), gm = { player: 1, team: 1, guild: 1, match: 1 };
       html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
     }
-    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" ? teamExtraBox(r.parts) : "") + (r.top !== "match" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
+    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" && r.parts[0] === "cs2" ? rankLine(r.parts[1]) : "") + (r.top === "player" && r.parts[0] === "cs2" ? ratingLine(r.parts[1]) : "") + (r.top === "team" ? teamExtraBox(r.parts) : "") + (r.top !== "match" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
     try { mountComments(); } catch (e) {}
     try { noteRecent(r); } catch (e) {}
