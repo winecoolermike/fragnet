@@ -305,6 +305,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .skip{position:absolute;left:-9999px;top:0;z-index:10;background:#FFB000;color:#000;font:bold 12px var(--ui);padding:6px 10px}
 .skip:focus{left:8px;top:6px}
 .noscript{background:#FFF5F2;color:#8B301B;padding:10px;font:12px var(--ui)}
+/* v3.7 no-JS fallback: pre-rendered front-page snapshot */
+.deep #view[data-prerender]{visibility:hidden}
+.noscript-note{max-width:980px;margin:6px auto;padding:6px 10px;color:#555;font:11px var(--ui);text-align:center}
+#view[data-prerender] .pre-st td.team a,#view[data-prerender] .res a{color:inherit}
 
 /* ---------- responsive: stack panes ---------- */
 @media (max-width:1120px){#container{border-left-width:0;border-right-width:0}}

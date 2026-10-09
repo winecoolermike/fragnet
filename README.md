@@ -51,7 +51,11 @@ GitHub may delay scheduled runs). Each run:
 3. runs `python fetch_data.py --out dist`; if a source fails, its last good data is kept
    and flagged STALE, and if the whole fetch fails the site is still deployed with the
    previous data;
-4. checks that `data.js` matches `data.json` and deploys `dist/` to GitHub Pages.
+4. checks that `data.js` matches `data.json`;
+5. pre-renders a static snapshot of the front page into `dist/index.html` (`prerender.py`) so
+   the page shows real standings, results and headlines without JavaScript and in link
+   previews (optional: if it fails, the JavaScript-only page is deployed);
+6. deploys `dist/` to GitHub Pages.
 
 The official FACEIT Data API (`https://open.faceit.com/data/v4`) supplies CS2 match results.
 The key lives only in the `FACEIT_API_KEY` repository secret (never in the repo); the workflow
@@ -71,6 +75,7 @@ last successful run is older than 35 minutes; run it every 30 minutes from any s
     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
     .venv/bin/python build_dist.py
     .venv/bin/python fetch_data.py --out dist
+    .venv/bin/python prerender.py dist/index.html dist/data.json   # optional no-JS snapshot
     cd dist && python3 -m http.server 8080      # http://localhost:8080/
 
 `dist/index.html` also works when opened directly from disk (it then loads `data.js`).

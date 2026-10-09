@@ -9,6 +9,8 @@ fetch_data.py, build_dist.py, README/HOSTING docs, zips.
 
 Usage:  python3 build_dist.py            build dist/ from the current files
         python3 build_dist.py --zip      also write fragnet-v3.2.zip from dist/ only
+        python3 build_dist.py --prerender  also pre-render the static front page into dist/index.html
+                                           (no-JS fallback, see prerender.py); --check validates it
 Refresh data straight into the publish folder:  python3 fetch_data.py --out dist
 """
 import argparse
@@ -75,6 +77,10 @@ def verify():
             with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
                 text = fh.read().lower()
             problems += [f"banned term {t!r} found in {rel}" for t in terms if t in text]
+    sys.path.insert(0, HERE)
+    import prerender
+    with open(os.path.join(DIST, "index.html"), encoding="utf-8") as fh:
+        problems += ["index.html: " + p for p in prerender.check_page(fh.read())]
     with open(os.path.join(DIST, "data.json"), encoding="utf-8") as fh:
         dj = json.load(fh)
     with open(os.path.join(DIST, "data.js"), encoding="utf-8") as fh:
@@ -113,9 +119,15 @@ def main():
     ap = argparse.ArgumentParser(description="Build the FragNet publish folder dist/.")
     ap.add_argument("--zip", action="store_true", help=f"also write fragnet-v{VERSION}.zip from dist/")
     ap.add_argument("--check", action="store_true", help="only verify an existing dist/ (no copy)")
+    ap.add_argument("--prerender", action="store_true", help="pre-render the static front page into dist/index.html")
     a = ap.parse_args()
     if not a.check:
         build()
+    if a.prerender:
+        sys.path.insert(0, HERE)
+        import prerender
+        if prerender.main([os.path.join(DIST, "index.html"), os.path.join(DIST, "data.json")]) != 0:
+            print("[build] prerender failed - dist/index.html left without snapshot")
     files, problems = verify()
     total = 0
     for rel in files:

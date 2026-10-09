@@ -105,6 +105,17 @@ jobs:
           PY
           python build_dist.py --check
 
+      # v3.7 no-JS fallback: static front-page snapshot from the final data.json.
+      # Optional: on any failure the plain index.html (JS-only) is deployed.
+      - name: Prerender static snapshot
+        continue-on-error: true
+        run: |
+          cp dist/index.html /tmp/index.plain.html
+          if ! { python prerender.py dist/index.html dist/data.json && python build_dist.py --check; }; then
+            cp /tmp/index.plain.html dist/index.html
+            echo "::warning::prerender failed - deploying the JavaScript-only index.html"
+          fi
+
       - name: Save last-good data to cache
         if: steps.fetch.outcome == 'success'
         run: mkdir -p .lastgood && cp dist/data.json .lastgood/data.json

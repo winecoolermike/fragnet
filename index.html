@@ -15,6 +15,9 @@
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
+<script>/* deep links (#cs2, #team/...): hide the pre-rendered front-page snapshot until app.js renders the real view */
+if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " deep";</script>
+<noscript><style>#gamenav,#ticker,#hsearch .sb-row,.sidebox:has(#side-forum){display:none}</style></noscript>
 </head>
 <body>
 <a class="skip" href="#pane-middle">Skip to content</a>
@@ -111,7 +114,7 @@
       <li><a href="#status"><span class="bullet">&raquo;</span> Site status</a></li>
     </ul>
     <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles &middot; <a href="#about">About FragNet</a></div>
-    <div class="foot-note">FragNet v3.6 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time &middot; <span id="foot-fetched"></span></div>
+    <div class="foot-note">FragNet v3.7 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time &middot; <span id="foot-fetched"></span></div>
   </div>
 </div>
 <template id="about-tpl">
@@ -143,7 +146,7 @@
 <h2 class="subhead">Disclaimer</h2>
 <div class="about-p disclaimer">FragNet is an independent fan project. It is <b>not affiliated with, endorsed by, or sponsored by</b> FACEIT, ESEA, Valve, Riot Games, Blizzard Entertainment, Raider.IO, vlr.gg, Wowhead, Dexerto or Esports Insider. Counter-Strike, Valorant, World of Warcraft and all other trademarks, game names and logos belong to their respective owners.</div>
 </template>
-<noscript><div class="noscript">FragNet needs JavaScript to render data.json.</div></noscript>
+<noscript><div class="noscript-note">Static snapshot of the front page &middot; enable JavaScript for every division, team and player pages, scoreboards and search.</div></noscript>
 <script src="app.js"></script>
 </body>
 </html>

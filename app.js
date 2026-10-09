@@ -1,4 +1,4 @@
-/* FragNet v3.6 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v3.7 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -998,9 +998,14 @@
       }, 300);
     });
     route();
+    var pv = $("#view"); if (pv) pv.removeAttribute("data-prerender");   // static snapshot (prerender.py) has now been replaced
+    document.documentElement.classList.remove("deep");
   }
 
-  function fail() { $("#view").innerHTML = soon("FragNet's data could not be loaded right now. Please try again later."); }
+  function fail() {
+    var v = $("#view");
+    if (v && v.hasAttribute("data-prerender")) { document.documentElement.classList.remove("deep"); return; }   // keep the static snapshot
+    v.innerHTML = soon("FragNet's data could not be loaded right now. Please try again later."); }
   /* data.js (same content as data.json) is used on file:// where fetch() is not allowed */
   function loadDataJs() {
     if (window.FRAGNET_DATA) return boot(window.FRAGNET_DATA);
