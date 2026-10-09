@@ -11,6 +11,8 @@ Usage:  python3 build_dist.py            build dist/ from the current files
         python3 build_dist.py --zip      also write fragnet-v3.2.zip from dist/ only
         python3 build_dist.py --prerender  also pre-render the static front page into dist/index.html
                                            (no-JS fallback, see prerender.py); --check validates it
+        python3 build_dist.py --pages      also write the v4.5 path pages, sitemap.xml, robots.txt and
+                                           share images (pages.py; needs Pillow for the images)
 Refresh data straight into the publish folder:  python3 fetch_data.py --out dist
 """
 import argparse
@@ -96,8 +98,8 @@ def verify():
     terms = banned_terms()
     for rel in files:
         parts = rel.split("/")
-        if any(fnmatch.fnmatch(p, pat) for p in parts for pat in FORBIDDEN):
-            problems.append(f"forbidden file in dist: {rel}")
+        if any(fnmatch.fnmatch(p, pat) for p in parts for pat in FORBIDDEN) and not re.match(r"^og/[a-z0-9._-]+\.png$", rel, re.I):
+            problems.append(f"forbidden file in dist: {rel}")   # share images (v4.5) live in og/ only
         if terms and rel.endswith((".html", ".css", ".js", ".json", ".txt", ".svg")):
             with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
                 text = fh.read().lower()
@@ -126,6 +128,21 @@ def verify():
                 problems.append(f"{side}.js does not match {side}.json")
         except (OSError, ValueError) as e:
             problems.append(f"{side}.json/{side}.js unreadable: {e}")
+    # v4.5 path pages: base + canonical + route meta + one well-formed snapshot each
+    n_paths = 0
+    for rel in files:
+        if not rel.endswith("/index.html"):
+            continue
+        n_paths += 1
+        with open(os.path.join(DIST, rel), encoding="utf-8") as fh:
+            pg = fh.read()
+        depth = rel.count("/")
+        if pg.count('<base href="' + "../" * depth + '">') != 1 or pg.count('rel="canonical"') != 1 or pg.count('name="fragnet-route"') != 1:
+            problems.append(f"{rel}: base/canonical/route meta missing")
+        elif pg.count(prerender.MARK) != 1:
+            problems.append(f"{rel}: snapshot missing")
+        if len(problems) > 20:
+            break
     for need in FILES + ["fonts/LICENSE-DejaVu.txt", "fonts/LICENSE-Liberation.txt"]:
         if need not in files:
             problems.append(f"missing {need}")
@@ -147,20 +164,33 @@ def main():
     ap.add_argument("--zip", action="store_true", help=f"also write fragnet-v{VERSION}.zip from dist/")
     ap.add_argument("--check", action="store_true", help="only verify an existing dist/ (no copy)")
     ap.add_argument("--prerender", action="store_true", help="pre-render the static front page into dist/index.html")
+    ap.add_argument("--pages", action="store_true", help="write path pages, sitemap, robots.txt and share images (pages.py)")
     a = ap.parse_args()
     if not a.check:
         build()
+    if a.pages:
+        sys.path.insert(0, HERE)
+        import pages
+        pages.build(DIST, pages.SITE, os.path.join(HERE, ".ogcache"))
     if a.prerender:
         sys.path.insert(0, HERE)
         import prerender
         if prerender.main([os.path.join(DIST, "index.html"), os.path.join(DIST, "data.json")]) != 0:
             print("[build] prerender failed - dist/index.html left without snapshot")
     files, problems = verify()
-    total = 0
+    total, groups = 0, {}
     for rel in files:
         size = os.path.getsize(os.path.join(DIST, rel))
         total += size
-        print(f"  {size:>9,}  {rel}")
+        top = rel.split("/")[0]
+        if "/" in rel and top not in ("fonts",):
+            g = groups.setdefault(top + "/", [0, 0])
+            g[0] += 1
+            g[1] += size
+        else:
+            print(f"  {size:>9,}  {rel}")
+    for k, (n, size) in sorted(groups.items()):
+        print(f"  {size:>9,}  {k} ({n} files)")
     print(f"  {total:>9,}  TOTAL ({len(files)} files)")
     if problems:
         print("[build] FAILED:\n  " + "\n  ".join(problems))
