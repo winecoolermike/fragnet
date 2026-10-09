@@ -463,7 +463,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
   #footer .menu a{display:inline-block;padding:7px 0;font-size:12.5px}
   .tile b{font-size:18px}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .tbl.today col.c-when{width:46px}
-  .tbl.today col.c-score{width:50px}
+  .tbl.today col.c-when{width:44px!important}
+  .tbl.today col.c-score{width:50px!important}
+  .tbl.today td{padding-left:3px;padding-right:3px}
+  .tbl.today td.tm{overflow-wrap:break-word;word-break:normal;hyphens:manual}
   .std-header .meta{font-size:10px}
 }
