@@ -690,6 +690,10 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
                     m = {"id": it["match_id"], "region": region, "division": div, "conf": conf,
                          "round": as_int(it.get("round")), "bo": as_int(it.get("best_of"), 1),
                          "t1": t1, "t2": t2}
+                    picks = ((it.get("voting") or {}).get("map") or {}).get("pick") or []
+                    picks = [map_name(x) for x in picks if isinstance(x, str) and x][:5]
+                    if picks:
+                        m["pick"] = picks         # v4.4: map(s) chosen in the veto (FACEIT lists no bans here)
                     u = room_url(it)          # app.js derives the standard room URL from the id
                     if u and u != f"{FACEIT_WEB}/en/cs2/room/{it['match_id']}":
                         m["url"] = u
@@ -870,6 +874,7 @@ VAL_GC_EVENTS = 4         # ... and per Game Changers circuit
 VAL_STATS_REQ_MAX = 30    # event stats pages per run (completed events are cached -> ~0 after the first run)
 VAL_TEAM_REQ_MAX = 20     # vlr.gg team pages (rosters) per run
 VAL_TEAM_TTL_H = 72       # refresh a cached roster after this many hours
+VAL_MATCH_REQ_MAX = 12    # v4.4: vlr.gg match pages (veto line, map scores) per run; finished matches are cached for good
 VAL_MIN_RND = 100         # rounds needed for the Valorant top players ranking
 VAL_REQ = {}              # request counters (reported in the source notes)
 PREV_VAL = {}             # previous val.json (last-good lazy Valorant players/teams), set by main()
@@ -1162,6 +1167,49 @@ def vlr_team(tid):
 VAL_PCOLS = ("name", "pid", "tag", "cc", "agents", "maps", "rnd", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "ev", "team")
 
 
+VETO_RE = re.compile(r"\b(ban|pick|remains)\b", re.I)
+
+
+def parse_vlr_match(html):
+    """vlr.gg match page -> {veto, maps:[{map, s1, s2, pick}]} (pick: 1/2 = team that picked the map, 0 = decider/unknown).
+    Only what the page shows: the veto line is copied as written, unplayed maps are skipped."""
+    s = BeautifulSoup(html, "lxml")
+    veto = ""
+    for n in s.select(".match-header-note"):
+        t = norm(n.get_text(" ", strip=True))
+        if VETO_RE.search(t) and ";" in t:
+            veto = t[:300]
+            break
+    maps = []
+    for g in s.select(".vm-stats-game"):
+        if g.get("data-game-id") in (None, "", "all"):
+            continue
+        h = g.select_one(".vm-stats-game-header")
+        if not h:
+            continue
+        sc = [norm(x.get_text(" ", strip=True)) for x in h.select(".score")]
+        mn = h.select_one(".map-name") or h.select_one(".map")
+        if len(sc) != 2 or not all(x.isdigit() for x in sc) or not mn:
+            continue
+        pk = mn.select_one(".picked")
+        pick = 0
+        if pk:
+            cls = pk.get("class") or []
+            pick = 1 if "mod-1" in cls else 2 if "mod-2" in cls else 0
+            pk.extract()
+        name = norm(re.sub(r"\s+", " ", mn.get_text(" ", strip=True)))
+        name = re.sub(r"\s*\d+:\d+(:\d+)?\s*$", "", name).strip(" -")
+        if not name:
+            continue
+        maps.append({"map": name[:20], "s1": int(sc[0]), "s2": int(sc[1]), "pick": pick})
+    return {"veto": veto, "maps": maps[:5]}
+
+
+def vlr_match_id(url):
+    m = re.search(r"vlr\.gg/(\d+)/", url or "")
+    return m.group(1) if m else None
+
+
 def parse_vlr_upcoming(html):
     """vlr.gg /matches (upcoming + live) -> list like parse_vlr_results plus 'live'."""
     s = BeautifulSoup(html, "lxml")
@@ -1350,7 +1398,32 @@ def fetch_vlr_depth(out, prev):
     out["sources"].append(status("vlr.gg team pages (rosters)", VLR + "/team/<id>", bool(teams), len(teams),
                                  note=f"{t_req} request(s); {len(want)} teams in tracked events" + (f"; errors: {'; '.join(t_err)}" if t_err else ""),
                                  reason=None if teams else ("; ".join(t_err) or "no teams")))
-    out["_val"] = {"player_cols": list(VAL_PCOLS), "players": [[r_.get(c) for c in VAL_PCOLS] for r_ in rows],
+    # 5) v4.4 match pages for the newest tracked results (veto line + map scores), capped and cached
+    prev_m = pv.get("matches") if isinstance(pv.get("matches"), dict) else {}
+    mres, m_req, m_err = {}, 0, []
+    for r_ in out.get("results") or []:
+        mid = vlr_match_id(r_.get("url"))
+        if not mid or mid in mres:
+            continue
+        if mid in prev_m:
+            mres[mid] = prev_m[mid]
+            continue
+        if m_req >= VAL_MATCH_REQ_MAX:
+            continue
+        try:
+            m_req += 1
+            got = parse_vlr_match(get_html(r_["url"]))
+            if got["maps"] or got["veto"]:
+                got["fetched_at"] = now_iso()
+                mres[mid] = got
+        except Exception as ex:
+            m_err.append(f"match {mid}: {short_err(ex)}")
+    VAL_REQ["matches"] = m_req
+    n_res = len([1 for r_ in out.get("results") or [] if vlr_match_id(r_.get("url"))])
+    out["sources"].append(status("vlr.gg match pages (veto, map scores)", VLR + "/<match id>", bool(mres) or not n_res, len(mres),
+                                 note=f"{m_req} request(s), {len(mres)} of {n_res} results have match details (cached)" + (f"; errors: {'; '.join(m_err[:3])}" if m_err else ""),
+                                 reason=None if (mres or not n_res) else ("; ".join(m_err[:3]) or "no match details parsed")))
+    out["_val"] = {"player_cols": list(VAL_PCOLS), "players": [[r_.get(c) for c in VAL_PCOLS] for r_ in rows], "matches": mres,
                    "agg": [[p.get(c) for c in ("name", "pid", "cc", "team", "tag", "rnd", "maps", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "rank")] + [p.get("agents"), p.get("events")] for p in players],
                    "agg_cols": ["name", "pid", "cc", "team", "tag", "rnd", "maps", "rating", "acs", "kd", "kast", "adr", "hs", "k", "d", "a", "rank", "agents", "events"],
                    "teams": teams}
