@@ -19,7 +19,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15   # v4.5: the first run draws every share image (later runs reuse the cache)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -130,6 +130,37 @@ jobs:
                   print(f"{name}.js regenerated from {name}.json")
           PY
           python build_dist.py --check
+
+      - name: Restore share-image cache
+        uses: actions/cache/restore@v6
+        with:
+          path: .ogcache
+          key: ogcache-${{ github.run_id }}
+          restore-keys: |
+            ogcache-
+
+      # v4.5 real path pages (team/, player/, match/ and section folders), sitemap.xml, robots.txt and
+      # 1200x630 share images (drawn only for changed entities). Optional: on any failure the generated
+      # files are removed and the hash-only site is deployed.
+      - name: Path pages, sitemap and share images
+        id: pages
+        continue-on-error: true
+        run: |
+          cp dist/index.html /tmp/index.nopages.html
+          start=$(date +%s)
+          if ! { python pages.py dist --og-cache .ogcache && python build_dist.py --check > /dev/null; }; then
+            rm -rf dist/team dist/player dist/match dist/cs2 dist/valorant dist/wow dist/news dist/og dist/sitemap.xml dist/robots.txt
+            cp /tmp/index.nopages.html dist/index.html
+            echo "::warning::path pages failed - deploying the hash-only site"
+          fi
+          echo "pages step: $(( $(date +%s) - start ))s, dist $(du -sh dist | cut -f1), $(find dist -type f | wc -l) files"
+
+      - name: Save share-image cache
+        if: steps.pages.outputs.og_drawn != '' && steps.pages.outputs.og_drawn != '0'
+        uses: actions/cache/save@v6
+        with:
+          path: .ogcache
+          key: ogcache-${{ github.run_id }}-${{ github.run_attempt }}
 
       # v3.7 no-JS fallback: static front-page snapshot from the final data.json.
       # Optional: on any failure the plain index.html (JS-only) is deployed.
