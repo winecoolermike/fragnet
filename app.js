@@ -886,8 +886,37 @@
   /* ---------- Matches today (v3.5): CS2 (FACEIT) + Valorant (vlr.gg) on today's Pacific date ---------- */
   function dayKey(d) { var p = ptParts(d); return p.y + "-" + p.m + "-" + p.d; }
   function hhmm(iso) { var p = ptParts(new Date(iso)); return pad(p.h) + ":" + pad(p.mi); }
+  /* v5.8 day strip: TODAY_SEL is a dayKey (y-m0-d, Pacific) chosen via #cs2/today/YYYY-MM-DD; null = today */
+  var TODAY_SEL = null;
+  function keyFromIso(s) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? +m[1] + "-" + (+m[2] - 1) + "-" + +m[3] : null; }
+  function isoFromKey(k) { var a = k.split("-"); return a[0] + "-" + pad(+a[1] + 1) + "-" + pad(+a[2]); }
+  function keyDate(k) { var a = k.split("-"); return new Date(Date.UTC(+a[0], +a[1], +a[2], 12)); }
+  function shiftKey(k, n) { var d = keyDate(k); d.setUTCDate(d.getUTCDate() + n); return d.getUTCFullYear() + "-" + d.getUTCMonth() + "-" + d.getUTCDate(); }
+  function dayCounts() {
+    var c = {}, mine = {};
+    function add(iso, r) { if (!iso) return; var d = new Date(iso); if (isNaN(d)) return; var k = dayKey(d); c[k] = (c[k] || 0) + 1; if (r && rowMine(r)) mine[k] = 1; }
+    ((D.cs && D.cs.live) || []).forEach(function (m) { add(m.t, { g: "cs", m: m }); });
+    csFinished().forEach(function (m) { add(m.t, { g: "cs", m: m }); });
+    csUpcoming().forEach(function (m) { add(m.t, { g: "cs", m: m }); });
+    valResults().forEach(function (m) { add(m.ts, { g: "val", m: m }); });
+    ((D.valorant && D.valorant.upcoming) || []).forEach(function (m) { add(m.ts, { g: "val", m: m }); });
+    return { c: c, mine: mine };
+  }
+  function dayStrip(sel) {
+    var dc = dayCounts(), keys = Object.keys(dc.c).sort(function (a, b) { return keyDate(a) - keyDate(b); }), tk = dayKey(new Date());
+    if (!keys.length) return "";
+    var lo = keyDate(keys[0]), hi = keyDate(keys[keys.length - 1]), out = [];
+    for (var i = -3; i <= 3; i++) {
+      var k = shiftKey(sel, i), d = keyDate(k), inWin = d >= lo && d <= hi, n = dc.c[k] || 0;
+      var lbl = DAYS[d.getUTCDay()].slice(0, 3) + " " + d.getUTCDate() + (k === tk ? " (today)" : "");
+      var href = "#cs2/today" + (k === tk ? "" : "/" + isoFromKey(k));
+      out.push(inWin || k === tk ? '<a class="day' + (k === sel ? " on" : "") + '" href="' + href + '"' + (k === sel ? ' aria-current="date"' : "") + ">" + esc(lbl) + ' <span class="cnt">' + n + "</span>" + (dc.mine[k] ? '<span class="mydot" title="a starred team plays">&#9679;</span>' : "") + "</a>"
+        : '<span class="day off" title="not tracked">' + esc(lbl) + "</span>");
+    }
+    return '<nav class="day-strip" aria-label="Pick a day">' + out.join("") + "</nav>";
+  }
   function todayRows() {
-    var key = dayKey(new Date()), rows = [];
+    var key = TODAY_SEL || dayKey(new Date()), rows = [];
     function today(iso) { if (!iso) return false; var d = new Date(iso); return !isNaN(d) && dayKey(d) === key; }
     var liveIds = {};
     ((D.cs && D.cs.live) || []).forEach(function (m) { liveIds[m.id] = 1; if (today(m.t)) rows.push({ g: "cs", st: "live", m: m }); });
@@ -937,6 +966,8 @@
     rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
     var cut = rows.length < all.length;
     var title = "Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d;
+    if (TODAY_SEL && !preview && TODAY_SEL !== dayKey(new Date())) { var sd = keyDate(TODAY_SEL); title = "Matches :: " + DAYS[sd.getUTCDay()].slice(0, 3) + " " + MON[sd.getUTCMonth()] + " " + sd.getUTCDate(); }
+    if (!preview) tabsHtml = dayStrip(TODAY_SEL || dayKey(new Date())) + tabsHtml;
     var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
     var meta = upd ? "updated " + fmt(upd, "short") : "";
     if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
@@ -1115,6 +1146,7 @@
       " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
     var body = "", title = "";
     if (sub === "today") {
+      TODAY_SEL = keyFromIso(parts[1]);
       return gameHead("cs2", "today", "Counter-Strike 2 :: ESEA League") + myMatches("today") + todayBoard();
     } else if (sub === "players") {
       title = "Top Fraggers";
@@ -1687,6 +1719,7 @@
     var r = parseHash(), html;
     CRUMB = null; CUR_SEC = ""; FAVC = null;
     try {
+      TODAY_SEL = null;
       switch (r.top) {
         case "cs2": html = vCS2(r.parts); break;
         case "valorant": html = vValorant(r.parts); break;
@@ -1773,6 +1806,13 @@
       KEEP_SCROLL = true; route();
     }).catch(function () {});
   }
+  document.addEventListener("keydown", function (ev) {
+    if ((ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") || ev.altKey || ev.ctrlKey || ev.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test((ev.target || {}).tagName || "")) return;
+    var on = document.querySelector("#view .day-strip .on");
+    if (!on) return;
+    var sib = ev.key === "ArrowLeft" ? on.previousElementSibling : on.nextElementSibling;
+    if (sib && sib.tagName === "A") { ev.preventDefault(); location.hash = sib.getAttribute("href"); }
+  });
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshData(); });
   function boot(data) {
     D = data || {};

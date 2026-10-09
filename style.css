@@ -765,3 +765,13 @@ td.score a.xl:hover{color:var(--link)}
 .mchip{white-space:nowrap}
 .live-age{margin:6px 0;padding:4px 6px;font-size:12px;background:#FFF4E5;border:1px solid #E8B97A}
 [data-theme=night] .live-age{background:#2a2117;border-color:#6b4a25;color:#e3e8ec}
+/* v5.8 day strip */
+.day-strip{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.day-strip .day{display:inline-block;padding:2px 7px;font:bold 11px/20px var(--ui);border:1px solid #9FB6C6;border-radius:3px;background:linear-gradient(#fff,#EEF1F3);color:var(--navy);text-decoration:none}
+.day-strip .day.on{background:var(--pager);border-color:#2f62a8;color:#fff}
+.day-strip .day.off{color:#6b757d;background:#eceff1;border-style:dashed;font-weight:normal}
+.day-strip .cnt{font-weight:normal}
+.day-strip .mydot{color:#B03F00;margin-left:2px}
+[data-theme=night] .day-strip .day{background:#1b2026;color:#cfe0ee;border-color:#3a434d}
+[data-theme=night] .day-strip .day.on{background:#2f6db8;color:#fff}
+[data-theme=night] .day-strip .day.off{background:#14171b;color:#a7b2bc}
