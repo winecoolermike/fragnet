@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>/* v4.2 theme before first paint: saved choice, else the system setting */try{var t=localStorage.getItem("fragnet-theme");if(t!=="night"&&t!=="classic")t=window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches?"night":"classic";document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","classic")}</script>
 <title>FragNet eSports League Tracker</title>
 <meta name="description" content="FragNet: a retro esports league tracker with ESEA League (CS2) standings and match results, Valorant Challengers and Game Changers results, WoW Mythic raid rankings and esports news, all from public sources.">
-<meta name="theme-color" content="#191919">
+<meta name="theme-color" content="#0B0D10">
 <meta name="color-scheme" content="light">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="FragNet">
@@ -51,6 +52,7 @@ if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " 
         <button type="submit">GO</button>
       </div>
       <div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>
+      <button type="button" id="theme-tg" class="theme-tg js-only" aria-pressed="false">&raquo; Night</button>
     </form>
   </div>
 
@@ -114,7 +116,7 @@ if (/^#(?!home$)./.test(location.hash)) document.documentElement.className += " 
       <li><a href="#status"><span class="bullet">&raquo;</span> Site status</a></li>
     </ul>
     <div class="foot-note disclaimer-line">Independent fan project &middot; not affiliated with or endorsed by FACEIT, ESEA, Valve, Riot Games, Blizzard, Raider.IO, vlr.gg or the news sites &middot; all trademarks belong to their owners &middot; headlines link to the original articles<span class="js-only"> &middot; <a href="#about">About FragNet</a></span></div>
-    <div class="foot-note">FragNet v4.0 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time<span class="js-only"> &middot; <span id="foot-fetched"></span></span></div>
+    <div class="foot-note">FragNet v4.2 &middot; data: FACEIT, vlr.gg, Raider.IO and the linked news sites &middot; every team, player and guild page links to its source &middot; times in Pacific Time<span class="js-only"> &middot; <span id="foot-fetched"></span></span></div>
   </div>
 </div>
 <template id="about-tpl">
