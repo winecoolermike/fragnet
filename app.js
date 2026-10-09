@@ -1920,6 +1920,25 @@
     var sib = ev.key === "ArrowLeft" ? on.previousElementSibling : on.nextElementSibling;
     if (sib && sib.tagName === "A") { ev.preventDefault(); location.hash = sib.getAttribute("href"); }
   });
+  /* R10 installable app: service worker (http(s) only), footer Install link, honest offline note */
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname)) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register(new URL("sw.js", document.baseURI).href).catch(function () {}); });
+  }
+  var DEFER_INSTALL = null;
+  window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); DEFER_INSTALL = e; var li = $("#install-ft"); if (li) li.hidden = false; });
+  document.addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("#install-a");
+    if (!a || !DEFER_INSTALL) return;
+    ev.preventDefault(); DEFER_INSTALL.prompt(); DEFER_INSTALL = null; $("#install-ft").hidden = true;
+  });
+  function offlineNote() {
+    var n = $("#offline-note");
+    if (!n) { n = document.createElement("div"); n.id = "offline-note"; n.className = "offline-note"; n.setAttribute("role", "status"); var v = $("#view"); if (v) v.parentNode.insertBefore(n, v); }
+    n.hidden = navigator.onLine !== false;
+    n.textContent = "Offline - showing data from " + (D && D.fetched_at ? fmt(D.fetched_at, "short") : "the last visit") + ".";
+  }
+  window.addEventListener("online", function () { try { offlineNote(); refreshData(); } catch (e) {} });
+  window.addEventListener("offline", function () { try { offlineNote(); } catch (e) {} });
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshData(); });
   function boot(data) {
     D = data || {};
@@ -1928,7 +1947,7 @@
     initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
-    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot, renderPinned, renderBar, offlineNote].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum();
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids

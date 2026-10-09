@@ -788,3 +788,6 @@ td.score a.xl:hover{color:var(--link)}
 .sb-bar .sb-l{font-weight:bold;letter-spacing:1px;color:#FFB000}
 .sb-bar a.sb-i{color:#FFB000;text-decoration:none}
 .sb-bar a.sb-i:hover,.sb-bar a.sb-i:focus{text-decoration:underline}
+.offline-note{margin:6px 0;padding:4px 8px;background:#FFF4E5;border:1px solid #E8B97A;font-size:12px}
+.offline-note[hidden]{display:none}
+[data-theme=night] .offline-note{background:#2a2117;border-color:#6b4a25;color:#e3e8ec}
