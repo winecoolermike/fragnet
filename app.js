@@ -999,9 +999,53 @@
     if (r.g === "cs") return (m.t1 && isFav("cs:" + m.t1.id)) || (m.t2 && isFav("cs:" + m.t2.id));
     return isFav("val:" + slug(m.team1)) || isFav("val:" + slug(m.team2));
   }
+  /* C: R6 pinned divisions, R7 filter presets (shareable as #cs2/today/f-na), R9 scoreboard bar */
+  function pins() { var p = lsGet("esb-pins", []); var ids = csDivs().map(divId); return Array.isArray(p) ? p.filter(function (x) { return ids.indexOf(x) >= 0; }) : []; }
+  function pinBtn(id, label) { var on = pins().indexOf(id) >= 0; return ' <button type="button" class="pin' + (on ? " on" : "") + '" data-pin="' + esc(id) + '" aria-pressed="' + on + '" title="' + (on ? "Unpin " : "Pin ") + esc(label) + ' (kept in this browser)">' + (on ? "&#9873; Pinned" : "&#9872; Pin") + "</button>"; }
+  function renderPinned() {
+    var box = $("#side-pins"), ul = $("#side-pins-list"); if (!box || !ul) return;
+    var ds = csDivs(), p = pins();
+    ul.innerHTML = p.map(function (id) { var d = ds.filter(function (x) { return divId(x) === id; })[0]; return d ? '<li><a href="#cs2/' + esc(id) + '">' + esc(d.region + " " + d.division) + "</a></li>" : ""; }).join("");
+    box.hidden = !p.length;
+  }
+  var FILTERS = [["all", "All"], ["na", "NA interest"], ["eu", "EU"], ["adv", "Advanced"], ["bo1", "Bo1"], ["bo3", "Bo3"], ["mine", "My teams + pinned"]];
+  var TODAY_F = null, CCC = null;
+  function teamCountry(id) { if (!CCC) { CCC = {}; csDivs().forEach(function (d) { (d.teams || []).forEach(function (t) { var k = csTeamId(t); if (k) CCC[k] = t.country; }); }); } return CCC[id] || ""; }
+  function todayFilter() { var f = TODAY_F || lsGet("esb-today-filter", "all"); return FILTERS.some(function (x) { return x[0] === f; }) ? f : "all"; }
+  function passFilter(r, f) {
+    var m = r.m, cs = r.g === "cs";
+    if (f === "all") return true;
+    if (f === "mine") return rowMine(r) || (cs && pins().indexOf(divOf(m)) >= 0);
+    if (f === "bo1" || f === "bo3") return cs && num(m.bo) === +f.slice(2);
+    if (f === "adv") return cs && m.division === "Advanced";
+    if (f === "eu") return cs ? m.region === "EU" : /EMEA|Europe/i.test(m.event || "");
+    if (f === "na") return cs ? (m.region === "NA" || /^(US|CA)$/.test(teamCountry(m.t1 && m.t1.id)) || /^(US|CA)$/.test(teamCountry(m.t2 && m.t2.id)) || rowMine(r)) : (/North America|Americas/i.test(m.event || "") || rowMine(r));
+    return true;
+  }
+  function filterSegs(f, dayIso) {
+    return '<div class="segs segs2 f-presets"><div class="seg"><span class="seg-l">Filter</span>' + FILTERS.map(function (x) {
+      return '<a href="#cs2/today/' + (dayIso ? dayIso + "/" : "") + "f-" + x[0] + '" class="fpre' + (x[0] === f ? " on" : "") + '" data-f="' + x[0] + '">' + x[1] + "</a>";
+    }).join("") + "</div></div>";
+  }
+  function renderBar() {
+    var bar = $("#sb-bar"); if (!bar) return;
+    if (!favs().length && !pins().length) { bar.hidden = true; bar.innerHTML = ""; return; }
+    var items = [], now = Date.now(), seen = {};
+    function push(r) { var k = r.g + (r.m.id || r.m.url); if (seen[k]) return; seen[k] = 1; items.push(r); }
+    ((D.cs && D.cs.live) || []).forEach(function (m) { var r = { g: "cs", st: "live", m: m }; if (passFilter(r, "mine")) push(r); });
+    csUpcoming().forEach(function (m) { var r = { g: "cs", st: "up", m: m }; if (new Date(m.t).getTime() > now - 3600000 && passFilter(r, "mine")) push(r); });
+    items = items.slice(0, 8);
+    if (!items.length) { bar.hidden = true; bar.innerHTML = ""; return; }
+    var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
+    bar.innerHTML = '<span class="sb-l">MY MATCHES</span>' + items.map(function (r) {
+      var m = r.m, h = csMatchHash(m);
+      return '<a class="sb-i" href="' + (r.st === "live" ? esc(safeUrl(roomUrl(m) || "#" + h)) + '" target="_blank" rel="noopener' : "#" + esc(h)) + '" title="' + (r.st === "live" ? "live as of " + esc(fmt(upd, "short")) : "starts " + esc(fmt(m.t))) + '">' + esc(m.t1.name) + " vs " + esc(m.t2.name) + " <b>" + (r.st === "live" ? "LIVE" : hhmm(m.t)) + "</b> &#9656;</a>";
+    }).join("");
+    bar.hidden = false;
+  }
   function todayTab() { var t = lsGet("esb-today-tab", "all"); return TABS.some(function (x) { return x[0] === t; }) ? t : "all"; }
   function todayBoard(preview) {
-    var all = todayRows(), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
+    var flt = preview ? "all" : todayFilter(), all = todayRows().filter(function (r) { return passFilter(r, flt); }), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
     all.forEach(function (r) { counts[r.st]++; if (rowMine(r)) counts.mine++; });
     var tabsHtml = preview ? "" : '<div class="segs segs2 st-tabs"><div class="seg" role="tablist" aria-label="Match status"><span class="seg-l">Show</span>' + TABS.map(function (x) {
       return '<a href="#cs2/today" role="tab" class="st-tab' + (x[0] === tab ? " on" : "") + '" aria-selected="' + (x[0] === tab) + '" data-tab="' + x[0] + '">' + x[1] + ' <span class="cnt">' + counts[x[0]] + "</span></a>";
@@ -1020,7 +1064,7 @@
     var cut = rows.length < all.length;
     var title = "Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d;
     if (TODAY_SEL && !preview && TODAY_SEL !== dayKey(new Date())) { var sd = keyDate(TODAY_SEL); title = "Matches :: " + DAYS[sd.getUTCDay()].slice(0, 3) + " " + MON[sd.getUTCMonth()] + " " + sd.getUTCDate(); }
-    if (!preview) tabsHtml = dayStrip(TODAY_SEL || dayKey(new Date())) + tabsHtml;
+    if (!preview) tabsHtml = dayStrip(TODAY_SEL || dayKey(new Date())) + filterSegs(flt, TODAY_SEL && TODAY_SEL !== dayKey(new Date()) ? isoFromKey(TODAY_SEL) : "") + tabsHtml;
     var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
     var meta = upd ? "updated " + fmt(upd, "short") : "";
     if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
@@ -1074,7 +1118,7 @@
     var f = favs().slice(), i = -1;
     f.forEach(function (x, j) { if (x.k === k) i = j; });
     if (i >= 0) f.splice(i, 1); else f.push({ k: k, n: String(n || "").slice(0, 80) });
-    lsSet(LS.fav, f.length ? f : null); FAVC = null;
+    lsSet(LS.fav, f.length ? f : null); FAVC = null; try { renderBar(); } catch (e) {}
     return i < 0;
   }
   function favHash(k) { return k.indexOf("cs:") === 0 ? "team/cs2/" + encodeURIComponent(k.slice(3)) : "team/val/" + k.slice(4); }
@@ -1199,7 +1243,9 @@
       " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
     var body = "", title = "";
     if (sub === "today") {
-      TODAY_SEL = keyFromIso(parts[1]);
+      TODAY_SEL = null; TODAY_F = null;
+      parts.slice(1).forEach(function (x) { if (keyFromIso(x)) TODAY_SEL = keyFromIso(x); var fm = /^f-([a-z0-9]+)$/.exec(x || ""); if (fm) TODAY_F = fm[1]; });
+      if (TODAY_F && FILTERS.some(function (x) { return x[0] === TODAY_F; })) lsSet("esb-today-filter", TODAY_F);
       return gameHead("cs2", "today", "Counter-Strike 2 :: ESEA League") + myMatches("today") + todayBoard();
     } else if (sub === "players") {
       title = "Top Fraggers";
@@ -1236,7 +1282,7 @@
         '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(du.slice(0, 8)) + csMatchNote();
     }
     return gameHead("cs2", section, "Counter-Strike 2 :: ESEA League", segs) + srcLine("cs") + (section === "standings" ? info : "") +
-      '<h2 class="subhead">' + esc(title) + "</h2>" + body;
+      '<h2 class="subhead">' + esc(title) + (section === "standings" && ids.indexOf(sub) >= 0 ? pinBtn(sub, title) : "") + "</h2>" + body;
   }
 
   function vValorant(parts) {
@@ -1772,7 +1818,7 @@
     var r = parseHash(), html;
     CRUMB = null; CUR_SEC = ""; FAVC = null;
     try {
-      TODAY_SEL = null;
+      TODAY_SEL = null; TODAY_F = null;
       switch (r.top) {
         case "cs2": html = vCS2(r.parts); break;
         case "valorant": html = vValorant(r.parts); break;
@@ -1859,6 +1905,14 @@
       KEEP_SCROLL = true; route();
     }).catch(function () {});
   }
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("button[data-pin]");
+    if (!b) return;
+    var id = b.getAttribute("data-pin"), p = pins(), i = p.indexOf(id);
+    if (i >= 0) p.splice(i, 1); else p.push(id);
+    lsSet("esb-pins", p.slice(0, 12));
+    renderPinned(); renderBar(); KEEP_SCROLL = true; route();
+  });
   document.addEventListener("keydown", function (ev) {
     if ((ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") || ev.altKey || ev.ctrlKey || ev.metaKey || /^(INPUT|TEXTAREA|SELECT)$/.test((ev.target || {}).tagName || "")) return;
     var on = document.querySelector("#view .day-strip .on");
@@ -1874,7 +1928,7 @@
     initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
-    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum();
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids

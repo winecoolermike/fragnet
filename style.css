@@ -780,3 +780,11 @@ td.score a.xl:hover{color:var(--link)}
 .wr-bar{position:absolute;left:0;bottom:0;height:3px;background:#D94F00;opacity:.7}
 .tbl.prev-maps td.small-n{opacity:.65}
 @media (max-width:600px){.tbl.prev-maps td.n .fq{display:none}}
+/* C: pins, presets, scoreboard bar */
+.pin{margin-left:8px;padding:1px 7px;font:bold 11px/18px var(--ui);border:1px solid #9FB6C6;border-radius:3px;background:linear-gradient(#fff,#EEF1F3);color:var(--navy);cursor:pointer;vertical-align:middle}
+.pin.on{background:var(--pager);border-color:#2f62a8;color:#fff}
+.sb-bar{display:flex;gap:14px;align-items:center;overflow-x:auto;white-space:nowrap;background:#111;color:#FFB000;border-bottom:1px solid #000;padding:4px 8px;font:12px/18px "DejaVu Sans Mono",monospace}
+.sb-bar[hidden]{display:none}
+.sb-bar .sb-l{font-weight:bold;letter-spacing:1px;color:#FFB000}
+.sb-bar a.sb-i{color:#FFB000;text-decoration:none}
+.sb-bar a.sb-i:hover,.sb-bar a.sb-i:focus{text-decoration:underline}
