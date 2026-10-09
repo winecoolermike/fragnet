@@ -1,4 +1,4 @@
-/* FragNet v3.9 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
+/* FragNet v4.0 - 2007-portal skin. Hash-routed, renders ONLY data.json (written
    by fetch_data.py; data.js is the identical copy used for file://). Missing
    sources show MISS badges, failed-but-kept sources show STALE. Forums are
    read-only for launch (FORUM_POSTING_ENABLED = false; no browser storage used).
@@ -81,6 +81,36 @@
   function std(title, meta, inner, id) {
     return '<div class="std"' + (id ? ' id="' + id + '"' : "") + '><div class="std-header"><h1>' + title + "</h1>" + (meta ? '<span class="meta">' + meta + "</span>" : "") + "</div>" + inner + "</div>";
   }
+  /* v4.0 navigation: game -> section tabs, segmented pickers, breadcrumbs */
+  var SECTIONS = {
+    cs2: { name: "Counter-Strike 2", short: "CS2", sub: "ESEA League", tabs: [["standings", "cs2", "Standings"], ["results", "cs2/results", "Results"], ["players", "cs2/players", "Top Players"], ["today", "cs2/today", "Matches Today", "Today"]] },
+    valorant: { name: "Valorant", short: "Valorant", sub: "Challengers / Game Changers", tabs: [["events", "valorant/events", "Events"], ["results", "valorant/results", "Results"], ["players", "valorant/players", "Top Players"]] },
+    wow: { name: "World of Warcraft", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
+  };
+  var CRUMB = null, CUR_SEC = "", LAST_SEC = (location.hash || "#home").split("/")[0];
+  function setCrumbs(list) { CRUMB = list.filter(Boolean); }
+  function crumbHtml(list) {
+    return '<nav class="crumbs" aria-label="Breadcrumb"><a href="#home">Home</a>' + list.map(function (c, i) {
+      return ' <span class="sep" aria-hidden="true">&rsaquo;</span> ' + (c[1] && i < list.length - 1 ? '<a href="#' + esc(c[1]) + '">' + esc(c[0]) + "</a>" : '<span class="cur" aria-current="page">' + esc(c[0]) + "</span>");
+    }).join("") + "</nav>";
+  }
+  function secTabs(game, active) {
+    CUR_SEC = game + ":" + active;
+    var g = SECTIONS[game];
+    return '<nav class="sectabs" aria-label="' + esc(g.short) + ' sections">' + g.tabs.map(function (t) {
+      var on = t[0] === active;
+      return '<a href="#' + t[1] + '"' + (on ? ' class="on" aria-current="page"' : "") + ">" + (t[3] ? '<span class="lg">' + esc(t[2]) + '</span><span class="sh">' + esc(t[3]) + "</span>" : esc(t[2])) + "</a>";
+    }).join("") + "</nav>";
+  }
+  // game header bar + sticky section tabs (tabs sit outside .std so they can stick while the page scrolls)
+  function gameHead(game, active, title, extra) {
+    return std(esc(title), "", "", "game-head") + secTabs(game, active) + (extra || "");
+  }
+  function seg(label, items) { // items: [label, hash, on, shortLabel]
+    return '<div class="seg" role="group" aria-label="' + esc(label) + '"><span class="seg-l">' + esc(label) + "</span>" + items.map(function (it) {
+      return '<a href="#' + esc(it[1]) + '"' + (it[2] ? ' class="on" aria-current="true"' : "") + ">" + (it[3] ? '<span class="lg">' + esc(it[0]) + '</span><span class="sh">' + esc(it[3]) + "</span>" : esc(it[0])) + "</a>";
+    }).join("") + "</div>";
+  }
   var TB_FOLD = 6; // groups longer than this fold into a tap-to-open list (keeps phones tidy)
   function toolbar(items, active, cls) {
     function a(it) { return '<a href="#' + esc(it.hash) + '" class="' + (it.id === active ? "on" : "") + '"' + (it.id === active ? ' aria-current="page"' : "") + '><span class="bullet" aria-hidden="true">&rsaquo;</span>' + esc(it.label) + "</a>"; }
@@ -116,7 +146,22 @@
   function num(n) { var x = Number(n); return isFinite(x) ? x : 0; }
 
   /* ---------- data shortcuts ---------- */
-  function csDivs() { return (D.cs && D.cs.divisions) || []; }
+  var CSD = null; // North America first everywhere (v4.0); stable within a region
+  function csDivs() {
+    var src = (D.cs && D.cs.divisions) || [];
+    if (CSD && CSD.src === src) return CSD.list;
+    var list = src.map(function (d, i) { return { d: d, i: i }; }).sort(function (a, b) { return (a.d.region === "NA" ? 0 : 1) - (b.d.region === "NA" ? 0 : 1) || a.i - b.i; }).map(function (x) { return x.d; });
+    CSD = { src: src, list: list };
+    return list;
+  }
+  // Valorant event indices with North America events first (ids stay event-N of the data order)
+  function evOrder() {
+    return valEvents().map(function (e, i) { return i; }).sort(function (a, b) {
+      var na = function (i) { return /north america/i.test(valEvents()[i].title || "") ? 0 : 1; };
+      return na(a) - na(b) || a - b;
+    });
+  }
+  function wowRegs(rks) { return Object.keys(rks || {}).sort(function (a, b) { return (a === "us" ? 0 : 1) - (b === "us" ? 0 : 1); }); }
   function divId(d) { return slug(d.region + "-" + d.division); }
   function valEvents() { return (D.valorant && D.valorant.events) || []; }
   function evId(i) { return "event-" + (i + 1); }
@@ -337,6 +382,7 @@
     var maps = (m.maps || []).map(function (x, i) {
       return '<h2 class="subhead">' + (m.maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1) + board(x.p2, m.t2);
     }).join("");
+    setCrumbs([["CS2", "cs2"], ["Results", "cs2/results"], [m.t1.name + " vs " + m.t2.name]]);
     return std(esc(m.t1.name) + " vs " + esc(m.t2.name), "CS2 &middot; ESEA match", info) +
       (maps || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Match stats not fetched yet; they are added on a later refresh.") + "</div>") +
       '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT.</div>';
@@ -506,17 +552,23 @@
     rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
     return rows;
   }
-  function todayBoard() {
+  function todayBoard(preview) {
     var all = todayRows(), p = ptParts(new Date()), N = 12;
     // busy league days have 200+ matches: show every live match, the latest N results and the next N starts
     var done = all.filter(function (r) { return r.st === "done"; }), up = all.filter(function (r) { return r.st === "up"; });
     var live = all.filter(function (r) { return r.st === "live"; });
     var rows = live.concat(done.slice(-N), up.slice(0, N));
+    if (preview) { // home: at most 5 rows - live first, then the latest results and the next starts
+      var lv = live.slice(0, 5), rem = 5 - lv.length, nu = Math.min(up.length, Math.floor(rem / 2)), nd = Math.min(done.length, rem - nu);
+      nu = Math.min(up.length, rem - nd);
+      rows = lv.concat(done.slice(done.length - nd), up.slice(0, nu));
+    }
     rows.sort(function (a, b) { return String(a.m.t || a.m.ts || "").localeCompare(String(b.m.t || b.m.ts || "")); });
     var cut = rows.length < all.length;
     var title = "Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d;
     var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
     var meta = upd ? "updated " + fmt(upd, "short") : "";
+    if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
     if (!rows.length) return std(esc(title), meta, '<div class="empty today-empty">No matches scheduled today.</div>', "today-board");
     var body = '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
       '<th class="first" title="Pacific Time: start time for upcoming and live matches, finish time for finished CS2 matches">Time (PT)</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division / Event</th><th class="hide-sm">Map</th></tr></thead><tbody>' +
@@ -544,60 +596,64 @@
           '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
           ilink("cs2/" + divOf(m), m.region + " " + m.division) + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
+      (preview ? '<div class="note see-all">' + all.length + " match" + (all.length === 1 ? "" : "es") + ' today &middot; <a href="#cs2/today">see all matches today &raquo;</a></div>' :
       '<div class="note">' + all.length + " match" + (all.length === 1 ? "" : "es") + " today" + (cut ? " &middot; showing " + [live.length ? "live matches" : "", done.length ? "the latest " + Math.min(N, done.length) + " result" + (Math.min(N, done.length) === 1 ? "" : "s") : "", up.length ? "the next " + Math.min(N, up.length) + " start" + (Math.min(N, up.length) === 1 ? "" : "s") : ""].filter(Boolean).join(", ") + ' (<a href="#cs2/results">all results &raquo;</a>)' : "") +
-      ". Times in Pacific Time. Click a score for the match room, a map for the scoreboard. LIVE = in progress at the last update.</div>";
+      ". Times in Pacific Time. Click a score for the match room, a map for the scoreboard. LIVE = in progress at the last update.</div>");
     return std(esc(title), meta, body, "today-board");
   }
 
   /* ================= VIEWS ================= */
   function vHome() {
-    var news = newsItems().slice(0, 16);
+    var s = D.cs && D.cs.season, raid = D.wow && D.wow.raid, tr = todayRows();
+    function cnt(n, w) { return n + " " + w + (n === 1 ? "" : (w === "match" ? "es" : "s")); }
+    function card(game, teaser, btns) {
+      var g = SECTIONS[game];
+      return '<section class="gcard g-' + game + '" aria-label="' + esc(g.name) + '"><a class="gc-head" href="#' + game + '"><span class="gc-name">' + esc(g.name) + '</span><span class="gc-sub">' + esc(g.sub) + ' &raquo;</span></a>' +
+        '<div class="gc-teaser">' + (teaser || '<span class="dim">No data yet.</span>') + '</div><div class="gc-btns">' + btns.map(function (b) { return '<a class="gbtn" href="#' + b[1] + '">' + esc(b[0]) + "</a>"; }).join("") + "</div></section>";
+    }
+    var csN = tr.filter(function (r) { return r.g === "cs"; }).length, csLive = tr.filter(function (r) { return r.g === "cs" && r.st === "live"; }).length;
+    var d0 = csDivs().filter(function (d) { return d.teams && d.teams.length; })[0];
+    var csT = [csN ? cnt(csN, "match") + " today" : s ? esc(s.name) : "", csLive ? '<span class="live-b">' + csLive + " LIVE</span>" : "", d0 ? esc(d0.region + " " + d0.division) + " leader <b>" + esc(d0.teams[0].name) + "</b>" : ""].filter(Boolean).join(" &middot; ");
+    var vN = tr.filter(function (r) { return r.g === "val"; }).length, tp = ((D.valorant || {}).top_players || [])[0], evs = valEvents();
+    var vT = [vN ? cnt(vN, "match") + " today" : "", evs.length ? cnt(evs.length, "event") + " tracked" : "", tp ? "top player <b>" + esc(tp.name) + "</b> (" + num(tp.rating).toFixed(2) + ")" : ""].filter(Boolean).join(" &middot; ");
+    var rk = (D.wow && D.wow.rankings) || {}, us = (rk.us || [])[0], eu = (rk.eu || [])[0];
+    var wT = [raid ? esc(raid.name) : "", us ? "US #1 <b>" + esc(us.guild) + "</b> " + esc(us.progress) : "", eu ? "EU #1 <b>" + esc(eu.guild) + "</b> " + esc(eu.progress) : ""].filter(Boolean).join(" &middot; ");
+    var cards = '<div class="gcards">' +
+      card("cs2", csT, [["Standings", "cs2"], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
+      card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
+      card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
+    var news = newsItems().slice(0, 5);
     var newsHtml = news.length ? '<div class="newsbox">' + news.map(function (n) {
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
-    }).join("") + '<div class="item more"><a href="#news">Read More News</a></div></div>' : '<div class="empty">no headlines</div>';
-    var divs = csDivs().filter(function (d) { return d.teams && d.teams.length; });
-    var lead = divs.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Division</th><th>Leader</th><th class="n" title="wins-losses">W-L</th></tr></thead><tbody>' +
-      divs.map(function (d) {
-        var t = d.teams[0];
-        return '<tr><td><a href="#cs2/' + divId(d) + '">' + esc(d.region + " " + d.division) + '</a></td><td class="team">' + csTeamLink(t) + (t.rank !== "1" ? '<span class="cc" title="tied rank">=' + esc(t.rank) + "</span>" : "") +
-          '</td><td class="n"><span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span></td></tr>";
-      }).join("") + "</tbody></table></div>" : '<div class="empty">no ESEA standings</div>';
-    var w = (D.wow && D.wow.rankings) || {}, raid = D.wow && D.wow.raid, s = D.cs && D.cs.season;
-    var wt = Object.keys(w).length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>US Guild</th><th class="hide-sm">Prog</th><th>EU Guild</th><th class="hide-sm">Prog</th></tr></thead><tbody>' +
-      [0, 1, 2, 3, 4].map(function (i) {
-        var u = (w.us || [])[i], e = (w.eu || [])[i];
-        return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + (u ? ilink(guildHash("us", u), u.guild) : "") + '</td><td class="hide-sm">' + (u ? esc(u.progress) : "") +
-          '</td><td class="team">' + (e ? ilink(guildHash("eu", e), e.guild) : "") + '</td><td class="hide-sm">' + (e ? esc(e.progress) : "") + "</td></tr>";
-      }).join("") + "</tbody></table></div>" : '<div class="empty">no raid rankings</div>';
-    var intro = '<div class="infobox">Welcome to <b>FragNet</b>, an amateur &amp; semi-pro league tracker. ' +
-      (s ? "ESEA League <b>" + esc(s.name) + "</b> runs " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT) with " + num(s.team_count).toLocaleString("en-US") + " registered teams. " : "") +
-      (raid ? "Current WoW raid: <b>" + esc(raid.name) + "</b>. " : "") +
-      "Everything comes from public sources and nothing is guessed: if something isn't available yet, we say so. All times Pacific.</div>";
-    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + todayBoard() +
-      '<div class="fp-cols"><div>' + std("Latest Esports News", '<a href="#news">all &raquo;</a>', newsHtml) + "</div><div>" +
-      std("ESEA Division Leaders", '<a href="#cs2">standings &raquo;</a>', lead) +
-      std("Latest ESEA Results", '<a href="#cs2/results">all &raquo;</a>', csResultsTable(csFinished().slice(0, 6), { compact: true })) +
-      std("Latest Valorant Results", '<a href="#valorant/results">all &raquo;</a>', resultsTable(valResults().slice(0, 6), 0, true)) + "</div></div>" +
-      std("Mythic Raid Race :: Top 5", raid ? esc(raid.name) + ' &middot; <a href="#wow">full rankings &raquo;</a>' : "", wt);
+    }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
+    var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
+    return std("FragNet Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + cards + todayBoard(true) +
+      std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
   function vCS2(parts) {
     var sub = parts[0];
     var cs = D.cs || {}, divs = csDivs(), ids = divs.map(divId);
-    if (!sub || (ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results")) sub = ids[0] || "players";
-    var tabs = [];
-    ["EU", "NA"].forEach(function (rg) {
-      var ds = divs.filter(function (d) { return d.region === rg; });
-      if (!ds.length) return;
-      tabs.push({ grp: rg });
-      ds.forEach(function (d) { tabs.push({ id: divId(d), hash: "cs2/" + divId(d), label: d.division }); });
-    });
-    tabs.push({ grp: "Stats" }, { id: "players", hash: "cs2/players", label: "Top Fraggers" }, { id: "results", hash: "cs2/results", label: "Match Results" });
+    if (!sub || (ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results" && sub !== "today")) sub = ids[0] || "players";
+    var section = sub === "players" || sub === "results" || sub === "today" ? sub : "standings", segs = "";
+    if (section === "standings" && ids.length) {
+      var cur = divs[ids.indexOf(sub)], regs = ["NA", "EU"].filter(function (rg) { return divs.some(function (d) { return d.region === rg; }); });
+      var inReg = function (rg) { return divs.filter(function (d) { return d.region === rg; }); };
+      segs = '<div class="segs">' + seg("Region", regs.map(function (rg) {
+        var same = inReg(rg).filter(function (d) { return d.division === cur.division; })[0] || inReg(rg)[0];
+        return [rg, "cs2/" + divId(same), rg === cur.region];
+      })) + seg("Division", inReg(cur.region).map(function (d) {
+        return [d.division, "cs2/" + divId(d), d === cur, d.division === "Intermediate" ? "Int" : d.division === "Advanced" ? "Adv" : d.division];
+      })) + "</div>";
+      setCrumbs([["CS2", "cs2"], [cur.region + " " + cur.division, "cs2/" + divId(cur)], ["Standings"]]);
+    } else setCrumbs([["CS2", "cs2"], [section === "players" ? "Top Players" : section === "results" ? "Results" : "Matches Today"]]);
     var s = cs.season;
     var info = s ? '<div class="infobox">' + ext(cs.page, cs.league) + " &raquo; <b>" + esc(s.name) + "</b> &middot; " + fmt(s.start, "md") + " &ndash; " + fmt(s.end, "md") + " (PT)" +
       " &middot; " + num(s.team_count).toLocaleString("en-US") + " teams (all regions) &middot; $" + num(s.prize_pool).toLocaleString("en-US") + ' prize pool<br><span class="dim">Map pool: ' + esc((s.maps || []).join(", ")) + "</span></div>" + staleNote(s) : "";
     var body = "", title = "";
-    if (sub === "players") {
+    if (sub === "today") {
+      return gameHead("cs2", "today", "Counter-Strike 2 :: ESEA League") + todayBoard();
+    } else if (sub === "players") {
       title = "Top Fraggers :: EU + NA";
       var ps = cs.top_players || [], pm = cs.top_players_meta || {};
       body = ps.length ? staleNote(pm) + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Division</th><th class="n hide-sm" title="matches played">Matches</th><th class="n hide-sm" title="rounds played">Rnds</th><th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
@@ -646,7 +702,7 @@
       body += '<h2 class="subhead">' + esc(dsel.region + " " + dsel.division) + ' Results <small><a href="#cs2/results">all results &raquo;</a></small></h2>' + csResultsTable(df.slice(0, 10), { what: "finished matches in this division" }) +
         '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(du.slice(0, 8)) + csMatchNote();
     }
-    return std("Counter-Strike 2 :: ESEA League", "", toolbar(tabs, sub) + srcLine("cs") + info) +
+    return gameHead("cs2", section, "Counter-Strike 2 :: ESEA League", segs) + srcLine("cs") + (section === "standings" ? info : "") +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
   }
 
@@ -654,9 +710,14 @@
     var sub = parts[0], page = pageOf(parts);
     var v = D.valorant || {}, evs = valEvents();
     var ids = ["results", "players", "calendar"].concat(evs.map(function (e, i) { return evId(i); }));
-    if (ids.indexOf(sub) < 0) sub = "results";
-    var tabs = [{ grp: "View" }, { id: "results", hash: "valorant/results", label: "Recent Results" }, { id: "players", hash: "valorant/players", label: "Top Players" }, { id: "calendar", hash: "valorant/calendar", label: "Calendar" }, { grp: "Events" }]
-      .concat(evs.map(function (e, i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(e.title) }; }));
+    var ord = evOrder();
+    if (sub === "events") sub = "calendar";
+    if (ids.indexOf(sub) < 0) sub = ord.length ? evId(ord[0]) : "calendar";   // #valorant opens the North America event
+    var section = sub === "results" || sub === "players" ? sub : "events", picker = "";
+    var evTabs = [{ grp: "Event" }].concat(ord.map(function (i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(evs[i].title) }; }));
+    if (section === "events" && evs.length) picker = toolbar(evTabs, sub, "toolbar ev-pick");
+    setCrumbs([["Valorant", "valorant"], section === "results" ? ["Results"] : section === "players" ? ["Top Players"] : sub === "calendar" ? ["Events"] : ["Events", "valorant/events"],
+      ids.indexOf(sub) >= 3 ? [shortEv(evs[ids.indexOf(sub) - 3].title)] : null]);
     var body = "", title = "", r;
     if (sub === "results") {
       r = valResults();
@@ -681,9 +742,14 @@
         '<div class="note">Top ' + tp.length + (tm.pool ? " of " + num(tm.pool) : "") + " players with at least " + num(tm.min_rnd || 100) + " rounds across the " + num(tm.events || evs.length) + " events FragNet tracks (latest completed event per Challengers / Game Changers circuit), by vlr.gg rating; per-event numbers are round-weighted. Stats as published on vlr.gg.</div>"
         : '<div class="empty">Player stats coming soon.</div>';
     } else if (sub === "calendar") {
-      title = "Ongoing & Upcoming Events";
+      title = "Tracked Events";
       var cal = v.event_list || [];
-      body = staleNote(v.event_list_meta) + (cal.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Status</th><th>Event</th><th class="hide-sm">Circuit</th><th>Dates</th></tr></thead><tbody>' +
+      body = (evs.length ? '<div class="rankbox"><table class="tbl ev-list"><thead><tr><th class="first">Event</th><th class="hide-sm">Dates</th><th>Winner</th></tr></thead><tbody>' +
+        ord.map(function (i) {
+          var e = evs[i], w0 = (e.standings || [])[0];
+          return '<tr><td class="team">' + ilink("valorant/" + evId(i), shortEv(e.title)) + '</td><td class="hide-sm dim">' + esc(e.dates || "") + "</td><td>" + (w0 && String(w0.place).match(/^1(st)?$/i) ? ilink(valHash(w0.team), w0.team) : '<span class="dim">&ndash;</span>') + "</td></tr>";
+        }).join("") + '</tbody></table></div><div class="note">Final standings and top players for each event; pick an event above or in the list.</div>' : '<div class="empty">No tracked events yet.</div>') +
+        '<h2 class="subhead">Ongoing &amp; Upcoming Events</h2>' + staleNote(v.event_list_meta) + (cal.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Status</th><th>Event</th><th class="hide-sm">Circuit</th><th>Dates</th></tr></thead><tbody>' +
         cal.map(function (e, i) {
           var st = String(e.status || "");
           return '<tr data-k="vc:' + i + '"><td class="' + (st === "ongoing" ? "w" : "") + '">' + esc(st.toUpperCase()) + '</td><td class="team">' + ext(e.url, e.title) + '</td><td class="hide-sm">' + esc(e.circuit) + "</td><td>" + esc(e.dates) + "</td></tr>";
@@ -703,15 +769,15 @@
             '</td><td class="n">' + num(p.kd).toFixed(2) + '</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Best five by vlr.gg rating (min. 40 rounds) &middot; <a href="#valorant/players">all top players</a> &middot; ' + ext(String(e.url || "").replace(/\/event\/(\d+)\/.*/, "/event/stats/$1"), "event stats on vlr.gg") + "</div>";
     }
-    return std("Valorant :: Challengers / Game Changers", "", toolbar(tabs, sub) + srcLine("valorant")) +
+    return gameHead("valorant", section, "Valorant :: Challengers / Game Changers", picker) + srcLine("valorant") +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
   }
 
   function vWow(parts) {
     var sub = parts[0], page = pageOf(parts);
-    var w = D.wow || {}, rks = w.rankings || {}, regs = Object.keys(rks);
+    var w = D.wow || {}, rks = w.rankings || {}, regs = wowRegs(rks);
     if (regs.indexOf(sub) < 0) sub = regs[0] || "us";
-    var tabs = [{ grp: "Region" }].concat(regs.map(function (r) { return { id: r, hash: "wow/" + r, label: r.toUpperCase() + " Mythic" }; }));
+    setCrumbs([["WoW", "wow"], [sub.toUpperCase() + " Rankings"]]);
     var raid = w.raid;
     var info = raid ? '<div class="infobox">Current raid: <b>' + esc(raid.name) + "</b> &middot; " + (raid.bosses || []).length + " bosses &middot; opened " + fmt(raid.starts_us, "md") +
       ' (US)<br><span class="dim">' + esc((raid.bosses || []).join(" / ")) + "</span></div>" : "";
@@ -727,7 +793,7 @@
           '</td><td class="hide-sm">' + esc(g.realm) + '</td><td class="' + (full ? "w" : "") + '">' + esc(g.progress) + '</td><td class="n">' + (g.last_first_kill ? fmt(g.last_first_kill, "md") : "&ndash;") + "</td></tr>";
       }).join("") + "</tbody></table></div>" + pager(rows.length, page, base) +
       '<div class="note">Guild names colored by faction (blue Alliance / red Horde). Dates in Pacific Time. ' + ext(link, "Full rankings on Raider.IO") + "</div>" : '<div class="empty">no rankings</div>';
-    return std("World of Warcraft :: Mythic Raid Progression", "", toolbar(tabs, sub) + srcLine("wow") + info) +
+    return gameHead("wow", sub, "World of Warcraft :: Mythic Raid Progression") + srcLine("wow") + info +
       '<h2 class="subhead">' + esc(sub.toUpperCase()) + " Mythic Rankings <small>top " + rows.length + "</small></h2>" + body;
   }
 
@@ -811,6 +877,7 @@
       }).join("") + '</tbody></table></div><div class="note">League roster as registered on FACEIT for this conference. K/D and ADR season to date (* = fewer than ' + MINR() + " rounds); &ndash; = no matches with stats yet.</div>"
       : rosterPending ? '<div class="empty loading">Loading roster&hellip;</div>' : '<div class="empty">No roster in the public FACEIT league data for this team.</div>';
     var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)], ["Rounds", esc(t.rounds || "-")]]);
+    setCrumbs([["CS2", "cs2"], [d.region + " " + d.division, "cs2/" + divId(d)], [t.name]]);
     return std(esc(t.name), "CS2 &middot; ESEA League team", tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
       '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
@@ -840,6 +907,7 @@
       : '<div class="empty">No season stats yet: ' + esc(name) + " has not played an ESEA match with stats this season.</div>";
     var link = (p && p.url) || "https://www.faceit.com/en/players/" + encodeURIComponent(name);
     var tl = p ? tiles([["K/D", num(p.kd).toFixed(2), "hi"], ["ADR", num(p.adr).toFixed(1)], ["HS%", Math.round(num(p.hs)) + "%"], p.drank ? ["Div. rank", "#" + num(p.drank)] : ["Rounds", num(p.rounds)]]) : "";
+    setCrumbs([["CS2", "cs2"], spot ? [spot.d.region + " " + spot.d.division, "cs2/" + divId(spot.d)] : ["Top Players", "cs2/players"], spot ? [spot.t.name, teamHash(spot.t) || null] : null, [name]]);
     return std(esc(name), "CS2 &middot; ESEA League player", tl + info) + '<h2 class="subhead">Season Stats</h2>' + st + playerMatchesHtml(name) +
       '<div class="note">' + ext(link, "Profile on FACEIT") + ' &middot; <a href="#cs2/players">Top fraggers</a></div>';
   }
@@ -875,6 +943,7 @@
       ["Recent series", v.results.length ? '<span class="w">' + w + 'W</span> <span class="l">' + l + "L</span> in the " + v.results.length + " tier-2 results FragNet tracks" : '<span class="dim">none in the tracked results</span>'],
       ["vlr.gg", ext(tm.url || v.url, "Team page on vlr.gg")]]);
     var tl = tiles([v.results.length ? ["Recent series", '<span class="w">' + w + '</span>-<span class="l">' + l + "</span>"] : null, tm && tm.roster ? ["Roster", tm.roster.filter(function (m) { return !/coach|manager|analyst/.test(m[2] || ""); }).length] : null, tm && (tm.tag || v.country || tm.country) ? [tm.tag ? "Tag" : "Region", esc(tm.tag || tm.country || v.country)] : null]);
+    setCrumbs([["Valorant", "valorant"], ["Events", "valorant/events"], [v.name]]);
     return std(esc(v.name), "Valorant &middot; team", tl + info) + '<h2 class="subhead">Roster</h2>' + ros + '<h2 class="subhead">Event Placings</h2>' + pl +
       '<h2 class="subhead">Recent Results</h2>' + (v.results.length ? resultsTable(v.results, 0, false, true) : '<div class="empty">No results for this team in the tracked tier-2 results.</div>') +
       '<div class="note">Results and placings as listed on vlr.gg; dates in Pacific Time.</div>';
@@ -908,6 +977,7 @@
     }).join("") + "</tbody></table></div>" : "";
     var link = pid ? "https://www.vlr.gg/player/" + encodeURIComponent(pid) : "https://www.vlr.gg/search/?q=" + encodeURIComponent(nm);
     var tl = p ? tiles([["Rating", num(p.rating).toFixed(2), "hi"], ["ACS", Math.round(num(p.acs))], ["K/D", p.kd == null ? "&ndash;" : num(p.kd).toFixed(2)], ["KAST", Math.round(num(p.kast)) + "%"]]) : "";
+    setCrumbs([["Valorant", "valorant"], ["Top Players", "valorant/players"], [nm]]);
     return std(esc(nm), "Valorant &middot; player", tl + info) + '<h2 class="subhead">Stats (tracked events)</h2>' + st + (ev ? '<h2 class="subhead">By Event</h2>' + ev : "") +
       '<div class="note">Round-weighted across the tracked Challengers / Game Changers events. Stats as published on vlr.gg &middot; ' + ext(link, "Profile on vlr.gg") + ' &middot; <a href="#valorant/players">Top players</a></div>';
   }
@@ -931,6 +1001,7 @@
         return '<tr><td class="c">' + (i + 1) + '</td><td class="' + (kd[i] ? "w" : "dim") + '">' + esc(b) + '</td><td class="n">' + (kd[i] ? fmt(kd[i]) : '<span class="dim">not yet</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" : '<div class="empty">No boss kill dates in the current data.</div>';
     var tl = tiles([["Progress", esc(g.progress), full ? "hi" : ""], [region.toUpperCase() + " rank", "#" + num(g.rank)], ["Faction", esc(fac)]]);
+    setCrumbs([["WoW", "wow"], [region.toUpperCase() + " Rankings", "wow/" + region], [g.guild]]);
     return std(esc(g.guild), "WoW &middot; Mythic raid guild", tl + info) + '<h2 class="subhead">' + esc(raid.name || "Current raid") + " :: Boss Kills</h2>" + tbl +
       '<div class="note">' + ext(g.url, "Guild profile on Raider.IO") + " &middot; kill dates from Raider.IO raid rankings, Pacific Time.</div>";
   }
@@ -1023,17 +1094,12 @@
 
   /* ================= SIDEBARS / HEADER ================= */
   function renderGameNav() {
-    function sl(hash, label) { return '<a href="#' + esc(hash) + '" data-sel="' + esc(hash) + '">' + esc(label) + "</a>"; }
-    var cs = '<div class="gn-item" data-gn="cs2"><a href="#cs2">Counter-Strike 2</a><div class="gn-sub">';
-    ["EU", "NA"].forEach(function (rg) {
-      var ds = csDivs().filter(function (d) { return d.region === rg; });
-      if (ds.length) cs += '<div><span class="rg">' + rg + "</span> " + ds.map(function (d) { return sl("cs2/" + divId(d), d.division.slice(0, d.division === "Main" ? 4 : 3).toLowerCase()); }).join(' <span class="sep">|</span> ') + "</div>";
+    var games = ["cs2", "valorant", "wow"].map(function (g) {
+      var sc = SECTIONS[g];
+      return '<details class="gn-item" data-gn="' + g + '"><summary><a href="#' + g + '">' + esc(sc.name) + '</a><span class="gn-caret" aria-hidden="true"></span></summary><ul class="gn-sub">' +
+        sc.tabs.map(function (t) { return '<li><a href="#' + t[1] + '" data-sel="' + g + ":" + t[0] + '">' + esc(t[2]) + "</a></li>"; }).join("") + "</ul></details>";
     });
-    cs += "<div>" + sl("cs2/players", "top fraggers") + "</div></div></div>";
-    var val = '<div class="gn-item" data-gn="valorant"><a href="#valorant">Valorant</a><div class="gn-sub"><div>' + sl("valorant/results", "results") + ' <span class="sep">|</span> ' + sl("valorant/players", "players") + ' <span class="sep">|</span> ' + sl("valorant/calendar", "calendar") + "</div>" +
-      valEvents().slice(0, 4).map(function (e, i) { return "<div>" + sl("valorant/" + evId(i), shortEv(e.title).toLowerCase()) + "</div>"; }).join("") + (valEvents().length > 4 ? "<div>" + sl("valorant/" + evId(4), "+ " + (valEvents().length - 4) + " more events") + "</div>" : "") + "</div></div>";
-    var wr = Object.keys((D.wow && D.wow.rankings) || {});
-    var wow = '<div class="gn-item" data-gn="wow"><a href="#wow">World of Warcraft</a><div class="gn-sub"><div>' + wr.map(function (r) { return sl("wow/" + r, r + " mythic"); }).join(' <span class="sep">|</span> ') + "</div></div></div>";
+    var cs = games[0], val = games[1], wow = games[2];
     var news = '<div class="gn-item" data-gn="news"><a href="#news">News</a></div>';
     var forum = '<div class="gn-item" data-gn="forums"><a href="#forums">Forums</a></div>';
     var about = '<div class="gn-item" data-gn="about"><a href="#about">About</a></div>';
@@ -1061,7 +1127,7 @@
     $("#data-status").innerHTML = html;
   }
   function renderSideNews() {
-    var items = newsItems().slice(0, 12);
+    var items = newsItems().slice(0, 8);
     $("#side-news").innerHTML = items.length ? items.map(function (n) {
       return '<li title="' + esc(n.title + " (" + n.source + ")") + '">' + ext(n.url, n.title) + '<span class="cnt">' + (n.date ? fmt(n.date, "md") : "") + "</span></li>";
     }).join("") : '<li class="empty">no headlines</li>';
@@ -1108,6 +1174,7 @@
   var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
+    CRUMB = null; CUR_SEC = "";
     try {
       switch (r.top) {
         case "cs2": html = vCS2(r.parts); break;
@@ -1129,15 +1196,19 @@
       if (window.console) console.warn("FragNet: could not render view", e);
       html = std("Page unavailable", "", soon("This page could not be displayed right now.")) + '<div class="empty"><a href="#home">Back to the front page</a></div>';
     }
+    if (r.top !== "home") {
+      var tmp = document.createElement("div"); tmp.innerHTML = html;
+      var th = tmp.querySelector(".std-header h1"), gm = { player: 1, team: 1, guild: 1, match: 1 };
+      html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
+    }
     $("#view").innerHTML = html;
     var h1 = $("#view .std-header h1");
     document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + "FragNet eSports League Tracker";
     var navTop = r.top === "search" ? "" : (r.top === "player" && r.parts[0] !== "val") || r.top === "match" || (r.top === "team" && r.parts[0] !== "val") ? "cs2" : r.top === "team" || r.top === "player" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
-    var on = $("#view .toolbar a.on");
-    var sel = on ? on.getAttribute("href").slice(1) : "";
-    $$("[data-sel]").forEach(function (a) { a.classList.toggle("on", a.dataset.sel === sel); });
+    $$("[data-sel]").forEach(function (a) { a.classList.toggle("on", a.dataset.sel === CUR_SEC); });
+    $$("details[data-gn]").forEach(function (d) { if (d.dataset.gn === navTop) d.open = true; });
     autoTitles();
     if (pendingHL) {
       var row = $('[data-k="' + (window.CSS && CSS.escape ? CSS.escape(pendingHL) : pendingHL.replace(/["\\]/g, "\\$&")) + '"]', $("#view"));
@@ -1159,7 +1230,12 @@
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
     [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("FragNet: sidebar render failed", e); } });
-    window.addEventListener("hashchange", function () { clearTimeout(tmr); route(); renderSideForum(); });
+    window.addEventListener("hashchange", function () {
+      clearTimeout(tmr); route(); renderSideForum();
+      // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
+      var sec = (location.hash || "#home").split("/")[0];
+      if (window.goatcounter && window.goatcounter.count && sec !== LAST_SEC) { LAST_SEC = sec; window.goatcounter.count({ path: location.pathname + sec }); }
+    });
     var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(autoTitles, 200); });
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(autoTitles);
     window.addEventListener("load", autoTitles);
