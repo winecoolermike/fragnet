@@ -60,13 +60,16 @@ jobs:
                   return (d.get("fetched_at") or "") if isinstance(d, dict) else ""
               except (OSError, ValueError):
                   return ""
-          cached, committed = stamp(".lastgood/data.json"), stamp("dist/data.json")
-          print(f"cached last-good: {cached or 'none'} | committed: {committed or 'none'}")
-          if cached and cached > committed:
-              shutil.copy(".lastgood/data.json", "dist/data.json")
-              print("using cached last-good data")
-          else:
-              print("using committed data")
+          # data.json + the lazy side files (teams.json: rosters/player stats, val.json:
+          # Valorant players/rosters - its cached rosters and event stats save requests)
+          for name in ("data.json", "teams.json", "val.json"):
+              cached, committed = stamp(f".lastgood/{name}"), stamp(f"dist/{name}")
+              print(f"{name}: cached last-good: {cached or 'none'} | committed: {committed or 'none'}")
+              if cached and cached > committed:
+                  shutil.copy(f".lastgood/{name}", f"dist/{name}")
+                  print(f"  using cached last-good {name}")
+              else:
+                  print(f"  using committed {name}")
           PY
 
       - name: Fetch fresh data into dist/
@@ -102,6 +105,26 @@ jobs:
           else:
               print("data.js matches data.json")
           print("data fetched_at:", data.get("fetched_at"))
+          # lazy side files (a cached last-good .json may have been restored without its .js)
+          import os
+          for name, var in (("teams", "FRAGNET_TEAMS"), ("val", "FRAGNET_VAL")):
+              jp, sp = f"dist/{name}.json", f"dist/{name}.js"
+              if not os.path.exists(jp):
+                  continue
+              with open(jp, encoding="utf-8") as fh:
+                  side = json.load(fh)
+              blob = json.dumps(side, ensure_ascii=False, separators=(",", ":"))
+              want = f"window.{var} = " + blob.replace("</", "<\\/") + ";\n"
+              try:
+                  with open(sp, encoding="utf-8") as fh:
+                      cur = fh.read().strip()
+                  same = json.loads(cur[len(f"window.{var} = "):-1].replace("<\\/", "</")) == side
+              except (OSError, ValueError):
+                  same = False
+              if not same:
+                  with open(sp, "w", encoding="utf-8") as fh:
+                      fh.write(want)
+                  print(f"{name}.js regenerated from {name}.json")
           PY
           python build_dist.py --check
 
@@ -118,7 +141,9 @@ jobs:
 
       - name: Save last-good data to cache
         if: steps.fetch.outcome == 'success'
-        run: mkdir -p .lastgood && cp dist/data.json .lastgood/data.json
+        run: |
+          mkdir -p .lastgood && cp dist/data.json .lastgood/data.json
+          for f in teams.json val.json; do if [ -f "dist/$f" ]; then cp "dist/$f" ".lastgood/$f"; fi; done
 
       - name: Upload last-good cache
         if: steps.fetch.outcome == 'success'

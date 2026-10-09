@@ -25,7 +25,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
 VERSION = "3.2"
 FILES = ["index.html", "style.css", "app.js", "favicon.svg", "data.json", "data.js"]
-OPTIONAL = ["teams.json", "teams.js"]   # lazy team rosters / match lines (v3.6); copied when present
+OPTIONAL = ["teams.json", "teams.js",   # lazy team rosters / match lines / player stats (v3.6+); copied when present
+            "val.json", "val.js"]       # lazy Valorant players + rosters (v3.8)
 FONT_PATTERNS = ["*.woff2", "LICENSE*", "README.txt"]
 BANNED_TERMS_FILE = os.path.join(HERE, ".banned-terms")   # optional, untracked: one term per line
 FORBIDDEN = ["shots", "tests", "v1-backup", "v2-backup", ".venv", "fetch_data.py", "build_dist.py",
@@ -88,17 +89,19 @@ def verify():
     pre = "window.FRAGNET_DATA = "
     if not (js.startswith(pre) and js.endswith(";")) or json.loads(js[len(pre):-1].replace("<\\/", "</")) != dj:
         problems.append("data.js does not match data.json")
-    if "teams.json" in files or "teams.js" in files:
+    for side, var in (("teams", "FRAGNET_TEAMS"), ("val", "FRAGNET_VAL")):
+        if side + ".json" not in files and side + ".js" not in files:
+            continue
         try:
-            with open(os.path.join(DIST, "teams.json"), encoding="utf-8") as fh:
+            with open(os.path.join(DIST, side + ".json"), encoding="utf-8") as fh:
                 tj = json.load(fh)
-            with open(os.path.join(DIST, "teams.js"), encoding="utf-8") as fh:
+            with open(os.path.join(DIST, side + ".js"), encoding="utf-8") as fh:
                 tjs = fh.read().strip()
-            tpre = "window.FRAGNET_TEAMS = "
+            tpre = f"window.{var} = "
             if not (tjs.startswith(tpre) and tjs.endswith(";")) or json.loads(tjs[len(tpre):-1].replace("<\\/", "</")) != tj:
-                problems.append("teams.js does not match teams.json")
+                problems.append(f"{side}.js does not match {side}.json")
         except (OSError, ValueError) as e:
-            problems.append(f"teams.json/teams.js unreadable: {e}")
+            problems.append(f"{side}.json/{side}.js unreadable: {e}")
     for need in FILES + ["fonts/LICENSE-DejaVu.txt", "fonts/LICENSE-Liberation.txt"]:
         if need not in files:
             problems.append(f"missing {need}")
