@@ -760,7 +760,7 @@ def build(dist, site, og_cache, do_og=True):
         hd["valorant"].update(events=[{k: v for k, v in ev.items() if not isinstance(v, (list, dict))} for ev in va.get("events") or []], top_players=(va.get("top_players") or [])[:1], results=[])
         wo = d.get("wow") or {}
         hd["wow"] = dict(wo, rankings={k: (v or [])[:3] for k, v in (wo.get("rankings") or {}).items()})
-        hd["news"] = dict(d.get("news") or {}, items=((d.get("news") or {}).get("items") or [])[:15])
+        hd["news"] = dict(d.get("news") or {}, items=[i for t in ("CS", "VAL", "WOW", "ESPORTS") for i in [x for x in ((d.get("news") or {}).get("items") or []) if x.get("tag") == t][:5]])
         hd["partial"] = True
         with open(os.path.join(dist, "home.json"), "w", encoding="utf-8") as fh:
             json.dump(hd, fh, ensure_ascii=False, separators=(",", ":"))

@@ -178,6 +178,16 @@
   }
   function shortEv(t) { return String(t || "").replace(/^Challengers 20\d\d: /, "VCL ").replace(/^VCL \d\d: /, "VCL ").replace(/^Game Changers 20\d\d: /, "GC "); }
   function newsItems() { return (D.news && D.news.items) || []; }
+  /* news mix: on a game's pages that game's headlines first, elsewhere a round-robin across games (newest first within each) */
+  function newsMix(n) {
+    var top = (curHash().replace(/^#/, "").split("/")[0] || "home"), pref = top === "cs2" ? "CS" : top === "valorant" ? "VAL" : top === "wow" ? "WOW" : "";
+    var g = {}, order = ["CS", "VAL", "WOW", "ESPORTS"];
+    newsItems().forEach(function (i) { var t = String(i.tag || "ESPORTS").toUpperCase(); (g[t] = g[t] || []).push(i); if (order.indexOf(t) < 0) order.push(t); });
+    var out = [];
+    if (pref && g[pref]) out = g[pref].slice(0, Math.ceil(n * 0.6)), g[pref] = g[pref].slice(out.length);
+    for (var k = 0; out.length < n && k < 50; k++) order.forEach(function (t) { if (out.length < n && g[t] && g[t][k]) out.push(g[t][k]); });
+    return out.slice(0, n);
+  }
   function valResults() { return (D.valorant && D.valorant.results) || []; }
   function rioPage(raid, region) { return raid && raid.slug ? "https://raider.io/" + encodeURIComponent(raid.slug) + "/rankings/" + encodeURIComponent(region || "world") + "/mythic" : "https://raider.io/"; }
   /* ---------- detail-page links + lookups (v3.3) ---------- */
@@ -1946,7 +1956,7 @@
     $("#data-status").innerHTML = html;
   }
   function renderSideNews() {
-    var items = newsItems().slice(0, 8);
+    var items = newsMix(8);
     $("#side-news").innerHTML = items.length ? items.map(function (n) {
       return '<li title="' + esc(n.title + " (" + n.source + ")") + '">' + ext(n.url, n.title) + '<span class="cnt">' + (n.date ? fmt(n.date, "md") : "") + "</span></li>";
     }).join("") : '<li class="empty">no headlines</li>';
@@ -1967,7 +1977,7 @@
 
   function renderTicker() {
     var bits = [];
-    newsItems().slice(0, 10).forEach(function (i) { bits.push('<span class="it"><b>' + esc(i.source) + ":</b> " + ext(i.url, i.title) + "</span>"); });
+    newsMix(10).forEach(function (i) { bits.push('<span class="it"><b>' + esc(i.source) + ":</b> " + ext(i.url, i.title) + "</span>"); });
     valResults().slice(0, 5).forEach(function (m) { bits.push('<span class="it"><b>VAL:</b> ' + esc(m.team1) + " " + esc(m.score1) + "-" + esc(m.score2) + " " + esc(m.team2) + "</span>"); });
     var w = D.wow && D.wow.rankings;
     if (w && w.us && w.us[0]) bits.push('<span class="it"><b>WoW:</b> US #1 ' + esc(w.us[0].guild) + " " + esc(w.us[0].progress) + "</span>");
@@ -2147,7 +2157,7 @@
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
     [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot, renderPinned, renderBar, offlineNote].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
-      clearTimeout(tmr); route(); renderSideForum();
+      clearTimeout(tmr); route(); renderSideForum(); try { renderSideNews(); } catch (e) {}
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
       var sec = (curHash() || "#home").split("/")[0];
       if (window.goatcounter && window.goatcounter.count && sec !== LAST_SEC) { LAST_SEC = sec; window.goatcounter.count({ path: location.pathname + sec }); }

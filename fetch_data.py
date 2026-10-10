@@ -1533,14 +1533,19 @@ def fetch_raiderio(prev):
 
 # ---------------------------------------------------------------- News RSS
 FEEDS = [  # (name, feed URL, tag, public site page)
+    ("Counter-Strike (Steam)", "https://store.steampowered.com/feeds/news/app/730/", "CS", "https://www.counter-strike.net/news"),
     ("HLTV", "https://www.hltv.org/rss/news", "CS", "https://www.hltv.org/"),
+    ("Dust2.us", "https://dust2.us/rss", "CS", "https://dust2.us/"),
+    ("Dexerto CS2", "https://www.dexerto.com/counter-strike-2/feed/", "CS", "https://www.dexerto.com/counter-strike-2/"),
+    ("Dexerto Valorant", "https://www.dexerto.com/valorant/feed/", "VAL", "https://www.dexerto.com/valorant/"),
     ("vlr.gg", "https://www.vlr.gg/rss", "VAL", "https://www.vlr.gg/news"),
     ("Dexerto Esports", "https://www.dexerto.com/esports/feed/", "ESPORTS", "https://www.dexerto.com/esports/"),
     ("Dot Esports", "https://dotesports.com/feed", "ESPORTS", "https://dotesports.com/"),
     ("Esports Insider", "https://esportsinsider.com/feed", "ESPORTS", "https://esportsinsider.com/"),
     ("Wowhead", "https://www.wowhead.com/news/rss/all", "WOW", "https://www.wowhead.com/news"),
 ]
-PER_FEED = 15
+PER_FEED = 8                       # cap per source
+GAME_CAP = {"CS": 18, "VAL": 12, "WOW": 8, "ESPORTS": 8}   # cap per game tag, so one busy site can't fill the wire
 
 
 def entry_date(e):
@@ -1601,7 +1606,13 @@ def fetch_news(prev):
             seen.add(i["url"])
             uniq.append(i)
     uniq.sort(key=lambda x: x["date"] or "", reverse=True)
-    out["items"] = uniq
+    per = {}
+    capped = []
+    for i in uniq:
+        per[i["tag"]] = per.get(i["tag"], 0) + 1
+        if per[i["tag"]] <= GAME_CAP.get(i["tag"], 8):
+            capped.append(i)
+    out["items"] = capped
     return out
 
 
