@@ -193,6 +193,13 @@
     for (var k = 0; out.length < n && k < 50; k++) order.forEach(function (t) { if (out.length < n && g[t] && g[t][k]) out.push(g[t][k]); });
     return out.slice(0, n);
   }
+  function valOffNote() {   // audit2 A11: say it's the off-season instead of looking stale
+    var ts = valResults().map(function (m) { return Date.parse(m.ts); }).filter(isFinite), last = ts.length ? Math.max.apply(null, ts) : 0;
+    if (!last || Date.now() - last < 14 * 864e5) return "";
+    var up = ((D.valorant || {}).upcoming || []).map(function (m) { return { t: Date.parse(m.ts), m: m }; }).filter(function (x) { return x.t > Date.now(); }).sort(function (a, b) { return a.t - b.t; })[0];
+    return '<div class="infobox off-season"><b>Valorant off-season.</b> No tier-2 or Game Changers result since ' + fmt(new Date(last).toISOString(), "md") + " (PT). " +
+      (up ? "Next tracked match: " + ext(up.m.url, shortEv(up.m.event || "") + (/TBD/.test(up.m.team1 + up.m.team2) ? "" : " (" + up.m.team1 + " vs " + up.m.team2 + ")")) + " on " + fmt(up.m.ts, "md") + " (PT)." : "New events show up here as soon as vlr.gg lists them.") + "</div>";
+  }
   function valResults() { return (D.valorant && D.valorant.results) || []; }
   function rioPage(raid, region) { return raid && raid.slug ? "https://raider.io/" + encodeURIComponent(raid.slug) + "/rankings/" + encodeURIComponent(region || "world") + "/mythic" : "https://raider.io/"; }
   /* ---------- detail-page links + lookups (v3.3) ---------- */
@@ -537,7 +544,7 @@
   function vRanking(reg) {
     var x = rankX();
     reg = reg === "eu" ? "EU" : reg === "all" ? "all" : "NA";
-    setCrumbs([["CS2", "cs2"], ["ESB Ranking"]]);
+    setCrumbs([["CS2", "cs2"], ["ESB Ranking", "cs2/ranking"], [reg === "all" ? "All regions" : reg]]);
     var segs = '<div class="segs"><div class="seg"><span class="seg-l">Region</span>' + [["NA", "na"], ["EU", "eu"], ["All", "all"]].map(function (r) { return '<a href="#cs2/ranking/' + r[1] + '"' + ((reg === r[0] || (reg === "all" && r[1] === "all")) ? ' class="on"' : "") + ">" + r[0] + "</a>"; }).join("") + "</div></div>";
     if (!x) return segs + rankWait("The ranking is");
     var rows = (x.teams || []).filter(function (t) { return reg === "all" || t.region === reg; });
@@ -570,7 +577,7 @@
   }
   function top20Table(t) {
     return '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
-      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team || "")) + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
+      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : p.team ? esc(p.team) : '<span class="dim">No team</span>') + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
   }
   function vTop20(id) {
     var x = rankX();
@@ -667,7 +674,7 @@
         th("matches", "Matches", "n hide-sm", "matches played") + th("rounds", "Rnds", "n hide-sm", "rounds played") + th("esbr", "Rating", "n", "ESB Rating 1.0 (division average = 1.00)") + th("kills", "K", "n hide-sm", "kills") + th("kd", "K/D", "n", "kills per death") + th("adr", "ADR", "n", "average damage per round") + th("hs", "HS%", "n hide-sm", "headshot kill percentage") +
         "</tr></thead><tbody>" + list.slice(from, from + n).map(function (p, i) {
           var r = from + i + 1, tn = p.team || tName[p.team_id];
-          return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim">&ndash;</span>') +
+          return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim">No team</span>') +
             '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + rtChip(p) + '</td><td class="n hide-sm">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }, dsegs) + note;
@@ -1061,19 +1068,20 @@
   function spotHtml(b) {
     var out = "", ups = b.upsets || [], fr = b.fraggers || [], st = b.streaks || [], w = b.wow || {};
     function tl(t) { return /^[0-9a-f-]{36}$/.test(String(t.id)) ? ilink("team/cs2/" + t.id, t.name) : esc(t.name); }
-    out += '<h2 class="subhead">Upset of the week</h2>' + (ups.length ? ups.slice(0, 3).map(function (u) {
+    out += (ups.length ? '<h2 class="subhead">Upset of the week</h2>' + ups.slice(0, 3).map(function (u) {
       return '<div class="spot-line">' + tl(u.winner) + " (#" + u.winner.rank + ") beat " + tl(u.loser) + " (#" + u.loser.rank + ") " + ilink(csMatchHash(u), u.score) + ' <span class="dim">' + esc(u.region + " " + u.division) + "</span></div>";
-    }).join("") : '<div class="empty">No upset by this rule in this period.</div>');
+    }).join("") : "");
     out += '<h2 class="subhead">Top fragger by division</h2>' + (fr.length ? '<div class="rankbox"><table class="tbl spot-fr"><thead><tr><th class="first">Division</th><th>Player</th><th class="n">Kills</th><th class="n">Maps</th></tr></thead><tbody>' + fr.map(function (f) {
       return "<tr><td>" + esc(f.div) + '</td><td class="team">' + ilink(playerHash(f.nick), f.nick) + ' <span class="dim">' + esc(f.team) + '</span></td><td class="n">' + (f.match ? ilink(csMatchHash({ id: f.match }), String(f.kills)) : num(f.kills)) + '</td><td class="n">' + num(f.maps) + "</td></tr>";
     }).join("") + "</tbody></table></div>" : '<div class="empty">No FACEIT scoreboards in this period.</div>');
-    out += '<h2 class="subhead">Hottest streak</h2>' + (st.length ? st.slice(0, 3).map(function (x) {
+    out += (st.length ? '<h2 class="subhead">Hottest streak</h2>' + st.slice(0, 3).map(function (x) {
       return '<div class="spot-line">' + tl(x) + ": " + x.n + ' wins in a row <span class="dim">' + esc(x.div) + "</span></div>";
-    }).join("") : '<div class="empty">No team is on a 3+ win streak.</div>');
+    }).join("") : "");
     out += '<h2 class="subhead">WoW Mythic kills</h2>' + ((w.guilds || []).length ? w.guilds.map(function (g) {
       var reg = g.region === "eu" ? "eu" : "us";
       return '<div class="spot-line">' + ilink(guildHash(reg, g), g.guild) + " (" + reg.toUpperCase() + "): " + g.kills + " kill" + (g.kills === 1 ? "" : "s") + " &middot; " + esc((g.bosses || []).join(", ")) + " " + ext(g.url, "Raider.IO") + "</div>";
     }).join("") : '<div class="empty">No Mythic kills by tracked guilds in this period.</div>');
+    if (!ups.length || !st.length) out += '<div class="note">More spotlights (' + [!ups.length && "upset of the week", !st.length && "hottest 3+ win streak"].filter(Boolean).join(", ") + ") appear here once the week&rsquo;s results produce one.</div>";
     return out;
   }
   function homeSpot() {
@@ -1097,7 +1105,7 @@
     var out = '<div class="potw">' + tabs;
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Player of the Week" + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" + shareBox("roundup/" + w.id + "/potw-" + ds) : '<div class="empty">No ' + esc(cur) + " player has 2 maps with FACEIT scoreboards this week yet.</div>") + "</div>";
     if (!t && earlySeason()) return out + EARLY_NOTE + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
-    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="empty">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
+    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="note">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
     return out + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
   }
   function vRoundup(parts) {
@@ -1109,7 +1117,9 @@
     if (parts[0]) {
       var w = weeks.filter(function (x) { return x.id === parts[0]; })[0];
       if (!w) return std("Roundup not found", "", '<div class="empty miss">No roundup for that week. <a href="#roundup">All roundups</a></div>');
-      var n = +w.id.slice(-2);
+      var n = +w.id.slice(-2), card = /^(potw|totw)-(.+)$/.exec(parts[1] || ""), cdiv = card && dkey(card[2]);
+      if (cdiv) { PICK_DIV = cdiv; setCrumbs([["Weekly Roundups", "roundup"], [parts[0].toUpperCase(), "roundup/" + parts[0]], [cdiv + (card[1] === "potw" ? " Player" : " Team") + " of the Week"]]); }
+      else setCrumbs([["Weekly Roundups", "roundup"], [w.label]]);
       return std("Weekly Roundup :: " + esc(w.label), "week " + n, picksHtml(w) + '<div class="infobox">Week ' + n + (w.current ? " (so far)" : "") + ": " + num(w.cs_matches) + " CS2 results tracked (" + num(w.cs_with_scoreboards) + " with scoreboards) and " + num((w.wow || {}).kills) + " WoW Mythic boss kills by tracked guilds. " + esc(sp.upset_rule) + "</div>" + spotHtml(w) + '<div class="crumbs"><a href="#roundup">All roundups</a></div>');
     }
     return std("Weekly Roundups", weeks.length + " weeks", weeks.length ? '<div class="rankbox"><table class="tbl"><thead><tr><th class="first">Week</th><th class="n">CS2 results</th><th class="n">WoW kills</th></tr></thead><tbody>' + weeks.map(function (w) {
@@ -1422,6 +1432,10 @@
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 
+  function pageNotFound(parts) {   // audit2 A4: one real "Page not found" view for any unknown path
+    setCrumbs([["Page not found"]]);
+    return std("Page not found", "404", '<div class="empty miss">There is no page at <b>/' + esc(parts.join("/")) + '</b>. Try the <a href="#home">front page</a>, <a href="#cs2">CS2</a>, <a href="#valorant">Valorant</a>, <a href="#wow">WoW</a> or <a href="#search/' + esc(encodeURIComponent(parts.join(" ").replace(/[-_]/g, " ").slice(0, 40))) + '">search</a>.</div>');
+  }
   function vCS2(parts) {
     var sub = parts[0];
     var cs = D.cs || {}, divs = csDivs(), ids = divs.map(divId);
@@ -1430,6 +1444,7 @@
       var bodyR = V6[sub][1](parts[1]);
       return gameHead("cs2", sub === "methodology" ? "ranking" : sub, "Counter-Strike 2 :: " + V6[sub][0]) + bodyR;
     }
+    if (sub && ids.length && ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results" && sub !== "today" && sub !== "standings") return pageNotFound(["cs2"].concat(parts));
     if (!sub || (ids.indexOf(sub) < 0 && sub !== "players" && sub !== "results" && sub !== "today")) sub = ids[0] || "players";
     var section = sub === "players" || sub === "results" || sub === "today" ? sub : "standings", segs = "";
     if (section === "standings" && ids.length) {
@@ -1499,6 +1514,7 @@
     if (sub === "events") sub = "calendar";
     var oldEv = /^event-(\d{1,2})$/.exec(sub || "");   // audit B10: old positional URL -> stable one
     if (oldEv && evs[+oldEv[1] - 1] && evId(+oldEv[1] - 1) !== sub) { sub = evId(+oldEv[1] - 1); try { history.replaceState(null, "", "#valorant/" + sub); } catch (e) {} }
+    if (sub && evs.length && ids.indexOf(sub) < 0 && !/^p\d+$/.test(sub)) return pageNotFound(["valorant"].concat(parts));
     if (ids.indexOf(sub) < 0) sub = ord.length ? evId(ord[0]) : "calendar";   // #valorant opens the North America event
     var section = sub === "results" || sub === "players" ? sub : "events", picker = "";
     var evTabs = [{ grp: "Event" }].concat(ord.map(function (i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(evs[i].title) }; }));
@@ -1547,13 +1563,14 @@
             '</td><td class="n">' + num(p.kd).toFixed(2) + '</td><td class="n hide-sm">' + num(p.adr).toFixed(1) + "</td></tr>";
         }).join("") + '</tbody></table></div><div class="note">Best five by vlr.gg rating (min. 40 rounds) &middot; <a href="#valorant/players">all top players</a> &middot; ' + ext(String(e.url || "").replace(/\/event\/(\d+)\/.*/, "/event/stats/$1"), "event stats on vlr.gg") + "</div>";
     }
-    return gameHead("valorant", section, "Valorant :: Challengers / Game Changers", picker) + srcLine("valorant") +
+    return gameHead("valorant", section, "Valorant :: Challengers / Game Changers", picker) + srcLine("valorant") + valOffNote() +
       '<h2 class="subhead">' + esc(title) + "</h2>" + body;
   }
 
   function vWow(parts) {
     var sub = parts[0], page = pageOf(parts);
     var w = D.wow || {}, rks = w.rankings || {}, regs = wowRegs(rks);
+    if (sub && regs.length && regs.indexOf(sub) < 0 && !/^p\d+$/.test(sub)) return pageNotFound(["wow"].concat(parts));
     if (regs.indexOf(sub) < 0) sub = regs[0] || "us";
     setCrumbs([["WoW", "wow"], [sub.toUpperCase() + " Rankings"]]);
     var raid = w.raid;
@@ -1608,7 +1625,7 @@
       while ((j = low.indexOf(ql, i)) >= 0) { out += esc(s.slice(i, j)) + "<mark>" + esc(s.slice(j, j + ql.length)) + "</mark>"; i = j + ql.length; }
       return out + esc(s.slice(i));
     }
-    var body = !ql ? '<div class="empty">Type in the SEARCH FRAGNET box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' + recentHtml() :
+    var body = !ql ? '<div class="empty">Type in the search box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' + recentHtml() :
       !hits.length ? '<div class="empty' + (lazyBusy ? ' loading">Searching all players&hellip;' : '">No matches for &ldquo;' + esc(q) + "&rdquo;.") + "</div>" :
       Object.keys(groups).map(function (g) {
         return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + groups[g].length + ')</div><ul class="sr-list">' + groups[g].slice(0, 40).map(function (h) {
@@ -1671,7 +1688,7 @@
     if (!p && !spot) return notFound("Player not tracked", "No player named &ldquo;" + esc(nick) + "&rdquo; in Esports Scoreboard's data (rosters and season stats of the ESEA teams shown).", '<a href="#cs2/players">Top fraggers</a>');
     var name = p ? p.nick : spot.m.nick, pm = (D.cs && D.cs.top_players_meta) || {};
     var teamCell = spot ? csTeamLink(spot.t) + ' <span class="dim">(' + esc(spot.d.region + " " + spot.d.division) + ")</span>" :
-      p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : '<span class="dim">not found in the public rosters</span>';
+      p.team ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team)) : '<span class="dim">No team (not on a current ESEA roster)</span>';
     var info = kv([
       ["Team", teamCell],
       spot ? ["Role", spot.m.sub ? "Substitute" : "Player" + (spot.t.leader === spot.m.nick ? " &middot; Captain" : "")] : null,
@@ -2051,7 +2068,7 @@
         case "search": html = vSearch(r.parts.join("/")); break;
         case "status": html = vStatus(); break;
         case "status-box": r.top = "status"; html = vStatus(); break;
-        case "notfound": setCrumbs([["Page not found"]]); html = std("Page not found", "404", '<div class="empty miss">There is no page at <b>/' + esc(r.parts.join("/")) + '</b>. Try the <a href="#home">front page</a>, <a href="#cs2">CS2</a>, <a href="#valorant">Valorant</a>, <a href="#wow">WoW</a> or <a href="#search/' + esc(encodeURIComponent(r.parts.join(" ").replace(/[-_]/g, " ").slice(0, 40))) + '">search</a>.</div>'); break;
+        case "notfound": html = pageNotFound(r.parts); break;
         default: r.top = "home"; html = vHome();
       }
     } catch (e) {
@@ -2073,7 +2090,7 @@
     Array.prototype.slice.call(document.querySelectorAll("#view h1"), 1).forEach(function (h) { var n = document.createElement("h2"); n.innerHTML = h.innerHTML; n.className = h.className; h.parentNode.replaceChild(n, h); });
     // audit B7/B8: specific titles from the breadcrumb trail (like the prerendered path pages), plain text, brand once
     var h1 = $("#view .std-header h1");
-    var cr = Array.prototype.map.call(document.querySelectorAll("#view .crumbs a, #view .crumbs .cur"), function (x) { return x.textContent.trim(); }).filter(function (t) { return t && t !== "Home"; });
+    var cr = Array.prototype.map.call(document.querySelectorAll("#view nav.crumbs:first-of-type a, #view nav.crumbs:first-of-type .cur"), function (x) { return x.textContent.trim(); }).filter(function (t) { return t && t !== "Home"; });
     var spec = cr.length ? cr.reverse().join(" :: ") : h1 ? h1.textContent : TITLES[r.top] || "";
     spec = spec.replace(/\s*::\s*Esports Scoreboard$/, "");
     document.title = r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : (spec ? spec + " :: " : "") + "Esports Scoreboard";
@@ -2249,11 +2266,19 @@
       fetch("home.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (hd) {
           boot(hd);
-          return getFull().then(function (full) {
-            D = full; buildIndex();
-            [renderGameNav, renderStatus, renderSideNews, renderTicker, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) {} });
-            KEEP_SCROLL = true; route();
-          }, function () { D.partial = false; });
+          // audit2 A6: the full data.json waits until the visitor leaves the front page or uses search (not on every first visit)
+          var started = false, upgrade = function () {
+            if (started) return; started = true;
+            window.removeEventListener("hashchange", upgrade);
+            getFull().then(function (full) {
+              D = full; buildIndex();
+              [renderGameNav, renderStatus, renderSideNews, renderTicker, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) {} });
+              KEEP_SCROLL = true; route();
+            }, function () { D.partial = false; KEEP_SCROLL = true; route(); });
+          };
+          window.addEventListener("hashchange", upgrade);
+          document.addEventListener("focusin", function (ev) { if (ev.target && ev.target.matches && ev.target.matches("input")) upgrade(); });
+          document.addEventListener("click", function (ev) { var a = ev.target.closest && ev.target.closest("a[href^='#']"); if (a && !/^#(home)?$/.test(a.getAttribute("href"))) upgrade(); }, true);
         }, function () { getFull().then(boot, loadDataJs); });
     } else getFull().then(boot, loadDataJs);
   }
