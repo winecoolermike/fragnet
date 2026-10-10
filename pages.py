@@ -472,7 +472,7 @@ class Site:
                      std(f"ESB Team Ranking :: {reg}", f"{len(rows)} teams", body))
         def t20(lst):
             rows = [f'<tr><td class="first c">{i + 1}</td><td class="team">{pl(p["nick"])}</td><td>{e(p["region"] + " " + p["division"])}</td><td class="n"><b>{p["rating"]:.2f}</b></td><td class="n">{p["rounds"]}</td></tr>' for i, p in enumerate(lst)]
-            return table(['<th class="first c">#</th>', "<th>Player</th>", "<th>Division</th>", '<th class="n">Rating</th>', '<th class="n">Rounds</th>'], rows) if rows else '<div class="empty">No player has 60 rounds yet.</div>'
+            return table(['<th class="first c">#</th>', "<th>Player</th>", "<th>Division</th>", '<th class="n">Rating</th>', '<th class="n">Rounds</th>'], rows) if rows else '<div class="empty">No player has enough rounds yet.</div>'
         def dsl(k):
             return slug(k.replace(" ", "-"))
         tops = rk.get("top20") if isinstance(rk.get("top20"), dict) else {}

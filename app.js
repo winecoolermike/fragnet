@@ -530,6 +530,10 @@
       ["Advanced", "Main", "Intermediate"].map(function (d) { return '<a href="#' + base + "/" + dslug(reg + " " + d) + '"' + (d === dv ? ' class="on"' : "") + ">" + (d === "Intermediate" ? "Int" : d === "Advanced" ? "Adv" : d) + "</a>"; }).join("") + "</div>" +
       (fun ? '<div class="seg"><a href="#' + base + '/esea"' + (cur === "fun" ? ' class="on"' : "") + ">ESEA (for fun)</a></div>" : "") + "</div>";
   }
+  function minNote(x) {
+    var m = x.top_min || { current: 60 }, sw = m.switch ? new Date(m.switch) : null, early = sw && Date.now() < sw.getTime();
+    return "Minimum " + m.current + " rounds" + (early ? " until midseason (" + fmt(m.switch, "md") + ", 2026 PT), then " + m.late : "") + ".";
+  }
   function top20Table(t) {
     return '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
       t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team || "")) + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
@@ -542,14 +546,14 @@
     var tabs = divTabs("cs2/top20", cur, true);
     if (cur === "fun") {
       var f = x.top20_fun || [];
-      return tabs + '<div class="infobox"><b>ESEA Top 20, just for fun.</b> Ratings are measured against each player&rsquo;s own division, so players from different divisions can&rsquo;t be compared fairly yet. Until opponent-strength weighting arrives (planned midseason) this list shows <b>Advanced players only</b> (NA and EU), at least 60 rounds. <a href="#cs2/methodology">Methodology</a></div>' + (f.length ? top20Table(f) : '<div class="empty">No Advanced player has 60 rounds yet.</div>');
+      return tabs + '<div class="infobox"><b>ESEA Top 20, just for fun.</b> Ratings are measured against each player&rsquo;s own division, so players from different divisions can&rsquo;t be compared fairly yet. Until opponent-strength weighting arrives (planned midseason) this list shows <b>Advanced players only</b> (NA and EU). ' + minNote(x) + ' <a href="#cs2/methodology">Methodology</a></div>' + (f.length ? top20Table(f) : '<div class="empty">No Advanced player has ' + (x.top_min || {}).current + " rounds yet.</div>");
     }
     var t = (x.top20 || {})[cur] || [];
-    return tabs + '<div class="infobox">' + esc(cur) + " Top 20 of the season by ESB Rating 1.0 (" + esc(cur) + " average = 1.00), at least 60 rounds. <a href=\"#cs2/methodology\">Methodology</a></div>" + (t.length ? top20Table(t) + (t.length < 20 ? '<div class="note">Only ' + t.length + " " + esc(cur) + " players have 60+ rounds so far.</div>" : "") : '<div class="empty">No ' + esc(cur) + " player has 60 rounds yet this season.</div>");
+    return tabs + '<div class="infobox">' + esc(cur) + " Top 20 of the season by ESB Rating 1.0 (" + esc(cur) + " average = 1.00). " + minNote(x) + " <a href=\"#cs2/methodology\">Methodology</a></div>" + (t.length ? top20Table(t) + (t.length < 20 ? '<div class="note">Only ' + t.length + " " + esc(cur) + " players have " + (x.top_min || {}).current + "+ rounds so far.</div>" : "") : '<div class="empty">No ' + esc(cur) + " player has " + (x.top_min || {}).current + " rounds yet this season.</div>");
   }
   function seasonNote(x) {
     var end = x.season && x.season.end ? new Date(x.season.end) : null, over = end && Date.now() > end.getTime();
-    return '<div class="infobox">' + (over ? "Season finished " + fmt(x.season.end, "short") + "." : "<b>Season in progress</b>, standings as of " + fmt(x.generated, "short") + (end ? "; the regular season ends " + fmt(x.season.end, "md") + "." : ".")) + ' Awards are per division and follow the published formulas (<a href="#cs2/methodology">methodology</a>).</div>';
+    return '<div class="infobox">' + (over ? "Season finished " + fmt(x.season.end, "short") + "." : "<b>Season in progress</b>, standings as of " + fmt(x.generated, "short") + (end ? "; the regular season ends " + fmt(x.season.end, "md") + "." : ".")) + ' ' + minNote(x) + ' Awards are per division and follow the published formulas (<a href="#cs2/methodology">methodology</a>).</div>';
   }
   function vAwards(id) {
     var x = rankX(), cur = dkey(id) || "NA Advanced";
@@ -563,7 +567,7 @@
       row("MVP", m && ilink(playerHash(m.nick), m.nick) + (m.team ? " (" + esc(m.team) + ")" : "") + " &middot; rating <b>" + m.rating.toFixed(2) + "</b>", "#1 of the " + esc(cur) + " Top 20") +
       row("Best team", b && tl(b) + " &middot; " + Math.round(b.pts) + " pts", "highest-ranked " + esc(cur) + " team") +
       row("Breakout team", k && tl(k) + " &middot; +" + k.gain.toFixed(1) + " pts above the division start", "largest gain over the division starting value") +
-      "</tbody></table></div>" + '<div class="note">Not awarded: ' + esc(((x.awards || {}).omitted || []).join(" ")) + "</div>" + '<h2 class="subhead">' + esc(cur) + " Top 20</h2>" + (t.length ? top20Table(t) : '<div class="empty">No ' + esc(cur) + " player has 60 rounds yet.</div>");
+      "</tbody></table></div>" + '<div class="note">Not awarded: ' + esc(((x.awards || {}).omitted || []).join(" ")) + "</div>" + '<h2 class="subhead">' + esc(cur) + " Top 20</h2>" + (t.length ? top20Table(t) : '<div class="empty">No ' + esc(cur) + " player has " + (x.top_min || {}).current + " rounds yet.</div>");
   }
   function vPlayoffs() {
     var x = rankX();

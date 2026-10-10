@@ -10,7 +10,7 @@ TEAM RANKING (Elo on maps):
 PLAYER RATING 1.0 (season):
   0.30*KPR/avgKPR + 0.25*avgDPR/DPR + 0.30*ADR/avgADR + 0.10*KD/avgKD + 0.05*HS/avgHS,
   averages = round-weighted over the player's division (region + division), so the division average = 1.00.
-  Min 20 rounds. No division multipliers: Top 20s/awards/weekly picks are per division (Top 20 needs 60+ rounds);
+  Min 20 rounds. No division multipliers: Top 20s/awards/weekly picks are per division (Top 20/MVP/awards need 30+ rounds until Nov 11, 2026 PT, then 60+);
   a combined "ESEA Top 20 (just for fun)" lists Advanced players only until opponent-strength weighting exists. Per-map rating uses the same formula with map rounds.
 Usage: python ranking.py dist [--archive rankings]
 """
@@ -19,6 +19,14 @@ import os
 import re
 import sys
 from datetime import datetime, timedelta, timezone
+
+# Top 20 / MVP / awards minimum rounds: 30 until midseason, then 60 (Season 59: Oct 3 - Dec 20; midseason Nov 11, 2026 PT)
+TOP_MIN_EARLY, TOP_MIN_LATE, TOP_MIN_SWITCH = 30, 60, "2026-11-11T00:00:00-08:00"
+
+
+def top_min(now):
+    return TOP_MIN_EARLY if now < datetime.fromisoformat(TOP_MIN_SWITCH) else TOP_MIN_LATE
+
 
 PRIOR = {"Advanced": 1600.0, "Main": 1450.0, "Intermediate": 1300.0}
 K, MARGIN_CAP_ROUNDS = 32.0, 10
@@ -29,7 +37,7 @@ FORMULA_TEAM = ("Elo on maps: start Advanced 1600 / Main 1450 / Intermediate 130
                 "(1 + min(round diff, 10)/20); expected = 1/(1+10^((opp - R)/400)); forfeits skipped; ranked after 3 matches.")
 FORMULA_PLAYER = ("Rating 1.0 = 0.30 KPR/avg + 0.25 avg/DPR + 0.30 ADR/avg + 0.10 K/D/avg + 0.05 HS%/avg, averages over the player's "
                   "division (so division average = 1.00); min 20 rounds. No division multipliers: Top 20s, awards and weekly picks compare players "
-                  "within one division (Top 20 needs 60+ rounds). Opponent-strength weighting is planned for midseason.")
+                  "within one division (Top 20, MVP and awards need 30+ rounds until Nov 11, 2026 PT, then 60+). Opponent-strength weighting is planned for midseason.")
 
 
 def ts(s):
@@ -228,7 +236,8 @@ def build(data, teams, now=None):
         names[m["t1"]["id"]] = m["t1"]["name"]; names[m["t2"]["id"]] = m["t2"]["name"]
     for p in pr:
         p["team"] = p.get("team") or names.get(p.get("team_id"))
-    elig = sorted([p for p in pr if p["rounds"] >= TOP_MIN_ROUNDS], key=lambda p: (-p["rating"], -p["rounds"]))
+    tmin = top_min(now)
+    elig = sorted([p for p in pr if p["rounds"] >= tmin], key=lambda p: (-p["rating"], -p["rounds"]))
     top = {k: [p for p in elig if f"{p['region']} {p['division']}" == k][:20] for k in DIVS}
     fun = [p for p in elig if p["division"] == "Advanced"][:20]   # "just for fun" until opponent-strength weighting exists
     season = (data.get("cs") or {}).get("season") or {}
@@ -252,7 +261,8 @@ def build(data, teams, now=None):
     return {"awards": awards, "playoffs": playoffs, "generated": now.isoformat(timespec="seconds"), "week_start": ws.isoformat(), "season": {"name": season.get("name"), "end": season.get("end"), "start": season.get("start")},
             "formula_team": FORMULA_TEAM, "formula_player": FORMULA_PLAYER, "prior": PRIOR, "divs": DIVS, "weights": W, "min_rounds": MIN_ROUNDS,
             "teams": cur, "avgs": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in avgs.items()},
-            "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top, "top20_fun": fun}
+            "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top, "top20_fun": fun,
+            "top_min": {"current": tmin, "early": TOP_MIN_EARLY, "late": TOP_MIN_LATE, "switch": TOP_MIN_SWITCH}}
 
 
 def archive(rk, folder):
