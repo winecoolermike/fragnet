@@ -769,7 +769,7 @@ def build(dist, site, og_cache, do_og=True):
     # audit B5: 404.html with site chrome; known or old paths redirect to the matching hash route
     from urllib.parse import urlparse
     base = urlparse(site).path or "/"
-    nf = tpl.replace("<head>", '<head>\n<script>(function(){var B=' + json.dumps(base) + ',p=location.pathname;if(p.indexOf(B)===0){p=p.slice(B.length).replace(/\\/+$/,"").replace(/\\/index\\.html$/,"");}if(p&&!/\\.(png|js|json|css|svg|xml|txt|webmanifest)$/i.test(p)){location.replace(B+"#"+p+location.search.replace(/^\\?.*/,""));}})();</script>', 1)
+    nf = tpl.replace("<head>", '<head>\n<script>(function(){var B=' + json.dumps(base) + ',p=location.pathname;if(p.indexOf(B)===0){p=p.slice(B.length).replace(/\\/+$/,"").replace(/\\/index\\.html$/,"");}if(p&&!/\\.(png|js|json|css|svg|xml|txt|webmanifest)$/i.test(p)){location.replace(B+"#"+(/^(home|cs2|valorant|wow|news|forums|roundup|recruiting|about|search|status|team|player|match|guild)(\\/|$)/.test(p)?p:"notfound/"+p));}})();</script>', 1)
     nf = nf.replace('<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<base href="' + e(base) + '">\n<meta name="robots" content="noindex">', 1)
     nf = re.sub(r"<title>[^<]*</title>", "<title>Page not found :: Esports Scoreboard</title>", nf, count=1)
     nf = nf.replace('<div id="view" aria-live="polite"></div>', '<div id="view" aria-live="polite"><div class="std"><div class="std-header"><h1>Page not found</h1></div><div class="empty miss">That page doesn&rsquo;t exist. <a href="./">Front page</a> &middot; <a href="cs2/">CS2</a> &middot; <a href="valorant/">Valorant</a> &middot; <a href="wow/">WoW</a></div></div></div>', 1)

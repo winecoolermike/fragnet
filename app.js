@@ -2024,6 +2024,7 @@
         case "search": html = vSearch(r.parts.join("/")); break;
         case "status": html = vStatus(); break;
         case "status-box": r.top = "status"; html = vStatus(); break;
+        case "notfound": setCrumbs([["Page not found"]]); html = std("Page not found", "404", '<div class="empty miss">There is no page at <b>/' + esc(r.parts.join("/")) + '</b>. Try the <a href="#home">front page</a>, <a href="#cs2">CS2</a>, <a href="#valorant">Valorant</a>, <a href="#wow">WoW</a> or <a href="#search/' + esc(encodeURIComponent(r.parts.join(" ").replace(/[-_]/g, " ").slice(0, 40))) + '">search</a>.</div>'); break;
         default: r.top = "home"; html = vHome();
       }
     } catch (e) {
