@@ -825,3 +825,4 @@ td.score a.xl:hover{color:var(--link)}
 }
 .tbl.prov td{color:#5b6770}.tbl.prov td a{color:#4a5a68}
 [data-theme=night] .tbl.prov td,[data-theme=night] .tbl.prov td a{color:#a7b2bc}
+@media (max-width:1100px) and (min-width:481px){.tbl.cs-board th,.tbl.cs-board td{padding-left:3px;padding-right:3px}}

@@ -2216,7 +2216,7 @@
   if (location.protocol === "file:" || !window.fetch) loadDataJs();
   else {
     var getFull = function () { return fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }); };
-    var isHome = !location.hash || /^#(home)?$/.test(location.hash);
+    var isHome = (!location.hash || /^#(home)?$/.test(location.hash)) && !!document.querySelector("#view[data-prerender]");   // home.json exists only in built sites
     if (isHome) {   // audit B12: paint the front page from the small home.json, then upgrade to data.json
       fetch("home.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
         .then(function (hd) {
