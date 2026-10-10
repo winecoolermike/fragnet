@@ -183,6 +183,11 @@
     var top = (curHash().replace(/^#/, "").split("/")[0] || "home"), pref = top === "cs2" ? "CS" : top === "valorant" ? "VAL" : top === "wow" ? "WOW" : "";
     var g = {}, order = ["CS", "VAL", "WOW", "ESPORTS"];
     newsItems().forEach(function (i) { var t = String(i.tag || "ESPORTS").toUpperCase(); (g[t] = g[t] || []).push(i); if (order.indexOf(t) < 0) order.push(t); });
+    Object.keys(g).forEach(function (t) {   // within a game, rotate sources
+      var by = {}, ks = []; g[t].forEach(function (i) { if (!by[i.source]) { by[i.source] = []; ks.push(i.source); } by[i.source].push(i); });
+      var r = []; for (var k = 0; r.length < g[t].length; k++) ks.forEach(function (sname) { if (by[sname][k]) r.push(by[sname][k]); });
+      g[t] = r;
+    });
     var out = [];
     if (pref && g[pref]) out = g[pref].slice(0, Math.ceil(n * 0.6)), g[pref] = g[pref].slice(out.length);
     for (var k = 0; out.length < n && k < 50; k++) order.forEach(function (t) { if (out.length < n && g[t] && g[t][k]) out.push(g[t][k]); });

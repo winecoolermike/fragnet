@@ -1606,12 +1606,19 @@ def fetch_news(prev):
             seen.add(i["url"])
             uniq.append(i)
     uniq.sort(key=lambda x: x["date"] or "", reverse=True)
-    per = {}
     capped = []
-    for i in uniq:
-        per[i["tag"]] = per.get(i["tag"], 0) + 1
-        if per[i["tag"]] <= GAME_CAP.get(i["tag"], 8):
-            capped.append(i)
+    for tag in dict.fromkeys(i["tag"] for i in uniq):   # per game: take sources in turn (newest first within each)
+        by = {}
+        for i in uniq:
+            if i["tag"] == tag:
+                by.setdefault(i["source"], []).append(i)
+        lists, k, n = list(by.values()), 0, 0
+        while n < GAME_CAP.get(tag, 8) and any(len(x) > k for x in lists):
+            for x in lists:
+                if len(x) > k and n < GAME_CAP.get(tag, 8):
+                    capped.append(x[k]); n += 1
+            k += 1
+    capped.sort(key=lambda x: x["date"] or "", reverse=True)
     out["items"] = capped
     return out
 
