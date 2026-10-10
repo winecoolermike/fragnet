@@ -106,6 +106,16 @@ def verify():
             with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
                 text = fh.read().lower()
             problems += [f"banned term {t!r} found in {rel}" for t in terms if t in text]
+    # audit2 A2: the old name must not appear in user-facing text (URLs, file names, storage keys and code identifiers like fragnet-route are fine)
+    old_name = re.compile(r"(?<![-_./A-Za-z])fragnet(?![-_./A-Za-z])", re.I)
+    for rel in files:
+        if rel.endswith(".html") or rel == "app.js":
+            with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+            if rel.endswith(".html"):
+                text = re.sub(r"(?is)<(script|style)\b.*?</\1>|<[^>]+>", " ", text)
+            if old_name.search(text):
+                problems.append(f"old site name in user-facing text of {rel}")
     sys.path.insert(0, HERE)
     import prerender
     with open(os.path.join(DIST, "index.html"), encoding="utf-8") as fh:
