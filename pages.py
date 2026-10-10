@@ -235,19 +235,21 @@ class Site:
                      std("Counter-Strike 2 :: ESEA League", e(season), table(['<th class="first">Division</th>', "<th>Leader</th>", '<th class="n">Teams</th>'], ov)))
         self.add("cs2/results", "CS2 Match Results :: ESEA League", f"Latest ESEA League ({season}) match results in North America and Europe, with scores, maps and scoreboards.",
                  std("Counter-Strike 2 :: Match Results", "EU + NA", self.cs_results(self.fin, 50)))
-        # v4.6: every division, top 25 by K/D (min. 20 rounds) from all players with stats; the live page sorts/filters/pages the rest
+        # v4.6: every division, top 25 by ESB Rating (min. 20 rounds) from all players with stats; the live page sorts/filters/pages the rest
         minr = int(num((cs.get("top_players_meta") or {}).get("min_rounds") or 20))
         body, total = "", 0
+        rmap = (load(os.path.join(self.dist, "rank.json")) or {}).get("ratings") or {}
+        rt = lambda p: rmap.get(f'{p.get("nick")}|{p.get("region")}|{p.get("division")}')
         for dv in self.divs:
             pool = [p for p in self.players.values() if p.get("region") == dv.get("region") and p.get("division") == dv.get("division") and num(p.get("rounds")) >= minr]
-            pool.sort(key=lambda p: (-num(p.get("kd")), -num(p.get("adr")), str(p.get("nick")).lower()))
+            pool.sort(key=lambda p: (-(rt(p) if rt(p) is not None else -9), -num(p.get("kd")), str(p.get("nick")).lower()))
             total += len(pool)
             rows = [f'<tr><td class="rk"><span>{i + 1}</span></td><td class="team">{self.plink(p.get("nick"))}</td><td class="n hide-sm">{int(num(p.get("rounds")))}</td>'
-                    f'<td class="n">{num(p.get("kd")):.2f}</td><td class="n">{num(p.get("adr")):.1f}</td><td class="n hide-sm">{round(num(p.get("hs")))}%</td></tr>' for i, p in enumerate(pool[:25])]
+                    f'<td class="n"><b>{(format(rt(p), ".2f") if rt(p) is not None else "-")}</b></td><td class="n">{num(p.get("kd")):.2f}</td><td class="n">{num(p.get("adr")):.1f}</td><td class="n hide-sm">{round(num(p.get("hs")))}%</td></tr>' for i, p in enumerate(pool[:25])]
             name = f'{dv.get("region")} {dv.get("division")}'
-            body += f'<h2 class="subhead">Top Fraggers :: {e(name)}</h2>' + (table(['<th class="first c">#</th>', "<th>Player</th>", '<th class="n hide-sm">Rnds</th>', '<th class="n">K/D</th>', '<th class="n">ADR</th>', '<th class="n hide-sm">HS%</th>'], rows)
-                     + f'<div class="note">Top {len(rows)} of {len(pool)} players with at least {minr} rounds, by K/D.</div>' if rows else f'<div class="empty">No player in {e(name)} has {minr} rounds yet.</div>')
-        self.add("cs2/players", "Top Fraggers :: ESEA League CS2", f"ESEA League ({season}) top fraggers in every NA and EU division: {total} players with {minr}+ rounds, by K/D with ADR and headshot rate.",
+            body += f'<h2 class="subhead">Top Fraggers :: {e(name)}</h2>' + (table(['<th class="first c">#</th>', "<th>Player</th>", '<th class="n hide-sm">Rnds</th>', '<th class="n">Rating</th>', '<th class="n">K/D</th>', '<th class="n">ADR</th>', '<th class="n hide-sm">HS%</th>'], rows)
+                     + f'<div class="note">Top {len(rows)} of {len(pool)} players with at least {minr} rounds, by ESB Rating 1.0.</div>' if rows else f'<div class="empty">No player in {e(name)} has {minr} rounds yet.</div>')
+        self.add("cs2/players", "Top Fraggers :: ESEA League CS2", f"ESEA League ({season}) top fraggers in every NA and EU division: {total} players with {minr}+ rounds, by ESB Rating 1.0 with K/D, ADR and headshot rate.",
                  std("Counter-Strike 2 :: Top Fraggers", "every division", body))
         # teams with at least one tracked match
         for tid, (t, dv) in self.team_rank.items():

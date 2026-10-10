@@ -415,6 +415,15 @@
     var f = lo / pool.length, k = Math.min(5, Math.floor(f * 5) + 1);
     return '<span class="pc pc' + k + '" title="' + esc("better than " + Math.round(f * 100) + "% of " + pool.length + " " + who) + '">' + txt + "</span>";
   }
+  function rtChip(p) {   // rating colored red-to-green by percentile within the division, like K/D and ADR
+    if (p.esbr == null) return '<span class="dim">&ndash;</span>';
+    var txt = p.esbr.toFixed(2);
+    if (num(p.rounds) < MINR()) return "<b>" + txt + "</b>";
+    var dv = p.region + " " + p.division;
+    return chip(p.esbr, txt, pcPool("cs:" + dv + ":esbr", function () {
+      return allCsPlayers().filter(function (q) { return q.region === p.region && q.division === p.division && num(q.rounds) >= MINR(); }).map(function (q) { return playerEsbr(q); }).filter(function (v) { return v != null; });
+    }), dv + " players (min. " + MINR() + " rounds)");
+  }
   function csPc(p, stat) {
     var txt = stat === "kd" ? num(p.kd).toFixed(2) : num(p.adr).toFixed(1);
     if (num(p.rounds) < MINR()) return "<b>" + txt + "</b>";
@@ -627,7 +636,7 @@
   function csBoard(parts) {
     var divs = csDivs(), ids = divs.map(divId);
     if (!ids.length) return '<div class="empty">Player stats coming soon.</div>';
-    var defs = { div: ids[0], sort: "kd", min: 20 }, o = boardOpts(parts, CS_SORTS, defs, ids), base = "cs2/players";
+    var defs = { div: ids[0], sort: "esbr", min: 20 }, o = boardOpts(parts, CS_SORTS, defs, ids), base = "cs2/players";
     var cur = divs[ids.indexOf(o.div)], dn = cur.region + " " + cur.division;
     var regs = ["NA", "EU"].filter(function (rg) { return divs.some(function (d) { return d.region === rg; }); });
     var inReg = function (rg) { return divs.filter(function (d) { return d.region === rg; }); };
@@ -644,7 +653,8 @@
       var k = fold(p.nick); if (seen[k] || p.region !== cur.region || p.division !== cur.division) return false; seen[k] = 1; return true;
     });
     all.forEach(function (p) { p.esbr = playerEsbr(p); });
-    var list = boardSort(all.filter(function (p) { return num(p.rounds) >= o.min && num(p.rounds) > 0; }), o.sort, ["kd", "adr", "rounds"]);
+    if (o.sort === "esbr" && CFG.rank && !rankX()) return '<div class="segs">' + dsegs + '</div><div class="empty loading">Loading ratings&hellip;</div>';
+    var list = boardSort(all.filter(function (p) { return num(p.rounds) >= o.min && num(p.rounds) > 0; }), o.sort === "esbr" && !CFG.rank ? "kd" : o.sort, ["kd", "adr", "rounds"]);
     var tName = {}; (cur.teams || []).forEach(function (t) { if (t.id) tName[t.id] = t.name; });
     var th = function (k, l, c, t) { return boardTh(base, o, defs, k, l, c, t); };
     var note = '<div class="note">' + list.length + " of " + all.length + " " + esc(dn) + " players with season stats" + (o.min ? " (at least " + o.min + " rounds)" : "") + ", sorted by " + esc(CS_SORTS.filter(function (x) { return x[0] === o.sort; })[0][1]) +
@@ -656,7 +666,7 @@
         "</tr></thead><tbody>" + list.slice(from, from + n).map(function (p, i) {
           var r = from + i + 1, tn = p.team || tName[p.team_id];
           return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim">&ndash;</span>') +
-            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + rtCell(p.esbr) + '</td><td class="n hide-sm">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
+            '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + rtChip(p) + '</td><td class="n hide-sm">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }, dsegs) + note;
   }
