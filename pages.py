@@ -286,7 +286,8 @@ class Site:
             if not SAFE_SEG.match(nick) or num(p.get("matches")) < 1:
                 continue
             tid = p.get("team_id")
-            team = (ilink("team/cs2/" + tid, p.get("team")) if tid and tid in self.team_rank and (self.by_team.get(tid) or self.up_team.get(tid)) else e(p.get("team") or "-"))
+            tnm = p.get("team") or (self.team_rank.get(tid) or ({},))[0].get("name")   # audit2 A8: no empty team link
+            team = (ilink("team/cs2/" + tid, tnm) if tnm and tid and tid in self.team_rank and (self.by_team.get(tid) or self.up_team.get(tid)) else (e(tnm) if tnm else '<span class="dim">No team</span>'))
             info = kv([("Team", team), ("Stats group", e((p.get("region") or "") + " " + (p.get("division") or ""))),
                        ("Matches / rounds", f'{int(num(p.get("matches")))} / {int(num(p.get("rounds")))}'),
                        ("K/D", f'<b>{num(p.get("kd")):.2f}</b>'), ("ADR", f'{num(p.get("adr")):.1f}'), ("HS%", f'{round(num(p.get("hs")))}%'),
@@ -456,21 +457,24 @@ class Site:
             return ilink(route, text) if route in routes else e(text)
         out = []
         ups = b.get("upsets") or []
-        out.append('<h2 class="subhead">Upset of the week</h2>' + (
+        out.append(('<h2 class="subhead">Upset of the week</h2>' if ups else "") + (
             "".join(f'<div class="spot-line">{lk("team/cs2/" + u["winner"]["id"], u["winner"]["name"])} (#{u["winner"]["rank"]}) beat '
                     f'{lk("team/cs2/" + u["loser"]["id"], u["loser"]["name"])} (#{u["loser"]["rank"]}) {lk("match/cs2/" + u["id"], u["score"])} '
                     f'<span class="dim">{e(u["region"])} {e(u["division"])}</span></div>' for u in ups[:3])
-            or '<div class="empty">No upset by this rule in this period.</div>'))
+            or ""))
         fr = b.get("fraggers") or []
         out.append('<h2 class="subhead">Top fragger by division</h2>' + (table(["<th class=\"first\">Division</th>", "<th>Player</th>", "<th class=\"n\">Kills</th>", "<th class=\"n\">Maps</th>"],
             [f'<tr><td>{e(f["div"])}</td><td class="team">{lk("player/cs2/" + f["nick"], f["nick"])} <span class="dim">{e(f["team"])}</span></td><td class="n">{lk("match/cs2/" + str(f["match"]), str(f["kills"]))}</td><td class="n">{f["maps"]}</td></tr>' for f in fr])
             or '<div class="empty">No FACEIT scoreboards in this period.</div>'))
         st = b.get("streaks") or []
-        out.append('<h2 class="subhead">Hottest streak</h2>' + ("".join(f'<div class="spot-line">{lk("team/cs2/" + x["id"], x["name"])}: {x["n"]} wins in a row <span class="dim">{e(x["div"])}</span></div>' for x in st[:3])
-                   or '<div class="empty">No team is on a 3+ win streak.</div>'))
+        out.append(('<h2 class="subhead">Hottest streak</h2>' if st else "") + ("".join(f'<div class="spot-line">{lk("team/cs2/" + x["id"], x["name"])}: {x["n"]} wins in a row <span class="dim">{e(x["div"])}</span></div>' for x in st[:3])
+                   or ""))
         w = b.get("wow") or {}
         out.append(f'<h2 class="subhead">WoW Mythic kills</h2>' + ("".join(f'<div class="spot-line">{ext(g.get("url"), g.get("guild"))} ({e(g.get("region", "").upper())}): {g["kills"]} kill{"s" if g["kills"] != 1 else ""} &middot; {e(", ".join(g.get("bosses") or []))}</div>' for g in w.get("guilds") or [])
                    or '<div class="empty">No Mythic kills by tracked guilds in this period.</div>'))
+        miss = [x for x, have in (("upset of the week", ups), ("hottest 3+ win streak", st)) if not have]
+        if miss:
+            out.append(f'<div class="note">More spotlights ({", ".join(miss)}) appear here once the week&rsquo;s results produce one.</div>')
         return "".join(out)
 
     def build_roundups(self):

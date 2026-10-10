@@ -169,6 +169,9 @@ def inject(page, data):
     view, side, upd, desc = render(data)
     if not (well_formed(view) and well_formed(side)):
         raise ValueError("rendered snapshot is not well-formed HTML")
+    _e = view.find("</h1>")   # audit2 A7: one h1 in the no-JS front page too (later box titles become h2, same look)
+    if _e >= 0:
+        view = view[:_e + 5] + re.sub(r"<(/?)h1\b", r"<\1h2", view[_e + 5:])
     reps = [('<div id="view" aria-live="polite"></div>', f'<div id="view" aria-live="polite" {MARK}>{view}</div>'),
             ('<ul class="side-menu counts" id="side-news"></ul>', f'<ul class="side-menu counts" id="side-news">{side}</ul>'),
             ('<div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>', f'<div class="sb-upd" id="hdr-upd">updated {e(upd)}</div>')]
