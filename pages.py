@@ -287,7 +287,7 @@ class Site:
                 continue
             tid = p.get("team_id")
             tnm = p.get("team") or (self.team_rank.get(tid) or ({},))[0].get("name")   # audit2 A8: no empty team link
-            team = (ilink("team/cs2/" + tid, tnm) if tnm and tid and tid in self.team_rank and (self.by_team.get(tid) or self.up_team.get(tid)) else (e(tnm) if tnm else '<span class="dim">No team</span>'))
+            team = (ilink("team/cs2/" + tid, tnm) if tnm and tid and tid in self.team_rank and (self.by_team.get(tid) or self.up_team.get(tid)) else (e(tnm) if tnm else '<span class="dim nt">No team</span>'))
             info = kv([("Team", team), ("Stats group", e((p.get("region") or "") + " " + (p.get("division") or ""))),
                        ("Matches / rounds", f'{int(num(p.get("matches")))} / {int(num(p.get("rounds")))}'),
                        ("K/D", f'<b>{num(p.get("kd")):.2f}</b>'), ("ADR", f'{num(p.get("adr")):.1f}'), ("HS%", f'{round(num(p.get("hs")))}%'),

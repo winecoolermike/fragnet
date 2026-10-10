@@ -826,3 +826,8 @@ td.score a.xl:hover{color:var(--link)}
 .tbl.prov td{color:#5b6770}.tbl.prov td a{color:#4a5a68}
 [data-theme=night] .tbl.prov td,[data-theme=night] .tbl.prov td a{color:#a7b2bc}
 @media (max-width:1100px) and (min-width:481px){.tbl.cs-board th,.tbl.cs-board td{padding-left:3px;padding-right:3px}}
+
+/* audit2: long 404 lines wrap; "No team" may wrap in tight tables */
+.empty.miss{white-space:normal;overflow-wrap:anywhere}
+.nt{white-space:normal}
+@media (max-width:1100px){.tbl.cs-board td:nth-child(3){white-space:normal;max-width:150px}}

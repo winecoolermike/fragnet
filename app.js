@@ -577,7 +577,7 @@
   }
   function top20Table(t) {
     return '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
-      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : p.team ? esc(p.team) : '<span class="dim">No team</span>') + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
+      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : p.team ? esc(p.team) : '<span class="dim nt">No team</span>') + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
   }
   function vTop20(id) {
     var x = rankX();
@@ -674,7 +674,7 @@
         th("matches", "Matches", "n hide-sm", "matches played") + th("rounds", "Rnds", "n hide-sm", "rounds played") + th("esbr", "Rating", "n", "ESB Rating 1.0 (division average = 1.00)") + th("kills", "K", "n hide-sm", "kills") + th("kd", "K/D", "n", "kills per death") + th("adr", "ADR", "n", "average damage per round") + th("hs", "HS%", "n hide-sm", "headshot kill percentage") +
         "</tr></thead><tbody>" + list.slice(from, from + n).map(function (p, i) {
           var r = from + i + 1, tn = p.team || tName[p.team_id];
-          return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim">No team</span>') +
+          return '<tr class="' + medal(r) + '" data-k="' + esc("csp:" + p.nick) + '">' + rk(r) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (tn ? (p.team_id ? ilink("team/cs2/" + encodeURIComponent(p.team_id), tn) : esc(tn)) : '<span class="dim nt">No team</span>') +
             '</td><td class="n hide-sm">' + num(p.matches) + '</td><td class="n hide-sm">' + num(p.rounds) + '</td><td class="n">' + rtChip(p) + '</td><td class="n hide-sm">' + num(p.kills) + '</td><td class="n">' + csPc(p, "kd") + '</td><td class="n">' + csPc(p, "adr") + '</td><td class="n hide-sm">' + Math.round(num(p.hs)) + "%</td></tr>";
         }).join("") + "</tbody></table></div>";
     }, dsegs) + note;
