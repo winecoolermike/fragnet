@@ -823,3 +823,5 @@ td.score a.xl:hover{color:var(--link)}
   .day-strip .day{flex:0 0 auto}
   .st-tabs .seg{flex-wrap:nowrap;overflow-x:auto}.st-tabs .seg a{flex:0 0 auto}
 }
+.tbl.prov td{color:#5b6770}.tbl.prov td a{color:#4a5a68}
+[data-theme=night] .tbl.prov td,[data-theme=night] .tbl.prov td a{color:#a7b2bc}

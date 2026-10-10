@@ -512,8 +512,13 @@
     var segs = '<div class="segs"><div class="seg"><span class="seg-l">Region</span>' + [["NA", "na"], ["EU", "eu"], ["All", "all"]].map(function (r) { return '<a href="#cs2/ranking/' + r[1] + '"' + ((reg === r[0] || (reg === "all" && r[1] === "all")) ? ' class="on"' : "") + ">" + r[0] + "</a>"; }).join("") + "</div></div>";
     if (!x) return segs + rankWait("The ranking is");
     var rows = (x.teams || []).filter(function (t) { return reg === "all" || t.region === reg; });
-    var intro = '<div class="infobox">One Elo-style ranking across every ESEA division, updated with each site refresh; arrows compare with the ranking at the end of last week. Teams appear after 3 matches. <a href="#cs2/methodology">How it works</a></div>';
-    if (!rows.length) return segs + intro + '<div class="empty">No team has played 3 matches yet this season, so nobody is ranked yet. The first ranking appears after round 3.</div>';
+    var intro = '<div class="infobox">The <b>team</b> ranking is one Elo list across all ESEA divisions (each division starts at its own value, so Advanced teams start higher). Player Top 20s and awards are compared <b>per division</b>. Arrows compare with the end of last week; teams are ranked after 3 matches. <a href="#cs2/methodology">How it works</a></div>';
+    if (!rows.length) {
+      var pv = (x.provisional || []).filter(function (t) { return reg === "all" || t.region === reg; });
+      return segs + intro + '<div class="empty">No ' + (reg === "all" ? "" : esc(reg) + " ") + 'team has 3 matches yet, so the official ranking starts after round 3. ' + (reg !== "all" && (x.teams || []).length ? '<a href="#cs2/ranking/all">See all regions</a> &middot; ' : "") + '<a href="#cs2">Standings</a></div>' +
+        (pv.length ? '<h2 class="subhead">Provisional (2 matches)</h2><div class="rankbox"><table class="tbl esb-rank prov"><thead><tr><th class="first c">#</th><th>Team</th><th class="hide-sm">Division</th><th class="n">Points</th><th class="n">W-L</th></tr></thead><tbody>' +
+          pv.slice(0, 100).map(function (t, i) { return '<tr class="prov">' + rk(i + 1) + '<td class="team">' + ilink("team/cs2/" + encodeURIComponent(t.id), t.name) + '</td><td class="hide-sm">' + esc(t.region + " " + t.division) + '</td><td class="n">' + Math.round(t.pts) + '</td><td class="n">' + t.w + "-" + t.l + "</td></tr>"; }).join("") + '</tbody></table></div><div class="note">Provisional: not official until a team has 3 matches.</div>' : "");
+    }
     return segs + intro + '<div class="rankbox"><table class="tbl esb-rank"><thead><tr><th class="first c">#</th><th class="c">+/-</th><th>Team</th><th class="hide-sm">Division</th><th class="n">Points</th><th class="n">W-L</th>' + (reg === "all" ? "" : '<th class="n hide-sm" title="rank across all regions">Overall</th>') + "</tr></thead><tbody>" +
       rows.slice(0, 200).map(function (t) {
         var r = reg === "all" ? t.rank : t.rank_region;

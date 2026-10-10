@@ -222,6 +222,7 @@ def build(data, teams, now=None):
     res = finished(data, teams)
     R, info = elo(res)
     cur = table(R, info)
+    prov = sorted([dict(info[k], pts=round(v, 1)) for k, v in R.items() if info[k]["matches"] == MIN_MATCHES - 1], key=lambda r: (-r["pts"], r["name"].lower()))[:400]
     ws = week_start(now)
     prev = {r["id"]: r for r in table(*elo(res, ws))}
     for r in cur:
@@ -261,7 +262,7 @@ def build(data, teams, now=None):
     return {"awards": awards, "playoffs": playoffs, "generated": now.isoformat(timespec="seconds"), "week_start": ws.isoformat(), "season": {"name": season.get("name"), "end": season.get("end"), "start": season.get("start")},
             "formula_team": FORMULA_TEAM, "formula_player": FORMULA_PLAYER, "prior": PRIOR, "divs": DIVS, "weights": W, "min_rounds": MIN_ROUNDS,
             "teams": cur, "avgs": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in avgs.items()},
-            "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top, "top20_fun": fun,
+            "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top, "top20_fun": fun, "provisional": prov,
             "top_min": {"current": tmin, "early": TOP_MIN_EARLY, "late": TOP_MIN_LATE, "switch": TOP_MIN_SWITCH}}
 
 
