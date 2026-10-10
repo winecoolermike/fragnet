@@ -406,6 +406,24 @@ class Site:
             self.add("news", "Esports News :: Esports Scoreboard", f"Latest esports headlines (CS2, Valorant, WoW) from {', '.join(sorted({str(n.get('source')) for n in news})[:5])}.",
                      std("Esports Scoreboard News Wire", f"{len(news)} headlines", '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news) + "</div>"))
 
+        # audit B5: natural section URLs get real pages (the SPA takes over with JS)
+        cs = self.d.get("cs") or {}
+        today = [m for m in (cs.get("upcoming") or []) + (cs.get("live") or [])][:30]
+        self.add("cs2/today", "CS2 Matches Today :: ESEA League", "Today's ESEA CS2 matches with live status, times in Pacific Time, and links to FACEIT match rooms.",
+                 std("Matches Today", "CS2 &middot; ESEA", f'<div class="infobox">{len(today)} upcoming or live ESEA matches in the latest data. Enable JavaScript for live status, filters and the day strip.</div>' +
+                     "".join(f'<div class="spot-line">{e(pt(m.get("t"), "%a %H:%M"))} &middot; {e((m.get("t1") or {}).get("name"))} vs {e((m.get("t2") or {}).get("name"))} <span class="dim">{e(m.get("region"))} {e(m.get("division"))}</span></div>' for m in today[:20])))
+        disc = "https://github.com/winecoolermike/fragnet/discussions"
+        self.add("forums", "Forums :: Esports Scoreboard", "Esports Scoreboard community forums on GitHub Discussions: CS2, Valorant, WoW, match threads and site feedback.",
+                 std("Forums", "GitHub Discussions", f'<div class="infobox">The forums run on GitHub Discussions. {ext(disc, "Open the forums")}</div>'))
+        self.add("recruiting", "LFP / LFT recruiting board :: Esports Scoreboard", "Amateur and semi-pro teams looking for players and players looking for teams, reviewed before posting.",
+                 std("LFP / LFT Recruiting Board", "reviewed posts", '<div class="infobox">Teams looking for players and players looking for teams. Posts are reviewed before they appear. Enable JavaScript to see the board and the post forms.</div>'))
+        self.add("wow", "World of Warcraft Mythic Raid Race :: Esports Scoreboard", f"World of Warcraft Mythic raid race in {raid}: US and EU guild rankings from Raider.IO.",
+                 std("World of Warcraft :: Mythic Raid Race", e(raid), f'<div class="infobox">{ilink("wow/us", "US rankings")} &middot; {ilink("wow/eu", "EU rankings")}</div>'))
+        self.add("about", "About :: Esports Scoreboard", "About Esports Scoreboard, an independent fan-made tracker for ESEA League CS2, Valorant Challengers and the WoW Mythic raid race.",
+                 std("About Esports Scoreboard", "independent fan project", '<div class="infobox">An independent fan project tracking ESEA League CS2, Valorant Challengers / Game Changers and the WoW Mythic raid race. Data from FACEIT, vlr.gg and Raider.IO; every team, player and guild links to its source. Not affiliated with FACEIT, ESEA, Valve, Riot Games or Blizzard.</div>'))
+        self.add("search", "Search :: Esports Scoreboard", "Search teams, players, guilds and headlines on Esports Scoreboard.",
+                 std("Search", "teams, players, guilds", '<div class="infobox">Search needs JavaScript. Browse: ' + ilink("cs2", "CS2 standings") + " &middot; " + ilink("valorant", "Valorant") + " &middot; " + ilink("wow", "WoW") + "</div>"))
+
     # ------------------------------------------------------------- v5.2 weekly roundups (spot.json from spotlight.py)
     def spot_html(self, b, routes):
         def lk(route, text):
@@ -544,7 +562,7 @@ class Site:
         if page.count(vp) != 1:
             raise ValueError("viewport meta not found")
         page = page.replace(vp, vp + "\n" + tags[0], 1)       # <base> before any relative URL
-        title = p["title"] + " :: Esports Scoreboard"
+        title = p["title"] if p["title"].endswith("Esports Scoreboard") else p["title"] + " :: Esports Scoreboard"
         page = re.sub(r"<title>[^<]*</title>", lambda _: f"<title>{e(title)}</title>", page, count=1)
         for attr, val in (('name="description"', p["desc"]), ('property="og:description"', p["desc"]), ('property="og:title"', title), ('property="og:url"', url)):
             pat = re.compile(r'(<meta ' + re.escape(attr) + r' content=")[^"]*(">)')
@@ -685,6 +703,15 @@ def build(dist, site, og_cache, do_og=True):
     with open(tpl_path + ".tmp", "w", encoding="utf-8") as fh:
         fh.write(home)
     os.replace(tpl_path + ".tmp", tpl_path)
+    # audit B5: 404.html with site chrome; known or old paths redirect to the matching hash route
+    from urllib.parse import urlparse
+    base = urlparse(site).path or "/"
+    nf = tpl.replace("<head>", '<head>\n<script>(function(){var B=' + json.dumps(base) + ',p=location.pathname;if(p.indexOf(B)===0){p=p.slice(B.length).replace(/\\/+$/,"").replace(/\\/index\\.html$/,"");}if(p&&!/\\.(png|js|json|css|svg|xml|txt|webmanifest)$/i.test(p)){location.replace(B+"#"+p+location.search.replace(/^\\?.*/,""));}})();</script>', 1)
+    nf = nf.replace('<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<base href="' + e(base) + '">\n<meta name="robots" content="noindex">', 1)
+    nf = re.sub(r"<title>[^<]*</title>", "<title>Page not found :: Esports Scoreboard</title>", nf, count=1)
+    nf = nf.replace('<div id="view" aria-live="polite"></div>', '<div id="view" aria-live="polite"><div class="std"><div class="std-header"><h1>Page not found</h1></div><div class="empty miss">That page doesn&rsquo;t exist. <a href="./">Front page</a> &middot; <a href="cs2/">CS2</a> &middot; <a href="valorant/">Valorant</a> &middot; <a href="wow/">WoW</a></div></div></div>', 1)
+    with open(os.path.join(dist, "404.html"), "w", encoding="utf-8") as fh:
+        fh.write(nf)
     # sitemap + robots
     day = (s.d.get("fetched_at") or datetime.now(timezone.utc).isoformat())[:10]
     urls = [site] + [site + p["route"] + "/" for p in s.pages]
