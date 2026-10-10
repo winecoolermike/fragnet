@@ -521,33 +521,49 @@
       }).join("") + "</tbody></table></div>" + '<div class="note">' + rows.length + " ranked teams" + (rows.length > 200 ? ", top 200 shown" : "") + " &middot; as of " + fmt(x.generated, "short") + ". Built only from FACEIT results tracked here.</div>";
   }
   function rankWait(what) { loadRank(); return CFG.rank && RK_STATE !== "fail" ? '<div class="empty loading">Loading&hellip;</div>' : '<div class="empty">' + what + " not available on this copy of the site.</div>"; }
-  function vTop20() {
+  var V6DIVS = ["NA Advanced", "NA Main", "NA Intermediate", "EU Advanced", "EU Main", "EU Intermediate"];
+  function dkey(id) { for (var i = 0; i < V6DIVS.length; i++) if (slug(V6DIVS[i].replace(" ", "-")) === id) return V6DIVS[i]; return null; }
+  function dslug(k) { return slug(k.replace(" ", "-")); }
+  function divTabs(base, cur, fun) {
+    var reg = cur === "fun" ? "NA" : cur.split(" ")[0], dv = cur === "fun" ? "" : cur.split(" ")[1];
+    return '<div class="segs"><div class="seg"><span class="seg-l">Region</span>' + ["NA", "EU"].map(function (r) { return '<a href="#' + base + "/" + dslug(r + " " + (dv || "Advanced")) + '"' + (cur !== "fun" && r === reg ? ' class="on"' : "") + ">" + r + "</a>"; }).join("") + '</div><div class="seg"><span class="seg-l">Division</span>' +
+      ["Advanced", "Main", "Intermediate"].map(function (d) { return '<a href="#' + base + "/" + dslug(reg + " " + d) + '"' + (d === dv ? ' class="on"' : "") + ">" + (d === "Intermediate" ? "Int" : d === "Advanced" ? "Adv" : d) + "</a>"; }).join("") + "</div>" +
+      (fun ? '<div class="seg"><a href="#' + base + '/esea"' + (cur === "fun" ? ' class="on"' : "") + ">ESEA (for fun)</a></div>" : "") + "</div>";
+  }
+  function top20Table(t) {
+    return '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
+      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team || "")) + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n"><b>' + rtCell(p.rating) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>";
+  }
+  function vTop20(id) {
     var x = rankX();
-    setCrumbs([["CS2", "cs2"], ["Top 20 players"]]);
+    var cur = id === "esea" ? "fun" : dkey(id) || "NA Advanced";
+    setCrumbs([["CS2", "cs2"], ["Top 20", "cs2/top20"], [cur === "fun" ? "ESEA (just for fun)" : cur]]);
     if (!x) return rankWait("The Top 20 is");
-    var t = x.top20 || [];
-    var intro = '<div class="infobox">Season Top 20 across all ESEA divisions by ESB Rating 1.0 with a division-strength factor (Advanced &times;' + x.div_factor.Advanced.toFixed(2) + ", Main &times;" + x.div_factor.Main.toFixed(2) + ", Intermediate &times;" + x.div_factor.Intermediate.toFixed(2) + '), at least 60 rounds. <a href="#cs2/methodology">Methodology</a></div>';
-    if (!t.length) return intro + '<div class="empty">No player has 60 rounds yet this season.</div>';
-    return intro + '<div class="rankbox"><table class="tbl top20"><thead><tr><th class="first c">#</th><th>Player</th><th class="hide-sm">Team</th><th>Division</th><th class="n">Rating</th><th class="n" title="rating x division factor">Adjusted</th><th class="n hide-sm">Rounds</th></tr></thead><tbody>' +
-      t.map(function (p, i) { return '<tr class="' + medal(i + 1) + '">' + rk(i + 1) + '<td class="team">' + ilink(playerHash(p.nick), p.nick) + '</td><td class="hide-sm">' + (p.team_id && p.team ? ilink("team/cs2/" + encodeURIComponent(p.team_id), p.team) : esc(p.team || "")) + "</td><td>" + esc(p.region + " " + p.division) + '</td><td class="n">' + rtCell(p.rating) + '</td><td class="n"><b>' + p.adj.toFixed(2) + '</b></td><td class="n hide-sm">' + p.rounds + "</td></tr>"; }).join("") + "</tbody></table></div>" +
-      (t.length < 20 ? '<div class="note">Only ' + t.length + " players have 60+ rounds so far.</div>" : "");
+    var tabs = divTabs("cs2/top20", cur, true);
+    if (cur === "fun") {
+      var f = x.top20_fun || [];
+      return tabs + '<div class="infobox"><b>ESEA Top 20, just for fun.</b> Ratings are measured against each player&rsquo;s own division, so players from different divisions can&rsquo;t be compared fairly yet. Until opponent-strength weighting arrives (planned midseason) this list shows <b>Advanced players only</b> (NA and EU), at least 60 rounds. <a href="#cs2/methodology">Methodology</a></div>' + (f.length ? top20Table(f) : '<div class="empty">No Advanced player has 60 rounds yet.</div>');
+    }
+    var t = (x.top20 || {})[cur] || [];
+    return tabs + '<div class="infobox">' + esc(cur) + " Top 20 of the season by ESB Rating 1.0 (" + esc(cur) + " average = 1.00), at least 60 rounds. <a href=\"#cs2/methodology\">Methodology</a></div>" + (t.length ? top20Table(t) + (t.length < 20 ? '<div class="note">Only ' + t.length + " " + esc(cur) + " players have 60+ rounds so far.</div>" : "") : '<div class="empty">No ' + esc(cur) + " player has 60 rounds yet this season.</div>");
   }
   function seasonNote(x) {
     var end = x.season && x.season.end ? new Date(x.season.end) : null, over = end && Date.now() > end.getTime();
-    return '<div class="infobox">' + (over ? "Season finished " + fmt(x.season.end, "short") + "." : "<b>Season in progress</b>, standings as of " + fmt(x.generated, "short") + (end ? "; the regular season ends " + fmt(x.season.end, "md") + "." : ".")) + ' Awards follow the published formulas (<a href="#cs2/methodology">methodology</a>).</div>';
+    return '<div class="infobox">' + (over ? "Season finished " + fmt(x.season.end, "short") + "." : "<b>Season in progress</b>, standings as of " + fmt(x.generated, "short") + (end ? "; the regular season ends " + fmt(x.season.end, "md") + "." : ".")) + ' Awards are per division and follow the published formulas (<a href="#cs2/methodology">methodology</a>).</div>';
   }
-  function vAwards() {
-    var x = rankX();
-    setCrumbs([["CS2", "cs2"], ["Season awards"]]);
+  function vAwards(id) {
+    var x = rankX(), cur = dkey(id) || "NA Advanced";
+    setCrumbs([["CS2", "cs2"], ["Season awards", "cs2/awards"], [cur]]);
     if (!x) return rankWait("Awards are");
-    var a = x.awards || {}, m = a.mvp, b = a.best_team, k = a.breakout;
+    var a = ((x.awards || {}).divs || {})[cur] || {}, m = a.mvp, b = a.best_team, k = a.breakout;
     function row(label, html, why) { return "<tr><th>" + label + "</th><td>" + (html || '<span class="dim">no eligible pick yet</span>') + '</td><td class="hide-sm dim">' + why + "</td></tr>"; }
-    var tl = function (t) { return ilink("team/cs2/" + encodeURIComponent(t.id), t.name) + " (" + esc(t.region + " " + t.division) + ")"; };
-    return seasonNote(x) + '<div class="rankbox"><table class="tbl awards"><tbody>' +
-      row("MVP", m && ilink(playerHash(m.nick), m.nick) + " (" + esc(m.region + " " + m.division) + ") &middot; adjusted rating <b>" + m.adj.toFixed(2) + "</b>", "#1 of the Top 20 below") +
-      row("Best team", b && tl(b) + " &middot; " + Math.round(b.pts) + " pts", "#1 in the ESB Ranking") +
-      row("Breakout team", k && tl(k) + " &middot; +" + k.gain.toFixed(1) + " pts above its division start", "largest gain over its division starting value") +
-      "</tbody></table></div>" + '<div class="note">Not awarded: ' + esc((a.omitted || []).join(" ")) + "</div>" + '<h2 class="subhead">All-division Top 20</h2>' + vTop20().replace(/^[\s\S]*?<\/div>/, "") + (setCrumbs([["CS2", "cs2"], ["Season awards"]]), "");
+    var tl = function (t) { return ilink("team/cs2/" + encodeURIComponent(t.id), t.name); };
+    var t = (x.top20 || {})[cur] || [];
+    return divTabs("cs2/awards", cur, false) + seasonNote(x) + '<div class="rankbox"><table class="tbl awards"><tbody>' +
+      row("MVP", m && ilink(playerHash(m.nick), m.nick) + (m.team ? " (" + esc(m.team) + ")" : "") + " &middot; rating <b>" + m.rating.toFixed(2) + "</b>", "#1 of the " + esc(cur) + " Top 20") +
+      row("Best team", b && tl(b) + " &middot; " + Math.round(b.pts) + " pts", "highest-ranked " + esc(cur) + " team") +
+      row("Breakout team", k && tl(k) + " &middot; +" + k.gain.toFixed(1) + " pts above the division start", "largest gain over the division starting value") +
+      "</tbody></table></div>" + '<div class="note">Not awarded: ' + esc(((x.awards || {}).omitted || []).join(" ")) + "</div>" + '<h2 class="subhead">' + esc(cur) + " Top 20</h2>" + (t.length ? top20Table(t) : '<div class="empty">No ' + esc(cur) + " player has 60 rounds yet.</div>");
   }
   function vPlayoffs() {
     var x = rankX();
@@ -576,7 +592,8 @@
     var ft = x ? x.formula_team : "", fp = x ? x.formula_player : "";
     return '<div class="infobox method"><h3>ESB Team Ranking</h3><p>' + esc(ft || "Loading…") + '</p><p>Map scores come from FACEIT; a Bo1 without map stats counts as one map from the series score; a series without map stats counts as one game without a margin bonus. NA and EU teams never meet, so their relative order comes only from the division starting values. Arrows compare with the ranking replayed up to the start of this week (Monday 00:00 PT); finished weeks are archived in the repo (rankings/).</p>' +
       "<h3>ESB Rating 1.0</h3><p>" + esc(fp) + "</p><p>KPR = kills per round, DPR = deaths per round, ADR = average damage per round, HS% = headshot kill percentage, all as published by FACEIT. Win rate is not included: FACEIT gives team records, not per-player ones. A per-map rating on match scoreboards uses the same formula with that map&rsquo;s rounds. This is an Esports Scoreboard formula, not an official FACEIT or ESEA rating.</p>" +
-      "<h3>Player and Team of the Week</h3><p>Player of the Week: highest rounds-weighted per-map rating over the week (Monday-Sunday PT), at least 2 maps with FACEIT scoreboards, multiplied by the division factor. Team of the Week: largest ranking-points gain over the week with at least 2 matches that week, among ranked teams.</p></div>";
+      "<h3>Per-division comparisons</h3><p>There are no division multipliers. Because every rating is measured against its own division, Top 20s, season awards and weekly picks are per division (NA/EU &times; Advanced, Main, Intermediate). The combined ESEA Top 20 is just for fun and lists Advanced players only. Opponent-strength weighting (adjusting ratings for the quality of the teams faced) is planned for midseason.</p>" +
+      "<h3>Player and Team of the Week (per division)</h3><p>Player of the Week: highest rounds-weighted per-map rating in the division over the week (Monday-Sunday PT), at least 2 maps with FACEIT scoreboards. Team of the Week: largest ranking-points gain in the division over the week with at least 2 matches that week, among ranked teams. Season awards per division: MVP = #1 of the division Top 20, best team = highest-ranked team, breakout = largest gain over the division starting value.</p></div>";
   }
   var CS_SORTS = [["esbr", "Rating"], ["kd", "K/D"], ["adr", "ADR"], ["hs", "HS%"], ["kills", "Kills"], ["rounds", "Rounds"], ["matches", "Matches"]];
   function csBoard(parts) {
@@ -1027,12 +1044,18 @@
     return std("This Week", '<a href="#roundup">weekly roundups &raquo;</a>', '<div class="infobox spot-intro">Last 7 days: ' + num(b.cs_matches) + " CS2 results tracked, " + num((b.wow || {}).kills) + " WoW Mythic boss kills. " + esc(sp.upset_rule) + "</div>" + picksHtml((sp.weeks || []).filter(function (w) { return w.current; })[0], true) + spotHtml(b), "home-spot");
   }
   /* v6.2 Player / Team of the Week (computed in spotlight.py via ranking.py; archived with the roundup week) */
+  var PICK_DIV = lsGet("esb-pick-div", "NA Advanced");
   function picksHtml(w, home) {
     if (!w || !("potw" in w)) return "";
-    var p = w.potw, t = w.totw, out = '<div class="potw">';
-    out += '<div class="pick"><h2 class="subhead">Player of the Week' + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ", " + esc(p.div) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" + shareBox("roundup/" + w.id + "/potw") : '<div class="empty">No player has 2 maps with FACEIT scoreboards this week yet.</div>') + "</div>";
-    out += '<div class="pick"><h2 class="subhead">Team of the Week</h2>' + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> (" + esc(t.region + " " + t.division) + ") &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw") : '<div class="empty">No ranked team has played 2 matches this week yet.</div>') + "</div>";
-    return out + '<div class="note">Picks follow the published formula: <a href="#cs2/methodology">methodology</a>.</div></div>';
+    var P = w.potw || {}, T = w.totw || {};
+    if (P.nick) { var o = {}; o[P.div] = P; P = o; }   // pre-v6.5 single pick
+    if (T.id) { var o2 = {}; o2[T.region + " " + T.division] = T; T = o2; }
+    var cur = V6DIVS.indexOf(PICK_DIV) >= 0 ? PICK_DIV : "NA Advanced", p = P[cur], t = T[cur], ds = dslug(cur);
+    var tabs = '<div class="segs pick-tabs" role="tablist">' + ["NA", "EU"].map(function (r) { return '<div class="seg"><span class="seg-l">' + r + "</span>" + ["Advanced", "Main", "Intermediate"].map(function (d) { var k = r + " " + d; return '<button type="button" class="pick-tab' + (k === cur ? " on" : "") + '" data-div="' + k + '" aria-pressed="' + (k === cur) + '">' + (d === "Intermediate" ? "Int" : d === "Advanced" ? "Adv" : d) + "</button>"; }).join("") + "</div>"; }).join("") + "</div>";
+    var out = '<div class="potw">' + tabs;
+    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Player of the Week" + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" + shareBox("roundup/" + w.id + "/potw-" + ds) : '<div class="empty">No ' + esc(cur) + " player has 2 maps with FACEIT scoreboards this week yet.</div>") + "</div>";
+    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="empty">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
+    return out + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
   }
   function vRoundup(parts) {
     setCrumbs(parts[0] ? [["Weekly Roundups", "roundup"], [parts[0].toUpperCase()]] : [["Weekly Roundups"]]);
@@ -1765,6 +1788,7 @@
     }).catch(function () { msg.textContent = "Card not available here."; });
   }
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".share-btn"); if (b) shareCard(b); });
+  document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".pick-tab"); if (!b) return; PICK_DIV = b.getAttribute("data-div"); lsSet("esb-pick-div", PICK_DIV); KEEP_SCROLL = true; route(); });
   /* v5.4 team-owned extras: extra.js is the reviewed teams-extra.json, validated at deploy (teams_extra.py) */
   var EX_STATE = "";
   function extraX() { return window.ESB_EXTRA || null; }

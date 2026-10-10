@@ -806,3 +806,6 @@ td.score a.xl:hover{color:var(--link)}
 .bracket{display:flex;gap:10px;overflow-x:auto;padding:4px 0}.bcol{min-width:160px}.bhead{font:bold 11px var(--ui);margin-bottom:4px}
 .bm{border:1px solid #9aa7b1;margin-bottom:6px;font-size:12px}.bm div{display:flex;justify-content:space-between;padding:2px 4px}.bm .w{font-weight:bold}
 .po-links{margin:6px 0 6px 18px}
+.pick-tabs{flex-basis:100%}.pick-tab{font:bold 11px var(--ui);padding:4px 8px;border:1px solid #9aa7b1;background:#eef2f5;color:#1d3b57;cursor:pointer;min-height:28px}
+.pick-tab.on{background:#2f6db8;color:#fff;border-color:#2f6db8}
+[data-theme=night] .pick-tab{background:#1b2026;color:#cfe0ee;border-color:#56656e}[data-theme=night] .pick-tab.on{background:#2f6db8;color:#fff}
