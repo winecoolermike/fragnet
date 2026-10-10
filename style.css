@@ -809,3 +809,17 @@ td.score a.xl:hover{color:var(--link)}
 .pick-tabs{flex-basis:100%}.pick-tab{font:bold 11px var(--ui);padding:4px 8px;border:1px solid #9aa7b1;background:#eef2f5;color:#1d3b57;cursor:pointer;min-height:28px}
 .pick-tab.on{background:#2f6db8;color:#fff;border-color:#2f6db8}
 [data-theme=night] .pick-tab{background:#1b2026;color:#cfe0ee;border-color:#56656e}[data-theme=night] .pick-tab.on{background:#2f6db8;color:#fff}
+/* audit B1/B3 */
+.f-select{display:none}
+@media (max-width:480px){
+  .tbl td.score{white-space:nowrap;overflow:visible;text-overflow:clip}
+  .tbl.today td.score .map-chips,.tbl.today td.score .ff-tag{display:none}
+  .tbl.today td .rel .rl{display:none}
+  .tbl.today td .rel{white-space:nowrap}
+  .f-presets{display:none}
+  .f-select{display:flex;align-items:center;gap:6px;margin:6px 0;font:bold 11px var(--ui)}
+  .f-select select{flex:1;min-height:32px;font-size:14px}
+  .day-strip{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+  .day-strip .day{flex:0 0 auto}
+  .st-tabs .seg{flex-wrap:nowrap;overflow-x:auto}.st-tabs .seg a{flex:0 0 auto}
+}

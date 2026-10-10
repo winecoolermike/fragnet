@@ -1146,11 +1146,11 @@
   function relText(st, iso, g) {
     var t = new Date(iso).getTime(); if (isNaN(t)) return "";
     var d = Math.round((Date.now() - t) / 60000), a = Math.abs(d);
-    var span = a < 60 ? a + "m" : a < 1440 ? Math.floor(a / 60) + "h" + (a % 60 ? " " + (a % 60) + "m" : "") : Math.floor(a / 1440) + "d";
-    if (st === "up") return d < 0 ? "in " + span : "started " + span + " ago &middot; no result yet";
-    if (st === "live") return "started " + span + " ago";
+    var span = a < 60 ? a + "m" : a < 1440 ? Math.floor(a / 60) + "h" + (a % 60 ? '<span class="rl"> ' + (a % 60) + "m</span>" : "") : Math.floor(a / 1440) + "d";
+    if (st === "up") return d < 0 ? "in " + span : '<span class="rl">started </span>' + span + ' ago<span class="rl"> &middot; no result yet</span>';
+    if (st === "live") return '<span class="rl">started </span>' + span + " ago";
     if (g === "as") return d < 0 ? "just now" : span + " ago";
-    return d < 0 ? "" : (g === "cs" ? "ended " : "started ") + span + " ago";
+    return d < 0 ? "" : '<span class="rl">' + (g === "cs" ? "ended " : "started ") + "</span>" + span + " ago";
   }
   function relSpan(st, iso, g) { return iso ? '<span class="rel" data-st="' + st + '" data-g="' + g + '" data-t="' + esc(iso) + '">' + relText(st, iso, g) + "</span>" : ""; }
   function refreshRel() { Array.prototype.forEach.call(document.querySelectorAll("#view .rel[data-t]"), function (el) { el.innerHTML = relText(el.getAttribute("data-st"), el.getAttribute("data-t"), el.getAttribute("data-g")); }); }
@@ -1184,7 +1184,8 @@
     return true;
   }
   function filterSegs(f, dayIso) {
-    return '<div class="segs segs2 f-presets"><div class="seg"><span class="seg-l">Filter</span>' + FILTERS.map(function (x) {
+    return '<label class="f-select"><span>Filter</span> <select aria-label="Filter matches" data-base="#cs2/today/' + (dayIso ? dayIso + "/" : "") + 'f-">' + FILTERS.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === f ? " selected" : "") + ">" + esc(x[1].replace(/<[^>]+>/g, "")) + "</option>"; }).join("") + "</select></label>" +
+      '<div class="segs segs2 f-presets"><div class="seg"><span class="seg-l">Filter</span>' + FILTERS.map(function (x) {
       return '<a href="#cs2/today/' + (dayIso ? dayIso + "/" : "") + "f-" + x[0] + '" class="fpre' + (x[0] === f ? " on" : "") + '" data-f="' + x[0] + '">' + x[1] + "</a>";
     }).join("") + "</div></div>";
   }
@@ -1792,6 +1793,7 @@
     }).catch(function () { msg.textContent = "Card not available here."; });
   }
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".share-btn"); if (b) shareCard(b); });
+  document.addEventListener("change", function (ev) { var s = ev.target; if (s && s.matches && s.matches(".f-select select")) { var o = FILTERS.filter(function (x) { return x[0] === s.value; })[0]; if (o) { lsSet("esb-today-filter", s.value); location.hash = s.getAttribute("data-base") + s.value; } } });
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".pick-tab"); if (!b) return; PICK_DIV = b.getAttribute("data-div"); lsSet("esb-pick-div", PICK_DIV); KEEP_SCROLL = true; route(); });
   /* v5.4 team-owned extras: extra.js is the reviewed teams-extra.json, validated at deploy (teams_extra.py) */
   var EX_STATE = "";
