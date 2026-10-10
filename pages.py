@@ -470,21 +470,32 @@ class Site:
                      else '<div class="empty">No team has played 3 matches yet this season, so nobody is ranked yet.</div>'))
             self.add("cs2/ranking" + ("" if reg == "NA" else "/eu"), f"ESB Team Ranking {reg} :: CS2 ESEA", f"Weekly Elo-style ranking of ESEA {reg} CS2 teams across Advanced, Main and Intermediate, from real FACEIT map results.",
                      std(f"ESB Team Ranking :: {reg}", f"{len(rows)} teams", body))
-        rows = [f'<tr><td class="first c">{i + 1}</td><td class="team">{pl(p["nick"])}</td><td>{e(p["region"] + " " + p["division"])}</td><td class="n">{p["rating"]:.2f}</td><td class="n"><b>{p["adj"]:.2f}</b></td><td class="n">{p["rounds"]}</td></tr>' for i, p in enumerate(rk.get("top20") or [])]
-        top = table(['<th class="first c">#</th>', "<th>Player</th>", "<th>Division</th>", '<th class="n">Rating</th>', '<th class="n">Adjusted</th>', '<th class="n">Rounds</th>'], rows) if rows else '<div class="empty">No player has 60 rounds yet.</div>'
-        self.add("cs2/top20", "Top 20 CS2 players of the season :: ESEA", "Top 20 ESEA CS2 players across all divisions by ESB Rating 1.0 with a disclosed division-strength factor.",
-                 std("Top 20 Players of the Season", "all divisions", f'<div class="infobox">As of {asof}. {e(rk["formula_player"])}</div>' + top))
-        self.add("cs2/methodology", "ESB Ranking and Rating methodology", "Exact formulas for the Esports Scoreboard team ranking (Elo on maps) and ESB Rating 1.0 for ESEA CS2 players.",
-                 std("Ranking &amp; Rating Methodology", "formulas", f'<div class="infobox method"><h3>ESB Team Ranking</h3><p>{e(rk["formula_team"])}</p><h3>ESB Rating 1.0</h3><p>{e(rk["formula_player"])}</p></div>'))
-        a = rk.get("awards") or {}
+        def t20(lst):
+            rows = [f'<tr><td class="first c">{i + 1}</td><td class="team">{pl(p["nick"])}</td><td>{e(p["region"] + " " + p["division"])}</td><td class="n"><b>{p["rating"]:.2f}</b></td><td class="n">{p["rounds"]}</td></tr>' for i, p in enumerate(lst)]
+            return table(['<th class="first c">#</th>', "<th>Player</th>", "<th>Division</th>", '<th class="n">Rating</th>', '<th class="n">Rounds</th>'], rows) if rows else '<div class="empty">No player has 60 rounds yet.</div>'
+        def dsl(k):
+            return slug(k.replace(" ", "-"))
+        tops = rk.get("top20") if isinstance(rk.get("top20"), dict) else {}
+        divs = rk.get("divs") or list(tops)
         end = (rk.get("season") or {}).get("end")
         inprog = not end or datetime.now(timezone.utc).isoformat() < end
-        aw = [f'<tr><th>MVP</th><td>{pl(a["mvp"]["nick"]) + " (adjusted " + format(a["mvp"]["adj"], ".2f") + ")" if a.get("mvp") else "no eligible pick yet"}</td></tr>',
-              f'<tr><th>Best team</th><td>{tl(a["best_team"]) if a.get("best_team") else "no ranked team yet"}</td></tr>',
-              f'<tr><th>Breakout team</th><td>{tl(a["breakout"]) + " (+" + format(a["breakout"]["gain"], ".1f") + ")" if a.get("breakout") else "no ranked team yet"}</td></tr>']
-        self.add("cs2/awards", "CS2 ESEA season awards :: Esports Scoreboard", "Season awards for ESEA CS2: MVP, best team, breakout team and an all-division Top 20, from published formulas.",
-                 std("Season Awards", "season in progress" if inprog else "final", f'<div class="infobox">{"Season in progress, standings as of " + asof if inprog else "Season finished"}.</div>' +
-                     '<table class="tbl awards"><tbody>' + "".join(aw) + "</tbody></table>" + f'<div class="note">Not awarded: {e(" ".join(a.get("omitted") or []))}</div>' + top))
+        a = rk.get("awards") or {}
+        for k in divs:
+            lst = tops.get(k) or []
+            route = "cs2/top20" + ("" if k == "NA Advanced" else "/" + dsl(k))
+            self.add(route, f"{k} Top 20 CS2 players of the season :: ESEA", f"Top 20 ESEA {k} CS2 players of the season by ESB Rating 1.0 ({k} average = 1.00).",
+                     std(f"Top 20 :: {e(k)}", "season", f'<div class="infobox">As of {asof}. {e(rk["formula_player"])}</div>' + t20(lst)))
+            d = (a.get("divs") or {}).get(k) or {}
+            aw = [f'<tr><th>MVP</th><td>{pl(d["mvp"]["nick"]) + " (rating " + format(d["mvp"]["rating"], ".2f") + ")" if d.get("mvp") else "no eligible pick yet"}</td></tr>',
+                  f'<tr><th>Best team</th><td>{tl(d["best_team"]) if d.get("best_team") else "no ranked team yet"}</td></tr>',
+                  f'<tr><th>Breakout team</th><td>{tl(d["breakout"]) + " (+" + format(d["breakout"]["gain"], ".1f") + ")" if d.get("breakout") else "no ranked team yet"}</td></tr>']
+            self.add("cs2/awards" + ("" if k == "NA Advanced" else "/" + dsl(k)), f"{k} CS2 season awards :: ESEA", f"ESEA {k} CS2 season awards: MVP, best team and breakout team from published formulas.",
+                     std(f"Season Awards :: {e(k)}", "season in progress" if inprog else "final", f'<div class="infobox">{"Season in progress, standings as of " + asof if inprog else "Season finished"}.</div>' +
+                         '<table class="tbl awards"><tbody>' + "".join(aw) + "</tbody></table>" + f'<div class="note">Not awarded: {e(" ".join(a.get("omitted") or []))}</div>' + t20(lst)))
+        self.add("cs2/top20/esea", "ESEA Top 20 (just for fun) :: CS2", "Combined ESEA CS2 Top 20, just for fun: Advanced players only until opponent-strength weighting exists.",
+                 std("ESEA Top 20 :: just for fun", "Advanced only", '<div class="infobox">Just for fun: ratings compare players within their own division, so until opponent-strength weighting arrives (planned midseason) this list shows Advanced players only.</div>' + t20(rk.get("top20_fun") or [])))
+        self.add("cs2/methodology", "ESB Ranking and Rating methodology", "Exact formulas for the Esports Scoreboard team ranking (Elo on maps) and ESB Rating 1.0 for ESEA CS2 players, compared per division.",
+                 std("Ranking &amp; Rating Methodology", "formulas", f'<div class="infobox method"><h3>ESB Team Ranking</h3><p>{e(rk["formula_team"])}</p><h3>ESB Rating 1.0</h3><p>{e(rk["formula_player"])}</p></div>'))
         po = rk.get("playoffs") or {}
         self.add("cs2/playoffs", "ESEA CS2 playoffs :: Esports Scoreboard", "ESEA CS2 playoff brackets and event MVP once FACEIT publishes playoff matches.",
                  std("Playoffs", "ESEA", ('<div class="infobox">' + (f"{len(po.get('matches') or [])} playoff matches listed." if po.get("matches") else "Playoffs have not started; the bracket appears once FACEIT lists playoff matches.") + "</div>") +
@@ -494,17 +505,25 @@ class Site:
         for w in sp.get("weeks") or []:
             if not re.match(r"^\d{4}-w\d{2}$", str(w.get("id"))):
                 continue
-            p, t = w.get("potw"), w.get("totw")
-            if p:
-                k = "potw-" + w["id"]
-                self.og_jobs[k] = (p["nick"], f"Player of the Week · {w['label']}"[:70], [("RATING", f'{p["rating"]:.2f}'), ("K-D", f'{p["k"]}-{p["d"]}'), ("MAPS", str(p["maps"]))], (217, 80, 0))
-                self.add(f"roundup/{w['id']}/potw", f"Player of the Week {w['id'].upper()}: {p['nick']}", f"{p['nick']} ({p['team']}, {p['div']}) is the Esports Scoreboard Player of the Week, {w['label']}: rating {p['rating']:.2f} over {p['maps']} maps.",
-                         std("Player of the Week", e(w["label"]), f'<div class="infobox">{pl(p["nick"])} ({e(p["team"])}, {e(p["div"])}): ESB rating {p["rating"]:.2f} over {p["maps"]} maps, {p["k"]}-{p["d"]} K-D. <a href="roundup/{w["id"]}/">Week roundup</a></div>'), og=k)
-            if t:
-                k = "totw-" + w["id"]
-                self.og_jobs[k] = (t["name"], f"Team of the Week · {w['label']}"[:70], [("GAIN", f'+{t["gain"]:.1f}'), ("POINTS", str(round(t["pts"]))), ("MATCHES", str(t["played"]))], (217, 80, 0))
-                self.add(f"roundup/{w['id']}/totw", f"Team of the Week {w['id'].upper()}: {t['name']}", f"{t['name']} ({t['region']} {t['division']}) is the Esports Scoreboard Team of the Week, {w['label']}: +{t['gain']:.1f} ranking points.",
-                         std("Team of the Week", e(w["label"]), f'<div class="infobox">{tl(t)} ({e(t["region"] + " " + t["division"])}): +{t["gain"]:.1f} ranking points from {t["played"]} matches. <a href="roundup/{w["id"]}/">Week roundup</a></div>'), og=k)
+            P, T = w.get("potw") or {}, w.get("totw") or {}
+            if P.get("nick"):
+                P = {P["div"]: P}
+            if T.get("id"):
+                T = {f'{T["region"]} {T["division"]}': T}
+            for k, p in P.items():
+                if not p or k not in divs:
+                    continue
+                key = f"potw-{w['id']}-{dsl(k)}"
+                self.og_jobs[key] = (p["nick"], f"{k} Player of the Week · {w['label']}"[:70], [("RATING", f'{p["rating"]:.2f}'), ("K-D", f'{p["k"]}-{p["d"]}'), ("MAPS", str(p["maps"]))], (217, 80, 0))
+                self.add(f"roundup/{w['id']}/potw-{dsl(k)}", f"{k} Player of the Week {w['id'].upper()}: {p['nick']}", f"{p['nick']} ({p['team']}) is the Esports Scoreboard {k} Player of the Week, {w['label']}: rating {p['rating']:.2f} over {p['maps']} maps.",
+                         std(f"{e(k)} Player of the Week", e(w["label"]), f'<div class="infobox">{pl(p["nick"])} ({e(p["team"])}): ESB rating {p["rating"]:.2f} over {p["maps"]} maps, {p["k"]}-{p["d"]} K-D. <a href="roundup/{w["id"]}/">Week roundup</a></div>'), og=key)
+            for k, t in T.items():
+                if not t or k not in divs:
+                    continue
+                key = f"totw-{w['id']}-{dsl(k)}"
+                self.og_jobs[key] = (t["name"], f"{k} Team of the Week · {w['label']}"[:70], [("GAIN", f'+{t["gain"]:.1f}'), ("POINTS", str(round(t["pts"]))), ("MATCHES", str(t["played"]))], (217, 80, 0))
+                self.add(f"roundup/{w['id']}/totw-{dsl(k)}", f"{k} Team of the Week {w['id'].upper()}: {t['name']}", f"{t['name']} is the Esports Scoreboard {k} Team of the Week, {w['label']}: +{t['gain']:.1f} ranking points.",
+                         std(f"{e(k)} Team of the Week", e(w["label"]), f'<div class="infobox">{tl(t)}: +{t["gain"]:.1f} ranking points from {t["played"]} matches. <a href="roundup/{w["id"]}/">Week roundup</a></div>'), og=key)
 
     # ------------------------------------------------------------- output
     def head_tags(self, p, rel, og_url):
