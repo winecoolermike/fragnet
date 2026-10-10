@@ -139,6 +139,8 @@ def verify():
         with open(os.path.join(DIST, rel), encoding="utf-8") as fh:
             pg = fh.read()
         depth = rel.count("/")
+        if '<meta name="esb-redirect">' in pg and pg.count('rel="canonical"') == 1 and "http-equiv=\"refresh\"" in pg:
+            continue   # audit B10: moved-URL redirect page
         if pg.count('<base href="' + "../" * depth + '">') != 1 or pg.count('rel="canonical"') != 1 or pg.count('name="fragnet-route"') != 1:
             problems.append(f"{rel}: base/canonical/route meta missing")
         elif pg.count(prerender.MARK) != 1:

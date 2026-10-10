@@ -786,7 +786,7 @@ def build(dist, site, og_cache, do_og=True):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         rel = "../" * (old.count("/") + 1)
         with open(out, "w", encoding="utf-8") as fh:
-            fh.write(f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Moved :: Esports Scoreboard</title><meta name="robots" content="noindex">'
+            fh.write(f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Moved :: Esports Scoreboard</title><meta name="robots" content="noindex"><meta name="esb-redirect">'
                      f'<link rel="canonical" href="{e(site + new + "/")}"><meta http-equiv="refresh" content="0; url={e(rel + new + "/")}">'
                      f'<script>location.replace({json.dumps(rel + new + "/")} + location.hash)</script></head><body><a href="{e(rel + new + "/")}">This page moved</a></body></html>')
     with open(os.path.join(dist, "sitemap.xml"), "w", encoding="utf-8") as fh:
