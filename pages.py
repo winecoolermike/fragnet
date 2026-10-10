@@ -654,6 +654,14 @@ def build(dist, site, og_cache, do_og=True):
         tpl = fh.read()
     if pr.MARK in tpl:
         raise SystemExit("[pages] dist/index.html is already pre-rendered; run pages.py before prerender.py")
+    # audit B13: crawlable path hrefs in the site chrome; the SPA swaps them back to hash routes (data-h) on boot
+    have = {p["route"] for p in s.pages}
+    def _nav(m):
+        r = m.group(1)
+        if r == "home":
+            return f'href="./" data-h="#home"'
+        return f'href="{r}/" data-h="#{r}"' if r in have else m.group(0)
+    tpl = re.sub(r'href="#(home|cs2|valorant|wow|news|forums|about|search|recruiting|roundup)"', _nav, tpl)
     # share images (teams + matches + site), cached by content hash
     og_url, n_drawn, n_reused = {}, 0, 0
     if do_og:

@@ -568,10 +568,11 @@
     function row(label, html, why) { return "<tr><th>" + label + "</th><td>" + (html || '<span class="dim">no eligible pick yet</span>') + '</td><td class="hide-sm dim">' + why + "</td></tr>"; }
     var tl = function (t) { return ilink("team/cs2/" + encodeURIComponent(t.id), t.name); };
     var t = (x.top20 || {})[cur] || [];
-    return divTabs("cs2/awards", cur, false) + seasonNote(x) + '<div class="rankbox"><table class="tbl awards"><tbody>' +
+    var early = !b && !k && earlySeason();
+    return divTabs("cs2/awards", cur, false) + seasonNote(x) + (early ? EARLY_NOTE : "") + '<div class="rankbox"><table class="tbl awards"><tbody>' +
       row("MVP", m && ilink(playerHash(m.nick), m.nick) + (m.team ? " (" + esc(m.team) + ")" : "") + " &middot; rating <b>" + m.rating.toFixed(2) + "</b>", "#1 of the " + esc(cur) + " Top 20") +
-      row("Best team", b && tl(b) + " &middot; " + Math.round(b.pts) + " pts", "highest-ranked " + esc(cur) + " team") +
-      row("Breakout team", k && tl(k) + " &middot; +" + k.gain.toFixed(1) + " pts above the division start", "largest gain over the division starting value") +
+      (early ? "" : row("Best team", b && tl(b) + " &middot; " + Math.round(b.pts) + " pts", "highest-ranked " + esc(cur) + " team") +
+      row("Breakout team", k && tl(k) + " &middot; +" + k.gain.toFixed(1) + " pts above the division start", "largest gain over the division starting value")) +
       "</tbody></table></div>" + '<div class="note">Not awarded: ' + esc(((x.awards || {}).omitted || []).join(" ")) + "</div>" + '<h2 class="subhead">' + esc(cur) + " Top 20</h2>" + (t.length ? top20Table(t) : '<div class="empty">No ' + esc(cur) + " player has " + (x.top_min || {}).current + " rounds yet.</div>");
   }
   function vPlayoffs() {
@@ -1054,6 +1055,8 @@
   }
   /* v6.2 Player / Team of the Week (computed in spotlight.py via ranking.py; archived with the roundup week) */
   var PICK_DIV = lsGet("esb-pick-div", "NA Advanced");
+  function earlySeason() { var x = rankX(); return !!x && !(x.teams || []).length; }
+  var EARLY_NOTE = '<div class="infobox early">Season just started: team picks, best team and breakout unlock once teams have 3 matches (after round 3).</div>';
   function picksHtml(w, home) {
     if (!w || !("potw" in w)) return "";
     var P = w.potw || {}, T = w.totw || {};
@@ -1063,6 +1066,7 @@
     var tabs = '<div class="segs pick-tabs" role="tablist">' + ["NA", "EU"].map(function (r) { return '<div class="seg"><span class="seg-l">' + r + "</span>" + ["Advanced", "Main", "Intermediate"].map(function (d) { var k = r + " " + d; return '<button type="button" class="pick-tab' + (k === cur ? " on" : "") + '" data-div="' + k + '" aria-pressed="' + (k === cur) + '">' + r + " " + (d === "Intermediate" ? "Int" : d === "Advanced" ? "Adv" : d) + "</button>"; }).join("") + "</div>"; }).join("") + "</div>";
     var out = '<div class="potw">' + tabs;
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Player of the Week" + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" + shareBox("roundup/" + w.id + "/potw-" + ds) : '<div class="empty">No ' + esc(cur) + " player has 2 maps with FACEIT scoreboards this week yet.</div>") + "</div>";
+    if (!t && earlySeason()) return out + EARLY_NOTE + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="empty">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
     return out + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
   }
@@ -2121,6 +2125,7 @@
   window.addEventListener("online", function () { try { offlineNote(); refreshData(); } catch (e) {} });
   window.addEventListener("offline", function () { try { offlineNote(); } catch (e) {} });
   document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") refreshData(); });
+  Array.prototype.forEach.call(document.querySelectorAll("a[data-h]"), function (x) { x.setAttribute("href", x.getAttribute("data-h")); });   // audit B13: path hrefs for crawlers, hash routes with JS
   function boot(data) {
     D = data || {};
     buildIndex();
