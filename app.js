@@ -425,11 +425,12 @@
     }), dv + " players (min. " + MINR() + " rounds)");
   }
   function csPc(p, stat) {
+    if (noStats(num(p.kills), num(p.deaths), num(p.adr), num(p.rounds))) return '<span class="dim" title="no stats from FACEIT">&ndash;</span>';
     var txt = stat === "kd" ? num(p.kd).toFixed(2) : num(p.adr).toFixed(1);
     if (num(p.rounds) < MINR()) return "<b>" + txt + "</b>";
     var dv = p.region + " " + p.division;
     return chip(p[stat], txt, pcPool("cs:" + dv + ":" + stat, function () {
-      return allCsPlayers().filter(function (q) { return q.region === p.region && q.division === p.division && num(q.rounds) >= MINR(); }).map(function (q) { return q[stat]; });
+      return allCsPlayers().filter(function (q) { return q.region === p.region && q.division === p.division && num(q.rounds) >= MINR() && !noStats(num(q.kills), num(q.deaths), num(q.adr), num(q.rounds)); }).map(function (q) { return q[stat]; });
     }), dv + " players (min. " + MINR() + " rounds)");
   }
   function valPc(p) {
@@ -514,9 +515,10 @@
     if (!RKIDX) { RKIDX = {}; (x.teams || []).forEach(function (t) { RKIDX[t.id] = t; }); }
     return RKIDX[id] || null;
   }
+  function noStats(k, d, adr, r) { return (k === 0 && adr < 10) || (r >= 10 && d < 0.15 * r); }
   function esbRating(k, d, r, adr, hs, avg) {
-    if (!avg || !(r > 0)) return null;
-    var kpr = k / r, dpr = Math.max(d, 1) / r, kd = k / Math.max(d, 1);
+    if (!avg || !(r > 0) || noStats(k, d, adr, r)) return null;   // incomplete row = missing FACEIT stats
+    var kpr = k / r, dpr = Math.max(d / r, 0.5 * avg.dpr), kd = k / Math.max(d, 1);
     var v = 0.30 * kpr / avg.kpr + 0.25 * avg.dpr / dpr + 0.30 * adr / avg.adr + 0.10 * kd / avg.kd + 0.05 * (avg.hs ? hs / avg.hs : 1);
     return Math.round(v * 100) / 100;
   }

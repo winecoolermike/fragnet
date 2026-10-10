@@ -36,7 +36,7 @@ W = {"kpr": 0.30, "dpr": 0.25, "adr": 0.30, "kd": 0.10, "hs": 0.05}
 FORMULA_TEAM = ("Elo on maps: start Advanced 1600 / Main 1450 / Intermediate 1300; per map R += 32 x (result - expected) x "
                 "(1 + min(round diff, 10)/20); expected = 1/(1+10^((opp - R)/400)); forfeits skipped; ranked after 3 matches.")
 FORMULA_PLAYER = ("Rating 1.0 = 0.30 KPR/avg + 0.25 avg/DPR + 0.30 ADR/avg + 0.10 K/D/avg + 0.05 HS%/avg, averages over the player's "
-                  "division (so division average = 1.00); min 20 rounds. No division multipliers: Top 20s, awards and weekly picks compare players "
+                  "division (so division average = 1.00); DPR is floored at half the division average, and incomplete rows (0 kills with under 10 ADR, or deaths under 0.15 per round: missing FACEIT stats) are not rated; min 20 rounds. No division multipliers: Top 20s, awards and weekly picks compare players "
                   "within one division (Top 20, MVP and awards need 30+ rounds until Nov 11, 2026 PT, then 60+). Opponent-strength weighting is planned for midseason.")
 
 
@@ -121,11 +121,20 @@ def players_of(data, teams):
     return list(out.values())
 
 
+DPR_FLOOR = 0.5   # survival term: DPR is floored at half the division average so a near-deathless tiny sample can't explode
+
+
+def no_stats(p):
+    """FACEIT sometimes returns rounds with all-zero kills/deaths/ADR (missing stats): treat as no stats, never rate them."""
+    k, d, adr, r = (float(p.get(x) or 0) for x in ("kills", "deaths", "adr", "rounds"))
+    return (k == 0 and adr < 10) or (r >= 10 and d < 0.15 * r)   # no kills and ~no damage, or implausibly few deaths = incomplete row
+
+
 def div_avgs(players):
     acc = {}
     for p in players:
         r = float(p.get("rounds") or 0)
-        if r < MIN_ROUNDS:
+        if r < MIN_ROUNDS or no_stats(p):
             continue
         a = acc.setdefault(f"{p.get('region')} {p.get('division')}", {"r": 0, "k": 0, "d": 0, "adr": 0, "kd": 0, "hs": 0, "n": 0})
         a["r"] += r; a["k"] += float(p.get("kills") or 0); a["d"] += float(p.get("deaths") or 0)
@@ -135,9 +144,9 @@ def div_avgs(players):
 
 
 def rating(kills, deaths, rounds, adr, hs, avg):
-    if not avg or rounds <= 0:
+    if not avg or rounds <= 0 or no_stats({"kills": kills, "deaths": deaths, "adr": adr, "rounds": rounds}):
         return None
-    kpr, dpr = kills / rounds, max(deaths, 1) / rounds
+    kpr, dpr = kills / rounds, max(deaths / rounds, DPR_FLOOR * avg["dpr"])
     kd = kills / max(deaths, 1)
     v = (W["kpr"] * kpr / avg["kpr"] + W["dpr"] * avg["dpr"] / dpr + W["adr"] * adr / avg["adr"] + W["kd"] * kd / avg["kd"]
          + W["hs"] * (hs / avg["hs"] if avg["hs"] else 1))
