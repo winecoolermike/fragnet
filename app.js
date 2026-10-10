@@ -1167,7 +1167,7 @@
   }
   /* C: R6 pinned divisions, R7 filter presets (shareable as #cs2/today/f-na), R9 scoreboard bar */
   function pins() { var p = lsGet("esb-pins", []); var ids = csDivs().map(divId); return Array.isArray(p) ? p.filter(function (x) { return ids.indexOf(x) >= 0; }) : []; }
-  function pinBtn(id, label) { var on = pins().indexOf(id) >= 0; return ' <button type="button" class="pin' + (on ? " on" : "") + '" data-pin="' + esc(id) + '" aria-pressed="' + on + '" title="' + (on ? "Unpin " : "Pin ") + esc(label) + ' (kept in this browser)">' + (on ? "&#9873; Pinned" : "&#9872; Pin") + "</button>"; }
+  function pinBtn(id, label) { var on = pins().indexOf(id) >= 0; return ' <button type="button" class="pin' + (on ? " on" : "") + '" data-pin="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Unpin " : "Pin ") + esc(label) + '" title="' + (on ? "Unpin " : "Pin ") + esc(label) + ' (kept in this browser)">' + (on ? "&#9873; Pinned" : "&#9872; Pin") + "</button>"; }
   function renderPinned() {
     var box = $("#side-pins"), ul = $("#side-pins-list"); if (!box || !ul) return;
     var ds = csDivs(), p = pins();
@@ -1291,7 +1291,7 @@
   function favHash(k) { return k.indexOf("cs:") === 0 ? "team/cs2/" + encodeURIComponent(k.slice(3)) : "team/val/" + k.slice(4); }
   function star(k, n, big) {
     var on = isFav(k);
-    return '<button type="button" class="star' + (big ? " star-lg" : "") + (on ? " on" : "") + '" data-fav="' + esc(k) + '" data-n="' + esc(n) + '" aria-pressed="' + on + '" title="' + (on ? "Remove " + esc(n) + " from" : "Add " + esc(n) + " to") + ' My Teams (saved in this browser)">' +
+    return '<button type="button" class="star' + (big ? " star-lg" : "") + (on ? " on" : "") + '" data-fav="' + esc(k) + '" data-n="' + esc(n) + '" aria-pressed="' + on + '" aria-label="' + (on ? "Unfollow " : "Follow ") + esc(n) + '" title="' + (on ? "Remove " + esc(n) + " from" : "Add " + esc(n) + " to") + ' My Teams (saved in this browser)">' +
       '<span aria-hidden="true">' + (on ? "&#9733;" : "&#9734;") + "</span>" + (big ? (on ? " Following" : " Follow") : '<span class="vh">' + (on ? "Unfollow " : "Follow ") + esc(n) + "</span>") + "</button>";
   }
   function csHome() { var v = lsGet(LS.div, ""); return typeof v === "string" && csDivs().some(function (d) { return divId(d) === v; }) ? "cs2/" + v : "cs2"; }
@@ -1392,7 +1392,7 @@
     var sub = parts[0];
     var cs = D.cs || {}, divs = csDivs(), ids = divs.map(divId);
     if (/^(ranking|top20|methodology|awards|playoffs)$/.test(sub)) {
-      var V6 = { ranking: ["ESB Team Ranking", vRanking], top20: ["Top 20 Players of the Season", vTop20], methodology: ["Ranking &amp; Rating Methodology", vMethod], awards: ["Season Awards", vAwards], playoffs: ["Playoffs", vPlayoffs] };
+      var V6 = { ranking: ["ESB Team Ranking", vRanking], top20: ["Top 20 Players of the Season", vTop20], methodology: ["Ranking and Rating Methodology", vMethod], awards: ["Season Awards", vAwards], playoffs: ["Playoffs", vPlayoffs] };
       var bodyR = V6[sub][1](parts[1]);
       return gameHead("cs2", sub === "methodology" ? "ranking" : sub, "Counter-Strike 2 :: " + V6[sub][0]) + bodyR;
     }
@@ -2025,8 +2025,15 @@
     try { mountComments(); } catch (e) {}
     try { noteRecent(r); } catch (e) {}
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
+    // audit B9: one h1 per view (later box titles become h2, same look)
+    if (!$("#view h1")) { var h2 = $("#view .std-header h2"); if (h2) { var n1 = document.createElement("h1"); n1.innerHTML = h2.innerHTML; h2.parentNode.replaceChild(n1, h2); } }
+    Array.prototype.slice.call(document.querySelectorAll("#view h1"), 1).forEach(function (h) { var n = document.createElement("h2"); n.innerHTML = h.innerHTML; n.className = h.className; h.parentNode.replaceChild(n, h); });
+    // audit B7/B8: specific titles from the breadcrumb trail (like the prerendered path pages), plain text, brand once
     var h1 = $("#view .std-header h1");
-    document.title = (r.top === "home" ? "" : (h1 ? h1.textContent + " :: " : TITLES[r.top] ? TITLES[r.top] + " :: " : "")) + (r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : "Esports Scoreboard");
+    var cr = Array.prototype.map.call(document.querySelectorAll("#view .crumbs a, #view .crumbs .cur"), function (x) { return x.textContent.trim(); }).filter(function (t) { return t && t !== "Home"; });
+    var spec = cr.length ? cr.reverse().join(" :: ") : h1 ? h1.textContent : TITLES[r.top] || "";
+    spec = spec.replace(/\s*::\s*Esports Scoreboard$/, "");
+    document.title = r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : (spec ? spec + " :: " : "") + "Esports Scoreboard";
     try { var nl = todayRows().filter(function (x) { return x.st === "live"; }).length; if (nl) document.title = "(" + nl + " live) " + document.title; } catch (e) {}
     var navTop = r.top === "search" ? "" : (r.top === "player" || r.top === "match" || r.top === "team") && r.parts[0] !== "val" ? "cs2" : r.top === "team" || r.top === "player" || r.top === "match" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });

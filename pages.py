@@ -513,7 +513,7 @@ class Site:
         self.add("cs2/top20/esea", "ESEA Top 20 (just for fun) :: CS2", "Combined ESEA CS2 Top 20, just for fun: Advanced players only until opponent-strength weighting exists.",
                  std("ESEA Top 20 :: just for fun", "Advanced only", '<div class="infobox">Just for fun: ratings compare players within their own division, so until opponent-strength weighting arrives (planned midseason) this list shows Advanced players only.</div>' + t20(rk.get("top20_fun") or [])))
         self.add("cs2/methodology", "ESB Ranking and Rating methodology", "Exact formulas for the Esports Scoreboard team ranking (Elo on maps) and ESB Rating 1.0 for ESEA CS2 players, compared per division.",
-                 std("Ranking &amp; Rating Methodology", "formulas", f'<div class="infobox method"><h3>ESB Team Ranking</h3><p>{e(rk["formula_team"])}</p><h3>ESB Rating 1.0</h3><p>{e(rk["formula_player"])}</p></div>'))
+                 std("Ranking and Rating Methodology", "formulas", f'<div class="infobox method"><h3>ESB Team Ranking</h3><p>{e(rk["formula_team"])}</p><h3>ESB Rating 1.0</h3><p>{e(rk["formula_player"])}</p></div>'))
         po = rk.get("playoffs") or {}
         self.add("cs2/playoffs", "ESEA CS2 playoffs :: Esports Scoreboard", "ESEA CS2 playoff brackets and event MVP once FACEIT publishes playoff matches.",
                  std("Playoffs", "ESEA", ('<div class="infobox">' + (f"{len(po.get('matches') or [])} playoff matches listed." if po.get("matches") else "Playoffs have not started; the bracket appears once FACEIT lists playoff matches.") + "</div>") +
@@ -578,7 +578,11 @@ class Site:
             raise ValueError("#view not found")
         note = ('<div class="note noscript-note">Static snapshot of Esports Scoreboard data fetched ' + e(pt(self.d.get("fetched_at"))) +
                 '. <a href="./">Front page</a></div>')
-        page = page.replace(view, f'<div id="view" aria-live="polite" {pr.MARK}>{p["body"]}{note}</div>', 1)
+        body = p["body"]
+        end = body.find("</h1>")
+        if end >= 0:   # audit B9: one h1 per page
+            body = body[:end + 5] + re.sub(r"<(/?)h1\b", r"<\1h2", body[end + 5:])
+        page = page.replace(view, f'<div id="view" aria-live="polite" {pr.MARK}>{body}{note}</div>', 1)
         page = page.replace('<div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>', f'<div class="sb-upd" id="hdr-upd">updated {e(pt(self.d.get("fetched_at")))}</div>', 1)
         return page
 
