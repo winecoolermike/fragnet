@@ -57,6 +57,30 @@ def num(x, d=0):
         return d
 
 
+PATH_MAP = {}   # audit B10: hash route -> readable/stable path (team slug-id8, vlr event id)
+PATH_RE = re.compile(r'href="(team/cs2/[0-9a-f-]{36}|valorant/event-\d{1,2})/"')
+
+
+def path_map(site):
+    PATH_MAP.clear()
+    for p in site.pages:
+        r = p["route"]
+        m = re.match(r"^team/cs2/([0-9a-f-]{36})$", r)
+        if m:
+            nm = slug(p["title"].split(" :: ")[0]) or "team"
+            PATH_MAP[r] = f"team/cs2/{nm[:40].strip('-')}-{m.group(1)[:8]}"
+    evs = ((site.d.get("valorant") or {}).get("events")) or []
+    for i, ev in enumerate(evs):
+        m = re.search(r"/event/(\d+)/([a-z0-9-]+)", str(ev.get("url") or ""), re.I)
+        if m:
+            PATH_MAP[f"valorant/event-{i + 1}"] = f"valorant/event-{m.group(1)}-{m.group(2).lower()[:60]}"
+    for p in site.pages:
+        new = PATH_MAP.get(p["route"])
+        if new:
+            p["path"] = new
+            p["route"] = new   # the SPA resolves both forms (slug-id8 teams, vlr event ids)
+
+
 def ilink(route, text, cls=""):
     """Link between snapshots: a real path relative to <base href> (works without JavaScript)."""
     return f'<a href="{e(route)}/"{(" class=" + chr(34) + cls + chr(34)) if cls else ""}>{e(text)}</a>'
@@ -545,7 +569,8 @@ class Site:
 
     # ------------------------------------------------------------- output
     def head_tags(self, p, rel, og_url):
-        url = self.site + (p["route"] + "/" if p["route"] else "")
+        path = p.get("path") or p["route"]
+        url = self.site + (path + "/" if path else "")
         tags = [f'<base href="{rel}">', f'<link rel="canonical" href="{e(url)}">', f'<meta name="fragnet-route" content="{e(p["route"])}">']
         if og_url:
             tags += [f'<meta property="og:image" content="{e(og_url)}">', '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
@@ -555,7 +580,7 @@ class Site:
         return tags, url
 
     def render_page(self, tpl, p, og_url):
-        rel = "../" * (p["route"].count("/") + 1)
+        rel = "../" * ((p.get("path") or p["route"]).count("/") + 1)
         tags, url = self.head_tags(p, rel, og_url)
         page = tpl
         vp = '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -578,7 +603,7 @@ class Site:
             raise ValueError("#view not found")
         note = ('<div class="note noscript-note">Static snapshot of Esports Scoreboard data fetched ' + e(pt(self.d.get("fetched_at"))) +
                 '. <a href="./">Front page</a></div>')
-        body = p["body"]
+        body = PATH_RE.sub(lambda m: 'href="' + PATH_MAP.get(m.group(1), m.group(1)) + '/"', p["body"])
         end = body.find("</h1>")
         if end >= 0:   # audit B9: one h1 per page
             body = body[:end + 5] + re.sub(r"<(/?)h1\b", r"<\1h2", body[end + 5:])
@@ -649,6 +674,7 @@ def build(dist, site, og_cache, do_og=True):
     s.build_rest()
     s.build_roundups()
     s.build_v6()
+    path_map(s)
     tpl_path = os.path.join(dist, "index.html")
     with open(tpl_path, encoding="utf-8") as fh:
         tpl = fh.read()
@@ -700,7 +726,7 @@ def build(dist, site, og_cache, do_og=True):
     # pages
     n = 0
     for p in s.pages:
-        out = os.path.join(dist, *p["route"].split("/"), "index.html")
+        out = os.path.join(dist, *(p.get("path") or p["route"]).split("/"), "index.html")
         os.makedirs(os.path.dirname(out), exist_ok=True)
         with open(out, "w", encoding="utf-8") as fh:
             fh.write(s.render_page(tpl, p, og_url.get(p["og"]) or og_url.get("site")))
@@ -751,7 +777,18 @@ def build(dist, site, og_cache, do_og=True):
         fh.write(nf)
     # sitemap + robots
     day = (s.d.get("fetched_at") or datetime.now(timezone.utc).isoformat())[:10]
-    urls = [site] + [site + p["route"] + "/" for p in s.pages]
+    urls = [site] + [site + (p.get("path") or p["route"]) + "/" for p in s.pages]
+    # audit B10: old URLs stay valid as tiny redirect pages (not in the sitemap)
+    for old, new in PATH_MAP.items():
+        out = os.path.join(dist, *old.split("/"), "index.html")
+        if os.path.exists(out):
+            continue
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        rel = "../" * (old.count("/") + 1)
+        with open(out, "w", encoding="utf-8") as fh:
+            fh.write(f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Moved :: Esports Scoreboard</title><meta name="robots" content="noindex">'
+                     f'<link rel="canonical" href="{e(site + new + "/")}"><meta http-equiv="refresh" content="0; url={e(rel + new + "/")}">'
+                     f'<script>location.replace({json.dumps(rel + new + "/")} + location.hash)</script></head><body><a href="{e(rel + new + "/")}">This page moved</a></body></html>')
     with open(os.path.join(dist, "sitemap.xml"), "w", encoding="utf-8") as fh:
         fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
                  + "".join(f"<url><loc>{e(u)}</loc><lastmod>{day}</lastmod></url>\n" for u in urls) + "</urlset>\n")

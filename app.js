@@ -172,7 +172,10 @@
   function wowRegs(rks) { return Object.keys(rks || {}).sort(function (a, b) { return (a === "us" ? 0 : 1) - (b === "us" ? 0 : 1); }); }
   function divId(d) { return slug(d.region + "-" + d.division); }
   function valEvents() { return (D.valorant && D.valorant.events) || []; }
-  function evId(i) { return "event-" + (i + 1); }
+  function evId(i) {   // audit B10: stable id from the vlr.gg event URL (falls back to position)
+    var e = (typeof valEvents === "function" ? valEvents() : [])[i], m = e && String(e.url || "").match(/\/event\/(\d+)\/([a-z0-9-]+)/i);
+    return m ? "event-" + m[1] + "-" + m[2].toLowerCase().slice(0, 60) : "event-" + (i + 1);
+  }
   function shortEv(t) { return String(t || "").replace(/^Challengers 20\d\d: /, "VCL ").replace(/^VCL \d\d: /, "VCL ").replace(/^Game Changers 20\d\d: /, "GC "); }
   function newsItems() { return (D.news && D.news.items) || []; }
   function valResults() { return (D.valorant && D.valorant.results) || []; }
@@ -1467,6 +1470,8 @@
     var ids = ["results", "players", "calendar"].concat(evs.map(function (e, i) { return evId(i); }));
     var ord = evOrder();
     if (sub === "events") sub = "calendar";
+    var oldEv = /^event-(\d{1,2})$/.exec(sub || "");   // audit B10: old positional URL -> stable one
+    if (oldEv && evs[+oldEv[1] - 1] && evId(+oldEv[1] - 1) !== sub) { sub = evId(+oldEv[1] - 1); try { history.replaceState(null, "", "#valorant/" + sub); } catch (e) {} }
     if (ids.indexOf(sub) < 0) sub = ord.length ? evId(ord[0]) : "calendar";   // #valorant opens the North America event
     var section = sub === "results" || sub === "players" ? sub : "events", picker = "";
     var evTabs = [{ grp: "Event" }].concat(ord.map(function (i) { return { id: evId(i), hash: "valorant/" + evId(i), label: shortEv(evs[i].title) }; }));
@@ -1994,6 +1999,11 @@
   var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
+    if (r.top === "team" && r.parts[0] === "cs2" && r.parts[1] && !/^[0-9a-f-]{36}$/i.test(r.parts[1])) {   // audit B10: readable slug-id8 team URLs
+      var m8 = /([0-9a-f]{8})$/i.exec(r.parts[1]), full = null;
+      if (m8 && D) csDivs().forEach(function (d) { (d.teams || []).forEach(function (t) { if (!full && t.id && t.id.slice(0, 8) === m8[1].toLowerCase()) full = t.id; }); });
+      if (full) r.parts[1] = full;
+    }
     if (D && D.partial && r.top !== "home") { $("#view").innerHTML = '<div class="empty loading">Loading&hellip;</div>'; return; }   // audit B12: full data.json still arriving
     CRUMB = null; CUR_SEC = ""; FAVC = null;
     try {
