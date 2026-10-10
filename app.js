@@ -1994,6 +1994,7 @@
   var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
+    if (D && D.partial && r.top !== "home") { $("#view").innerHTML = '<div class="empty loading">Loading&hellip;</div>'; return; }   // audit B12: full data.json still arriving
     CRUMB = null; CUR_SEC = ""; FAVC = null;
     try {
       TODAY_SEL = null; TODAY_F = null;
@@ -2203,6 +2204,19 @@
   });
   today(); setInterval(function () { today(); try { refreshRel(); } catch (e) {} }, 30000);
   if (location.protocol === "file:" || !window.fetch) loadDataJs();
-  else fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(boot, loadDataJs);
+  else {
+    var getFull = function () { return fetch("data.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }); };
+    var isHome = !location.hash || /^#(home)?$/.test(location.hash);
+    if (isHome) {   // audit B12: paint the front page from the small home.json, then upgrade to data.json
+      fetch("home.json", { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function (hd) {
+          boot(hd);
+          return getFull().then(function (full) {
+            D = full; buildIndex();
+            [renderGameNav, renderStatus, renderSideNews, renderTicker, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) {} });
+            KEEP_SCROLL = true; route();
+          }, function () { D.partial = false; });
+        }, function () { getFull().then(boot, loadDataJs); });
+    } else getFull().then(boot, loadDataJs);
+  }
 })();

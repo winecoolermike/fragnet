@@ -715,6 +715,31 @@ def build(dist, site, og_cache, do_og=True):
     with open(tpl_path + ".tmp", "w", encoding="utf-8") as fh:
         fh.write(home)
     os.replace(tpl_path + ".tmp", tpl_path)
+    # audit B12: small home.json for the front page's first paint (the SPA loads data.json right after)
+    try:
+        d = s.d
+        now = datetime.now(timezone.utc)
+        def near(m, hrs):
+            try:
+                return abs((datetime.fromisoformat(str(m.get("t")).replace("Z", "+00:00")) - now).total_seconds()) < hrs * 3600
+            except Exception:
+                return False
+        cs = d.get("cs") or {}
+        hd = {k: d.get(k) for k in ("fetched_at", "generator", "display_tz", "status")}
+        hd["cs"] = {"season": cs.get("season"), "live": cs.get("live") or [],
+                    "divisions": [dict({k: v for k, v in dv.items() if k != "teams"}, teams=(dv.get("teams") or [])[:3]) for dv in cs.get("divisions") or []],
+                    "upcoming": [m for m in cs.get("upcoming") or [] if near(m, 30)], "matches": [m for m in cs.get("matches") or [] if near(m, 30)]}
+        va = d.get("valorant") or {}
+        hd["valorant"] = {k: v for k, v in va.items() if k not in ("events", "results", "top_players")}
+        hd["valorant"].update(events=[{k: v for k, v in ev.items() if not isinstance(v, (list, dict))} for ev in va.get("events") or []], top_players=(va.get("top_players") or [])[:1], results=[])
+        wo = d.get("wow") or {}
+        hd["wow"] = dict(wo, rankings={k: (v or [])[:3] for k, v in (wo.get("rankings") or {}).items()})
+        hd["news"] = dict(d.get("news") or {}, items=((d.get("news") or {}).get("items") or [])[:15])
+        hd["partial"] = True
+        with open(os.path.join(dist, "home.json"), "w", encoding="utf-8") as fh:
+            json.dump(hd, fh, ensure_ascii=False, separators=(",", ":"))
+    except Exception as ex:
+        print("[pages] home.json skipped:", ex)
     # audit B5: 404.html with site chrome; known or old paths redirect to the matching hash route
     from urllib.parse import urlparse
     base = urlparse(site).path or "/"
