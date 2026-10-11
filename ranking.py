@@ -275,6 +275,20 @@ def build(data, teams, now=None):
             "top_min": {"current": tmin, "early": TOP_MIN_EARLY, "late": TOP_MIN_LATE, "switch": TOP_MIN_SWITCH}}
 
 
+def browser_blob(rk):
+    """Audit 2 A6: the browser's rank.js leaves out what the app never reads. rank.json stays whole for
+    pages.py. Dropped: per-player "ratings" (the app computes ratings from the averages), and provisional
+    teams beyond the 100 per region the ranking page can show."""
+    slim = {k: v for k, v in rk.items() if k not in ("ratings", "weights", "prior")}
+    seen, prov = {}, []
+    for t in rk.get("provisional") or []:
+        n = seen.get(t.get("region"), 0)
+        if n < 100:
+            prov.append(t); seen[t.get("region")] = n + 1
+    slim["provisional"] = prov
+    return json.dumps(slim, ensure_ascii=False, separators=(",", ":"))
+
+
 def archive(rk, folder):
     """Freeze finished weeks: rankings/YYYY-wNN.json = the table as of that week's end (append-only)."""
     os.makedirs(folder, exist_ok=True)
@@ -307,7 +321,7 @@ def main(argv=None):
     rk = build(data, teams)
     blob = json.dumps(rk, ensure_ascii=False, separators=(",", ":"))
     open(os.path.join(dist, "rank.json"), "w", encoding="utf-8").write(blob)
-    open(os.path.join(dist, "rank.js"), "w", encoding="utf-8").write("window.ESB_RANK = " + blob.replace("</", "<\\/") + ";\n")
+    open(os.path.join(dist, "rank.js"), "w", encoding="utf-8").write("window.ESB_RANK = " + browser_blob(rk).replace("</", "<\\/") + ";\n")
     w = archive(rk, arch) if arch else None
     print(f"[ranking] {len(rk['teams'])} ranked teams, {len(rk['ratings'])} rated players, top20 {len(rk['top20'])}" + (f"; archived {w}" if w else ""))
     return 0
