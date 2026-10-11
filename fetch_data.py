@@ -40,8 +40,14 @@ S = requests.Session()
 S.headers.update({"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"})
 DELAY = 1.2            # minimum seconds between two requests to the same host
 TIMEOUT = (10, 25)     # (connect, read) seconds
-RETRIES = 1            # one polite retry on timeouts / 429 / 5xx
+RETRIES = 1            # one polite retry on timeouts / 5xx
+RETRIES_429 = 3        # A13: rate-limited (429) requests back off and retry up to 3 times
+BACKOFF_429 = (5, 15, 30)   # s, used when the server sends no Retry-After
+MAX_HOST_DELAY = 6.0   # adaptive pacing: each 429 slows that host down (x1.5), up to this
 _last_hit = {}
+_host_delay = {}       # per-run adaptive delay (starts at HOST_DELAY / DELAY)
+N429 = {}              # host -> number of 429 answers this run (logged)
+BACKOFF_BUDGET = [180.0]   # total seconds a run may spend waiting out 429s (then it fails fast -> last-good)
 
 
 def now_iso():
@@ -49,24 +55,45 @@ def now_iso():
 
 
 def get(url, **kw):
-    """GET with per-host rate limit, timeout and one retry on transient errors."""
+    """GET with per-host rate limit, timeout and one retry on transient errors; 429 answers back off
+    (Retry-After when sent, else 5/15/30 s) and slow that host down for the rest of the run."""
     host = urlparse(url).netloc
-    for attempt in range(RETRIES + 1):
-        wait = HOST_DELAY.get(host, DELAY) - (time.monotonic() - _last_hit.get(host, 0))
+    n429 = 0
+    for attempt in range(RETRIES + RETRIES_429 + 1):
+        wait = _host_delay.get(host, HOST_DELAY.get(host, DELAY)) - (time.monotonic() - _last_hit.get(host, 0))
         if wait > 0:
             time.sleep(wait)
         _last_hit[host] = time.monotonic()
         try:
             r = S.get(url, timeout=TIMEOUT, **kw)
         except (requests.ConnectionError, requests.Timeout):
-            if attempt < RETRIES:
+            if attempt - n429 < RETRIES:
                 time.sleep(3)
                 continue
             raise
-        if r.status_code in (429, 500, 502, 503, 504) and attempt < RETRIES:
+        if r.status_code == 429:
+            N429[host] = N429.get(host, 0) + 1
+            _host_delay[host] = min(MAX_HOST_DELAY, _host_delay.get(host, HOST_DELAY.get(host, DELAY)) * 1.5)
+            pause = retry_after(r, BACKOFF_429[min(n429, len(BACKOFF_429) - 1)])
+            if n429 < RETRIES_429 and BACKOFF_BUDGET[0] >= pause:
+                BACKOFF_BUDGET[0] -= pause
+                time.sleep(pause)
+                n429 += 1
+                continue
+            return r
+        if r.status_code in (500, 502, 503, 504) and attempt - n429 < RETRIES:
             time.sleep(5)
             continue
         return r
+
+
+def retry_after(r, default):
+    """Seconds from a Retry-After header (numeric form), capped at 60; else the default."""
+    try:
+        v = float(r.headers.get("Retry-After", ""))
+        return max(1.0, min(60.0, v))
+    except (TypeError, ValueError):
+        return default
 
 
 def get_json(url):
@@ -553,7 +580,30 @@ MATCH_STATS_MAX = 100       # new /matches/{id}/stats calls per run (finished st
 RECENT_PER_DIV = 12         # newest finished matches kept per division (+ tracked teams' matches)
 UPCOMING_PER_DIV = 8        # next scheduled matches kept per division (+ each tracked team's next match)
 KEEP_PER_DIV = 60           # hard cap of stored finished / upcoming matches per division
-HOST_DELAY = {"open.faceit.com": DATA_API_DELAY}
+HOST_DELAY = {"open.faceit.com": DATA_API_DELAY, "www.faceit.com": 1.5}   # player stats pages: paced
+STATS_RETRY_MAX = 15        # A13: re-asks per run for matches whose stats were missing or incomplete
+STATS_RETRY_DAYS = 7        # ... for this many days after the match finished
+STATS_RETRY_GAP_H = 20      # ... at most once per ~day (FACEIT sometimes backfills)
+
+
+def stats_incomplete(maps):
+    """True when a scoreboard has a row with no real stats (0 kills and under 10 ADR: FACEIT left it empty)."""
+    return any(row[1] == 0 and row[3] < 10 for mp in maps or [] for side in ("p1", "p2") for row in mp.get(side) or [])
+
+
+def retry_due(m, now_ts):
+    """Missing/incomplete stats: re-ask once per STATS_RETRY_GAP_H for STATS_RETRY_DAYS after the match."""
+    try:
+        t = datetime.fromisoformat(m["t"]).timestamp()
+    except Exception:
+        return False
+    if now_ts - t > STATS_RETRY_DAYS * 86400:
+        return False
+    try:
+        last = datetime.fromisoformat(m["rt"]).timestamp() if m.get("rt") else t
+    except Exception:
+        last = t
+    return now_ts - last >= STATS_RETRY_GAP_H * 3600
 
 
 class DataApiError(Exception):
@@ -756,6 +806,12 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     cutoff = (datetime.now(timezone.utc).timestamp() - 6 * 3600)
     old_nostats = {m["id"] for m in (prev.get("matches") or []) if same_season and m.get("nostats") and m.get("t")
                    and datetime.fromisoformat(m["t"]).timestamp() < cutoff}
+    # A13: missing or incomplete stats are re-asked later (once a day for a week); the old copy stays if the retry fails
+    now_ts = datetime.now(timezone.utc).timestamp()
+    prev_by_id = {m["id"]: m for m in (prev.get("matches") or [])} if same_season else {}
+    retry = {i for i, pm in prev_by_id.items() if pm.get("t") and (i in old_nostats or (pm.get("maps") and stats_incomplete(pm["maps"])))
+             and retry_due(pm, now_ts)}
+    nretry, nfixed = 0, 0
     nstats, nreuse, serr, nmiss = 0, 0, [], 0
     matches.sort(key=lambda m: m.get("t") or "", reverse=True)
     # priority: the newest RECENT_PER_DIV of every division first, then everything else
@@ -764,6 +820,25 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
         for m in sorted(fin[k], key=lambda m: m.get("t") or "", reverse=True)[:RECENT_PER_DIV]:
             first.add(m["id"])
     for m in sorted(matches, key=lambda m: (m["id"] not in first, -(datetime.fromisoformat(m["t"]).timestamp() if m.get("t") else 0))):
+        if prev_by_id.get(m["id"], {}).get("rt"):
+            m["rt"] = prev_by_id[m["id"]]["rt"]
+        if m["id"] in retry and nretry < STATS_RETRY_MAX and nreq < DATA_API_MAX_REQ:
+            nretry += 1
+            nreq += 1
+            m["rt"] = now_iso()
+            try:
+                st = data_api(f"/matches/{quote(m['id'], safe='')}/stats")
+                maps = orient(parse_stats(st), m["t1"]["id"]) if st else []
+            except Exception as e:
+                serr.append("retry: " + short_err(e))
+                maps = []
+            if maps and (m["id"] in old_nostats or not stats_incomplete(maps)):
+                m["maps"] = maps
+                m.pop("nostats", None)
+                nfixed += 1
+                nreuse += 1
+                continue
+            # nothing new: fall through to the last-good copy below
         if m["id"] in old:
             m["maps"] = old[m["id"]]
             nreuse += 1
@@ -802,7 +877,7 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     out["_extra"]["upcoming"] = sorted((m for k in upc for m in upc[k] if m["id"] not in kept), key=lambda m: m.get("t") or "")
     out["live"] = live
     out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist,
-                           "stats_requests": nstats, "stats_reused": nreuse,
+                           "stats_requests": nstats, "stats_reused": nreuse, "stats_retried": nretry, "stats_backfilled": nfixed,
                            "with_maps": sum(1 for m in matches if m.get("maps")), "live": len(live)}
     out["sources"].append(status(lname, lurl, True, len(matches) + len(upcoming), page=season_page,
                                  note=f"{len(matches)} finished + {len(live)} live + {len(upcoming)} upcoming kept from {len(conf_champs)} conferences; "
@@ -810,7 +885,7 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     with_maps = out["matches_meta"]["with_maps"]
     sreason = None if with_maps else ("; ".join(serr[:3]) or "no stats returned")
     out["sources"].append(status(sname, surl, with_maps > 0, with_maps, page=season_page, reason=sreason,
-                                 note=f"{nstats} fetched, {nreuse} reused from last run" + (f", {nmiss} without published stats" if nmiss else "")
+                                 note=f"{nstats} fetched, {nreuse} reused from last run" + (f", {nmiss} without published stats" if nmiss else "") + (f", {nretry} re-asked ({nfixed} backfilled)" if nretry else "")
                                       + (f"; errors: {'; '.join(serr[:3])}" if serr and with_maps else "")))
 
 
@@ -1716,6 +1791,8 @@ def main(argv=None):
         n[s["status"]] = n.get(s["status"], 0) + 1
         print(f"  {s['status']:5} {s['count']:>4}  {s['source']}" + (f"  -- {s['reason']}" if s.get("reason") else ""))
     print(f"[fragnet] {n['OK']} OK / {n['STALE']} STALE / {n['MISS']} MISS -> {out_json}, {out_js}")
+    if N429:
+        print("[fragnet] rate limited (429, retried with backoff): " + ", ".join(f"{h} x{c}" for h, c in N429.items()))
     return 0 if n["OK"] or n["STALE"] else 1
 
 
