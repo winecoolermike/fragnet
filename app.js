@@ -903,12 +903,15 @@
       ["FACEIT", ru ? ext(ru, "Match room on FACEIT") : "-"]
     ]);
     var mAvg = CFG.rank ? (rankX() ? divAvg(m.region, m.division) : (loadRank(), null)) : null;
-    function board(lines, side, mr) {
-      return '<div class="rankbox"><table class="tbl sb"><thead><tr><th class="first">' + esc(side.name) + '</th>' + (mAvg ? '<th class="n" title="ESB Rating 1.0 on this map (division average = 1.00)">Rtg</th>' : "") + '<th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
+    function pm(v) { v = num(v); return v > 0 ? '<span class="w">+' + v + "</span>" : v < 0 ? '<span class="l">&minus;' + (-v) + "</span>" : "0"; }
+    function board(lines, side, mr) {   // R8: +/- (kills minus deaths) and a team totals row, from the stored rows only
+      var tk = 0, td = 0, adr = 0, na = 0;
+      (lines || []).forEach(function (p) { tk += num(p[1]); td += num(p[2]); if (!(num(p[1]) === 0 && num(p[3]) < 10)) { adr += num(p[3]); na++; } });
+      return '<div class="rankbox"><table class="tbl sb"><thead><tr><th class="first">' + esc(side.name) + '</th>' + (mAvg ? '<th class="n" title="ESB Rating 1.0 on this map (division average = 1.00)">Rtg</th>' : "") + '<th class="n" title="kills">K</th><th class="n" title="deaths">D</th><th class="n hide-sm" title="kills minus deaths">+/-</th><th class="n" title="kills per death">K/D</th><th class="n" title="average damage per round">ADR</th><th class="n hide-sm" title="headshot kill percentage">HS%</th></tr></thead><tbody>' +
         (lines || []).map(function (p) {
           var kd = num(p[2]) ? num(p[1]) / num(p[2]) : num(p[1]);
-          return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + "</td>" + (mAvg ? '<td class="n">' + rtCell(mr >= 13 ? esbRating(num(p[1]), num(p[2]), mr, num(p[3]), num(p[4]), mAvg) : null) + "</td>" : "") + '<td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
-        }).join("") + "</tbody></table></div>";
+          return '<tr><td class="team">' + ilink(playerHash(p[0]), p[0]) + "</td>" + (mAvg ? '<td class="n">' + rtCell(mr >= 13 ? esbRating(num(p[1]), num(p[2]), mr, num(p[3]), num(p[4]), mAvg) : null) + "</td>" : "") + '<td class="n">' + num(p[1]) + '</td><td class="n">' + num(p[2]) + '</td><td class="n hide-sm">' + pm(num(p[1]) - num(p[2])) + '</td><td class="n"><b>' + kd.toFixed(2) + '</b></td><td class="n">' + num(p[3]).toFixed(1) + '</td><td class="n hide-sm">' + num(p[4]) + "%</td></tr>";
+        }).join("") + ((lines || []).length > 1 ? '<tr class="sb-tot"><td class="team" title="team totals; ADR is the average of players with stats">Team</td>' + (mAvg ? '<td class="n"></td>' : "") + '<td class="n">' + tk + '</td><td class="n">' + td + '</td><td class="n hide-sm">' + pm(tk - td) + '</td><td class="n">' + (td ? tk / td : tk).toFixed(2) + '</td><td class="n">' + (na ? (adr / na).toFixed(1) : "&ndash;") + '</td><td class="n hide-sm"></td></tr>' : "") + "</tbody></table></div>";
     }
     var boards = maps.map(function (x, i) {
       return '<h2 class="subhead">' + (maps.length > 1 ? "Map " + (i + 1) + ": " : "") + esc(x.map) + " <small>" + num(x.s1) + ":" + num(x.s2) + "</small></h2>" + board(x.p1, m.t1, num(x.s1) + num(x.s2)) + board(x.p2, m.t2, num(x.s1) + num(x.s2));
