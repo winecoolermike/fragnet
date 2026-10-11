@@ -235,18 +235,41 @@
     return null;
   }
   /* ----- lazy teams.js (v3.6): rosters + extra match lines for every team outside the top 20 ----- */
-  var TX_STATE = "";
+  var TX_STATE = "", TXP_ST = {}, TX_REGIONS = ["NA", "EU"], TX_FULL = false;
   function teamsX() { return window.FRAGNET_TEAMS || null; }
-  function loadTeams() {
-    if (window.FRAGNET_TEAMS) { TX_STATE = "ok"; return; }
-    if (TX_STATE) return;
-    TX_STATE = "loading";
+  function txMerge() {   // audit2 A6: teams-na.js / teams-eu.js parts merged into one FRAGNET_TEAMS (new object so caches refresh)
+    var P = window.FRAGNET_TXP || {}, m = null;
+    TX_REGIONS.forEach(function (r) {
+      var x = P[r]; if (!x) return;
+      if (!m) m = { fetched_at: x.fetched_at, player_cols: x.player_cols, players: [], matches: [], upcoming: [], rosters: {} };
+      m.players = m.players.concat(x.players || []); m.matches = m.matches.concat(x.matches || []); m.upcoming = m.upcoming.concat(x.upcoming || []);
+      Object.keys(x.rosters || {}).forEach(function (k) { m.rosters[k] = x.rosters[k]; });
+    });
+    if (m) window.FRAGNET_TEAMS = m;
+  }
+  function txRerender() { if (/^#((team|player|match)\/cs2\/|search|cs2(\/(?!results)|$)|home|$)/.test(curHash() || "#")) { KEEP_SCROLL = true; route(); } }
+  function loadTeamsFull() {   // fallback: the whole teams.js (older copies without the region parts)
+    if (TX_FULL) return; TX_FULL = true;
     var sc = document.createElement("script");
     sc.src = "teams.js?v=" + encodeURIComponent(D.fetched_at || "");
-    function done(ok) { TX_STATE = ok && window.FRAGNET_TEAMS ? "ok" : "fail"; if (/^#((team|player|match)\/cs2\/|search|cs2(\/(?!results)|$)|home|$)/.test(curHash() || "#")) { KEEP_SCROLL = true; route(); } }
-    sc.onload = function () { done(true); };
-    sc.onerror = function () { done(false); };
+    sc.onload = function () { TX_REGIONS.forEach(function (r) { TXP_ST[r] = window.FRAGNET_TEAMS ? "ok" : "fail"; }); txRerender(); };
+    sc.onerror = function () { TX_REGIONS.forEach(function (r) { TXP_ST[r] = "fail"; }); txRerender(); };
     document.head.appendChild(sc);
+  }
+  function loadTeams(region) {   // region "NA"/"EU": load only that part; no region: every part
+    var want = region && TX_REGIONS.indexOf(region) >= 0 ? [region] : TX_REGIONS;
+    want.forEach(function (r) {
+      if (TXP_ST[r]) return;
+      TXP_ST[r] = "loading";
+      if (TX_FULL) return;
+      var sc = document.createElement("script");
+      sc.src = "teams-" + r.toLowerCase() + ".js?v=" + encodeURIComponent(D.fetched_at || "");
+      sc.onload = function () { TXP_ST[r] = (window.FRAGNET_TXP || {})[r] ? "ok" : "fail"; txMerge(); txRerender(); };
+      sc.onerror = function () { loadTeamsFull(); };
+      document.head.appendChild(sc);
+    });
+    var st = want.map(function (r) { return TXP_ST[r]; });
+    TX_STATE = st.indexOf("loading") >= 0 ? "loading" : st.indexOf("fail") >= 0 ? (teamsX() ? "ok" : "fail") : "ok";
   }
   /* ----- lazy val.js (v3.8): Valorant event player lines, per-player totals and rosters ----- */
   var VX_STATE = "", VXC = null;
@@ -656,8 +679,8 @@
       return [d.division, boardHash(base, o, { div: divId(d), page: 1 }, defs), d === cur, d.division === "Intermediate" ? "Int" : d.division === "Advanced" ? "Adv" : d.division];
     }));
     setCrumbs([["CS2", "cs2"], ["Top Players", "cs2/players"], [dn]]);
-    loadTeams();
-    if (!teamsX() && TX_STATE === "loading") return '<div class="segs">' + dsegs + '</div><div class="empty loading">Loading players&hellip;</div>';
+    loadTeams(cur.region);
+    if (TX_STATE === "loading") return '<div class="segs">' + dsegs + '</div><div class="empty loading">Loading players&hellip;</div>';
     var seen = {}, all = allCsPlayers().filter(function (p) {
       var k = fold(p.nick); if (seen[k] || p.region !== cur.region || p.division !== cur.division) return false; seen[k] = 1; return true;
     });
@@ -866,10 +889,10 @@
   }
   function vMatchCS(id) {
     var m = findCsMatch(id);
-    if (!m && TX_STATE !== "ok" && TX_STATE !== "fail") { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
+    if (!m) { loadTeams(); if (TX_STATE === "loading") return std("Match", "CS2 &middot; ESEA match", '<div class="empty loading">Loading match&hellip;</div>'); m = findCsMatch(id); }
     if (!m) { var um = findCsUpcoming(id); if (um) return vPreviewCS(um); }
     if (!m) return notFound("Match not tracked", "No finished ESEA match with this id in Esports Scoreboard's data.", '<a href="#cs2/results">ESEA results</a>');
-    loadTeams();
+    loadTeams(m.region);
     var ru = roomUrl(m), w = win12(m, "cs"), maps = m.maps || [];
     var pick = (m.pick || []).filter(Boolean);
     var info = kv([
@@ -1486,7 +1509,7 @@
       var shown = showAll ? d.teams : slicePage(d.teams || [], spg);
       var pnav = nT > PER_PAGE ? '<div class="pager-wrap">' + (showAll ? '<nav class="pager"><span class="title">All ' + nT + ' teams</span><a href="#' + esc(base) + '">show pages</a></nav>' :
         pager(nT, spg, base).replace("</nav>", ' <a class="show-all" href="#' + esc(base) + '/all">show all ' + nT + "</a></nav>")) + "</div>" : "";
-      loadTeams();   // more finished matches for the Form column (lazy teams.js)
+      loadTeams(d.region);   // more finished matches for the Form column (lazy teams-<region>.js)
       if (d.status !== "OK") body = soon("Standings coming soon.");
       else if (!d.teams.length) body = '<div class="empty">no standings yet</div>';
       else body = (d.stale ? staleRow("FACEIT standings", d.stale_reason, d.fetched_at) : "") + pnav + '<div class="rankbox"><table class="tbl"><thead><tr><th class="first c" title="rank across the whole stage (ties shown as ranges)">#</th><th>Team</th>' + (multi ? '<th class="c" title="conference">Conf</th>' : "") + '<th class="hide-sm">Tag</th><th class="n" title="wins">W</th><th class="n" title="losses">L</th><th class="n" title="league points (3 per win)">Pts</th><th class="n hide-sm" title="rounds won-lost">Rounds</th><th class="c form-h" title="last 5 results, newest right (FF = forfeit)">Form</th></tr></thead><tbody>' +
@@ -1638,7 +1661,7 @@
   /* ----- detail pages: CS2 team / CS2 player / Valorant team / WoW guild ----- */
   function vTeamCS(id) {
     var f = findCsTeam(id), s = (D.cs && D.cs.season) || {};
-    loadTeams();
+    loadTeams(f ? f.d.region : "");
     if (!f) {
       var known = csPlayers().filter(function (p) { return p.team_id && p.team_id === id; });
       var nm = known.length ? known[0].team : "";

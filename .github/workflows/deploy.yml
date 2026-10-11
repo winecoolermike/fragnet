@@ -140,6 +140,10 @@ jobs:
         continue-on-error: true
         run: python ranking.py dist --archive rankings
 
+      - name: Per-region lazy team files (teams-na.js, teams-eu.js)
+        continue-on-error: true   # the app falls back to the whole teams.js
+        run: python split_teams.py dist
+
       - name: Spotlights and weekly roundups
         continue-on-error: true
         run: python spotlight.py dist --archive roundups
