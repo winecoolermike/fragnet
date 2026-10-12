@@ -1,0 +1,303 @@
+{
+ "cs_matches": 643,
+ "cs_with_scoreboards": 214,
+ "current": false,
+ "end": "2026-10-12T07:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 33,
+   "div": "EU Advanced",
+   "kills": 48,
+   "maps": 2,
+   "match": "1-9436146d-7004-426f-8a44-2c53979c6db4",
+   "nick": "K1ngShield",
+   "team": "Fortress",
+   "team_id": "80473369-d322-499b-acfc-a8464edd132e"
+  },
+  {
+   "deaths": 22,
+   "div": "EU Intermediate",
+   "kills": 50,
+   "maps": 2,
+   "match": "1-6c657de4-46ba-4be4-a9f7-5b2d7e3c6e24",
+   "nick": "chuvosa",
+   "team": "Dynamo Eclot Phoenix",
+   "team_id": "3aacf60b-4bb5-43aa-887a-608669f6c8be"
+  },
+  {
+   "deaths": 48,
+   "div": "EU Main",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-ee9851c9-5b05-4ce8-a011-72696d6f9c5c",
+   "nick": "Mride",
+   "team": "Hussars",
+   "team_id": "1f69e1f4-daeb-48be-82cf-9cbf0b638816"
+  },
+  {
+   "deaths": 34,
+   "div": "NA Advanced",
+   "kills": 51,
+   "maps": 2,
+   "match": "1-408d8ab0-fbeb-48bc-8316-7ce74778d001",
+   "nick": "CoolComs",
+   "team": "Zomblers",
+   "team_id": "e605128f-9bcb-4f30-b58c-a8d0af337870"
+  },
+  {
+   "deaths": 27,
+   "div": "NA Intermediate",
+   "kills": 49,
+   "maps": 2,
+   "match": "1-34453175-a546-42fa-bedf-d65444d3feb8",
+   "nick": "arik",
+   "team": "fih hou",
+   "team_id": "24776169-c711-42e7-adc2-b447bb9abff4"
+  },
+  {
+   "deaths": 33,
+   "div": "NA Main",
+   "kills": 64,
+   "maps": 2,
+   "match": "1-6906ff6e-b138-4eda-88e3-9091b9f5df3a",
+   "nick": "Springgy",
+   "team": "Rejects",
+   "team_id": "ece31c3b-d44e-44f6-acc0-f0289dc2f93f"
+  }
+ ],
+ "id": "2026-w41",
+ "label": "Oct 5 - Oct 11, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-9e45e840-1a2e-4808-8302-d566d8c6efcd",
+   "d": 20,
+   "div": "EU Advanced",
+   "k": 35,
+   "maps": 2,
+   "nick": "d3nks",
+   "rating": 1.37,
+   "rounds": 38,
+   "team": "TSA Green",
+   "team_id": "a9a2a7e0-5b29-4ba3-af56-e8056bb9ca23"
+  },
+  "EU Intermediate": {
+   "best": "1-1a76d92c-b3ff-4acf-af3b-6d9190708cf3",
+   "d": 9,
+   "div": "EU Intermediate",
+   "k": 45,
+   "maps": 2,
+   "nick": "Restupn",
+   "rating": 2.19,
+   "rounds": 29,
+   "team": "Grey Cardinal",
+   "team_id": "7f46e5e4-a472-4945-a5fc-2f20b5b6725d"
+  },
+  "EU Main": {
+   "best": "1-a0218e02-bd63-435c-b69c-9aea22278882",
+   "d": 12,
+   "div": "EU Main",
+   "k": 29,
+   "maps": 2,
+   "nick": "sm1th47",
+   "rating": 1.57,
+   "rounds": 29,
+   "team": "MAYAK ARENA",
+   "team_id": "e5b56915-a829-45f7-b237-83f5163db7b6"
+  },
+  "NA Advanced": {
+   "best": "1-b80111f4-27ba-4099-b9d1-c092d29c9bbb",
+   "d": 10,
+   "div": "NA Advanced",
+   "k": 25,
+   "maps": 2,
+   "nick": "ogura",
+   "rating": 1.47,
+   "rounds": 30,
+   "team": "Endless Esports",
+   "team_id": "f505d78c-61e6-4a0e-b1a4-5d8c0a02244a"
+  },
+  "NA Intermediate": {
+   "best": "1-29b692ab-92d9-449c-a2bd-55c971d095d1",
+   "d": 12,
+   "div": "NA Intermediate",
+   "k": 43,
+   "maps": 2,
+   "nick": "1prex",
+   "rating": 2.01,
+   "rounds": 29,
+   "team": "barry pickers",
+   "team_id": "d4bde47d-a7b2-4aff-a659-9cb177c23388"
+  },
+  "NA Main": {
+   "best": "1-724afecd-0dd9-4635-b628-291ca8fac56e",
+   "d": 17,
+   "div": "NA Main",
+   "k": 38,
+   "maps": 2,
+   "nick": "Kovacs",
+   "rating": 1.57,
+   "rounds": 37,
+   "team": "Read You Like a Kindle",
+   "team_id": "b31275e7-1e6b-4376-8330-9471fe2421ed"
+  }
+ },
+ "start": "2026-10-05T07:00:00+00:00",
+ "streaks": [
+  {
+   "div": "EU Main",
+   "id": "2959e92a-07ac-4153-b3d5-baac6aeb7613",
+   "last": "1-1e409e0c-f097-44e0-96da-3cecf1534d7b",
+   "n": 3,
+   "name": "UOL FROX"
+  }
+ ],
+ "totw": {
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": -25.4,
+   "id": "e5ddde2f-8da2-4334-91ba-d3056a285e35",
+   "l": 2,
+   "matches": 3,
+   "name": "Univelka United",
+   "played": 3,
+   "pts": 1274.6,
+   "region": "EU",
+   "w": 1
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 40.7,
+   "id": "2959e92a-07ac-4153-b3d5-baac6aeb7613",
+   "l": 0,
+   "matches": 3,
+   "name": "UOL FROX",
+   "played": 3,
+   "pts": 1490.7,
+   "region": "EU",
+   "w": 3
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 0.0,
+   "id": "b44043cb-04d4-481b-a06a-ec396be287a4",
+   "l": 3,
+   "matches": 3,
+   "name": "69",
+   "played": 2,
+   "pts": 1280.8,
+   "region": "NA",
+   "w": 0
+  }
+ },
+ "upsets": [],
+ "wow": {
+  "guilds": [
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Entropy",
+    "kills": 1,
+    "last": "2026-10-05T12:02:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Frostmourne",
+    "realm_slug": "frostmourne",
+    "region": "us",
+    "url": "https://raider.io/guilds/us/frostmourne/Entropy"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Pajala Sunrise",
+    "kills": 1,
+    "last": "2026-10-05T17:45:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Tarren Mill",
+    "realm_slug": "tarren-mill",
+    "region": "eu",
+    "url": "https://raider.io/guilds/eu/tarren-mill/Pajala%20Sunrise"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "The Amazing Zoo",
+    "kills": 1,
+    "last": "2026-10-05T18:51:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Archimonde",
+    "realm_slug": "archimonde",
+    "region": "eu",
+    "url": "https://raider.io/guilds/eu/archimonde/The%20Amazing%20Zoo"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Northwind",
+    "kills": 1,
+    "last": "2026-10-05T19:06:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Blackrock",
+    "realm_slug": "blackrock",
+    "region": "eu",
+    "url": "https://raider.io/guilds/eu/blackrock/Northwind"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Blinded",
+    "kills": 1,
+    "last": "2026-10-05T20:03:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Blackrock",
+    "realm_slug": "blackrock",
+    "region": "eu",
+    "url": "https://raider.io/guilds/eu/blackrock/Blinded"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Warpath",
+    "kills": 1,
+    "last": "2026-10-06T03:02:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Illidan",
+    "realm_slug": "illidan",
+    "region": "us",
+    "url": "https://raider.io/guilds/us/illidan/Warpath"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Rain",
+    "kills": 1,
+    "last": "2026-10-07T00:37:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Stormreaver",
+    "realm_slug": "stormreaver",
+    "region": "us",
+    "url": "https://raider.io/guilds/us/stormreaver/Rain"
+   },
+   {
+    "bosses": [
+     "Ula'tek"
+    ],
+    "guild": "Might",
+    "kills": 1,
+    "last": "2026-10-07T01:32:00+00:00",
+    "progress": "8/8 M",
+    "realm": "Zul'jin",
+    "realm_slug": "zuljin",
+    "region": "us",
+    "url": "https://raider.io/guilds/us/zuljin/Might"
+   }
+  ],
+  "kills": 30,
+  "raid": "The Venomous Abyss"
+ }
+}
