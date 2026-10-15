@@ -106,6 +106,15 @@ def verify():
             with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
                 text = fh.read().lower()
             problems += [f"banned term {t!r} found in {rel}" for t in terms if t in text]
+    # the owner's account name must never be in public output (any file type, incl. the 404, sitemap and configs)
+    for rel in files:
+        if rel.endswith((".html", ".css", ".js", ".json", ".txt", ".svg", ".xml", ".webmanifest", ".ics", ".atom")):
+            with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:
+                low = fh.read().lower()
+            for bad in ("winecoolermike", "github.com/", "github.io"):
+                data_file = rel.startswith("fonts/") or re.match(r"^(data|teams(-[a-z]+)?|val|rank|spot|home)\.(json|js)$", rel)
+                if bad in low and (bad == "winecoolermike" or not data_file):
+                    problems.append(f"code-host/account reference {bad!r} in {rel}")
     # audit2 A2: the old name must not appear in user-facing text (URLs, file names, storage keys and code identifiers like fragnet-route are fine)
     old_name = re.compile(r"(?<![-_./A-Za-z])fragnet(?![-_./A-Za-z])", re.I)
     for rel in files:
