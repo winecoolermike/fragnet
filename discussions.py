@@ -61,9 +61,8 @@ def shape(repo, now=None):
 
 
 def config(repo_name, giscus, env):
-    cfg = {"repo": repo_name, "discussions": f"https://github.com/{repo_name}/discussions"}
-    if giscus and env.get("GISCUS_ENABLED", "").strip() in ("1", "true", "yes"):
-        cfg["giscus"] = giscus
+    # No repo name, Discussions URL or giscus ids in public output: they would name the owner's account.
+    cfg = {}
     inv = (env.get("DISCORD_INVITE") or "").strip()
     if INVITE_RE.match(inv):
         cfg["discord"] = inv
@@ -94,7 +93,7 @@ def main(argv=None):
     owner, name = a.repo.split("/", 1)
     token = os.environ.get("GITHUB_TOKEN") or ""
     giscus, wrote = None, False
-    if token or a.fixture:
+    if (token or a.fixture) and os.environ.get("FORUMS_PUBLIC", "").strip() == "1":   # off: thread list links to the code host
         try:
             forum, giscus = shape(json.load(open(a.fixture, encoding="utf-8")) if a.fixture else gql(token, owner, name))
             write_forum(a.dist, forum)
@@ -103,7 +102,7 @@ def main(argv=None):
         except Exception as e:   # the forum index then shows its honest empty state
             print(f"[discussions] listing unavailable: {str(e)[:200]}")
     else:
-        print("[discussions] no GITHUB_TOKEN - listing skipped")
+        print("[discussions] forum listing off (no public link to the code host)")
     cfg = config(a.repo, giscus, os.environ)
     if wrote:
         cfg["forum"] = True

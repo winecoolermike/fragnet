@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """v4.5 real path pages, sitemap, robots.txt and share images (Esports Scoreboard).
 
-    python pages.py dist [--site https://winecoolermike.github.io/fragnet/] [--og-cache .ogcache] [--no-og]
+    python pages.py dist [--site https://esportsscoreboard.com/] [--og-cache .ogcache] [--no-og]
 
 Run on dist/ after the data refresh and BEFORE prerender.py (it uses the plain dist/index.html as the
 template). For every team / player / match with at least one tracked match, and for the main sections,
@@ -29,7 +29,7 @@ import prerender as pr
 
 # public base URL of the site (canonical, og:url, sitemap, robots, share images). One switch for a custom domain:
 # set SITE_URL (env or repository variable) to e.g. https://esportsscoreboard.com/ ; links inside pages are relative.
-SITE = (os.environ.get("SITE_URL") or "https://winecoolermike.github.io/fragnet/").strip()
+SITE = (os.environ.get("SITE_URL") or "https://esportsscoreboard.com/").strip()
 SITE = SITE if SITE.endswith("/") else SITE + "/"
 SITE_LABEL = [re.sub(r"^https?://", "", SITE).rstrip("/")]
 SAFE_SEG = re.compile(r"^(?!\.+$)[A-Za-z0-9._-]{1,48}$")
@@ -439,9 +439,8 @@ class Site:
         self.add("cs2/today", "CS2 Matches Today :: ESEA League", "Today's ESEA CS2 matches with live status, times in Pacific Time, and links to FACEIT match rooms.",
                  std("Matches Today", "CS2 &middot; ESEA", f'<div class="infobox">{len(today)} upcoming or live ESEA matches in the latest data. Enable JavaScript for live status, filters and the day strip.</div>' +
                      "".join(f'<div class="spot-line">{e(pt(m.get("t"), "%a %H:%M"))} &middot; {e((m.get("t1") or {}).get("name"))} vs {e((m.get("t2") or {}).get("name"))} <span class="dim">{e(m.get("region"))} {e(m.get("division"))}</span></div>' for m in today[:20])))
-        disc = "https://github.com/winecoolermike/fragnet/discussions"
-        self.add("forums", "Forums :: Esports Scoreboard", "Esports Scoreboard community forums on GitHub Discussions: CS2, Valorant, WoW, match threads and site feedback.",
-                 std("Forums", "GitHub Discussions", f'<div class="infobox">The forums run on GitHub Discussions. {ext(disc, "Open the forums")}</div>'))
+        self.add("forums", "Forums :: Esports Scoreboard", "Esports Scoreboard community forums: coming soon.",
+                 std("Forums", "coming soon", '<div class="infobox">Forums are coming soon.</div>'))
         self.add("recruiting", "LFP / LFT recruiting board :: Esports Scoreboard", "Amateur and semi-pro teams looking for players and players looking for teams, reviewed before posting.",
                  std("LFP / LFT Recruiting Board", "reviewed posts", '<div class="infobox">Teams looking for players and players looking for teams. Posts are reviewed before they appear. Enable JavaScript to see the board and the post forms.</div>'))
         self.add("wow", "World of Warcraft Mythic Raid Race :: Esports Scoreboard", f"World of Warcraft Mythic raid race in {raid}: US and EU guild rankings from Raider.IO.",
