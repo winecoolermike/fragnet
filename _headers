@@ -1,0 +1,11 @@
+# Cloudflare Pages: cache static assets briefly; always revalidate data and the SW
+/*.js
+  Cache-Control: public, max-age=300, must-revalidate
+/*.css
+  Cache-Control: public, max-age=300, must-revalidate
+/sw.js
+  Cache-Control: no-cache
+/data.json
+  Cache-Control: public, max-age=60, must-revalidate
+/home.json
+  Cache-Control: public, max-age=60, must-revalidate

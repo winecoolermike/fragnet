@@ -31,7 +31,8 @@ FILES = ["index.html", "style.css", "app.js", "favicon.svg", "data.json", "data.
 OPTIONAL = ["teams.json", "teams.js",   # lazy team rosters / match lines / player stats (v3.6+); copied when present
             "val.json", "val.js",       # lazy Valorant players + rosters (v3.8)
             "giscus-classic.css", "giscus-night.css",
-            "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png"]   # R10 installable app   # v5.0 comment themes (used only when comments are switched on)
+            "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png",   # R10 installable app
+            "_headers", "_redirects"]   # Cloudflare Pages: cache headers + www -> apex
 FONT_PATTERNS = ["*.woff2", "LICENSE*", "README.txt"]
 BANNED_TERMS_FILE = os.path.join(HERE, ".banned-terms")   # optional, untracked: one term per line
 FORBIDDEN = ["shots", "tests", "v1-backup", "v2-backup", ".venv", "fetch_data.py", "build_dist.py",
