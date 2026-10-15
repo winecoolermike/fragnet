@@ -1070,7 +1070,7 @@
      Nothing third-party loads unless the owner switched it on there. The forum list (forum.js) is
      a build-time snapshot of the latest Discussions; posting happens on GitHub (free account). */
   var CFG = window.ESB_CONFIG || {}, FX_STATE = "";
-  var DISC_URL = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/discussions$/.test(CFG.discussions || "") ? CFG.discussions : "https://github.com/winecoolermike/fragnet/discussions";
+  var DISC_URL = "";   // forums are off: no public link to the code host
   function forumX() { return window.ESB_FORUM || null; }
   function loadForum() {
     if (FX_STATE || !CFG.forum) return;
@@ -1152,7 +1152,7 @@
       return '<tr><td class="team">' + ilink("roundup/" + w.id, w.label + (w.current ? " (so far)" : "")) + '</td><td class="n">' + num(w.cs_matches) + '</td><td class="n">' + num((w.wow || {}).kills) + "</td></tr>";
     }).join("") + '</tbody></table></div><div class="note">Roundups are built from the results this site still tracks; a week is listed once its results are fully covered.</div>' : '<div class="empty">No complete weeks tracked yet.</div>');
   }
-  function safeGh(u) { return /^https:\/\/github\.com\//.test(String(u || "")) ? String(u) : DISC_URL; }
+  function safeGh(u) { return "#forums"; }
   function discordBox(where) {
     if (!CFG.discord || !/^https:\/\/(discord\.gg|discord\.com\/invite)\/[A-Za-z0-9-]{2,32}\/?$/.test(CFG.discord)) return "";
     return '<div class="infobox discord-box ' + where + '"><b>Join the Discord</b> &middot; chat with amateur and semi-pro players, find scrims and talk about this week&rsquo;s matches. ' + ext(CFG.discord, "Join the Esports Scoreboard Discord") + "</div>";
@@ -1836,23 +1836,11 @@
   /* ----- forums (v5.0): GitHub Discussions index ----- */
   function vForums() {
     setCrumbs([["Forums"]]);
-    if (CFG.forum && !forumX() && FX_STATE !== "fail") { loadForum(); return std("Community Forums", "GitHub Discussions", "") + '<div class="empty loading">Loading the forum list&hellip;</div>'; }
-    var fx = forumX(), intro = '<div class="infobox forum-intro">The Esports Scoreboard forums live on <b>GitHub Discussions</b>: anyone can read, posting needs a free GitHub account.' +
-      (CFG.giscus ? " Match, team and player pages have their own comment threads there too." : "") + '<div class="forum-btns"><a class="gbtn" href="' + esc(DISC_URL) + '" target="_blank" rel="noopener">Open the forums &#8599;</a> <a class="gbtn" href="' + esc(DISC_URL) + '/new/choose" target="_blank" rel="noopener">Start a discussion &#8599;</a></div></div>';
-    var body = intro + discordBox("forums");
-    if (!fx) return std("Community Forums", "GitHub Discussions", "") + body + '<div class="empty">The latest threads appear here after the next site update.</div>';
-    var cats = (fx.categories || []).filter(function (c) { return c && c.name; });
-    if (cats.length) body += '<h2 class="subhead">Categories</h2><div class="rankbox"><table class="tbl forum-cats"><thead><tr><th class="first">Category</th><th class="n" title="threads among the 30 most recently active">Recent threads</th></tr></thead><tbody>' + cats.map(function (c) {
-      return '<tr><td class="team">' + ext(DISC_URL + "/categories/" + encodeURIComponent(c.slug || ""), c.name) + (c.desc ? '<div class="dim fdesc">' + esc(c.desc) + "</div>" : "") + '</td><td class="n">' + num(c.recent) + "</td></tr>";
-    }).join("") + "</tbody></table></div>";
-    var lt = (fx.latest || []).slice(0, 30);
-    body += '<h2 class="subhead">Latest Threads</h2>' + (lt.length ? '<div class="rankbox"><table class="tbl forum-latest"><thead><tr><th class="first">Thread</th><th class="hide-sm">Category</th><th class="n">Replies</th><th class="hide-sm">Last activity</th></tr></thead><tbody>' + lt.map(function (d) {
-      return '<tr><td class="team">' + ext(safeGh(d.url), d.title) + '<div class="dim fdesc">by ' + esc(d.author) + " &middot; " + fmt(d.created, "short") + '</div></td><td class="hide-sm">' + esc(d.cat) + '</td><td class="n">' + num(d.comments) + '</td><td class="hide-sm dim">' + fmt(d.updated, "short") + "</td></tr>";
-    }).join("") + "</tbody></table></div>" : '<div class="empty">No threads yet &ndash; <a href="' + esc(DISC_URL) + '/new/choose" target="_blank" rel="noopener">start the first one</a>.</div>');
-    return std("Community Forums", num(fx.total) + " threads", "") + body + '<div class="note">Thread list as of ' + fmt(fx.fetched_at, "short") + " (refreshed with every site update).</div>";
+    return std("Community Forums", "coming soon", '<div class="infobox forum-intro">Forums are coming soon.</div>' + discordBox("forums"));
   }
   /* giscus comment threads on match, team and player pages (only when switched on in ESB_CONFIG) */
   function commentsBox(term) {
+    return "";   // comments (giscus) stay off
     var g = CFG.giscus;
     if (!g || !g.repo_id || !g.category_id || location.protocol !== "https:") return "";
     return '<h2 class="subhead" id="comments-h">Comments</h2><div class="comments" data-term="' + esc(term) + '"><div class="empty">Comments load when you scroll here (GitHub Discussions; posting needs a free GitHub account).</div></div>';
@@ -1890,7 +1878,6 @@
     s.src = "extra.js"; s.onload = done; s.onerror = done;
     document.body.appendChild(s);
   }
-  var ISSUE_NEW = DISC_URL.replace(/\/discussions$/, "/issues/new");
   function okUrl(u, re) { return typeof u === "string" && re.test(u); }
   var SOC_RE = /^https:\/\/(x\.com|www\.twitch\.tv|www\.youtube\.com|discord\.gg|www\.faceit\.com)\//;
   function socLink(o) { return okUrl(o.url, SOC_RE) ? '<a href="' + esc(o.url) + '" target="_blank" rel="nofollow noopener ugc">' + esc(o.label) + " &#8599;</a>" : ""; }
@@ -1906,13 +1893,11 @@
       var rec = (x.recruiting || []).map(function (r) { return '<div class="rec-line"><span class="rec-tag">' + esc(r.type) + "</span> <b>" + esc(r.role) + "</b>" + (r.note ? " &middot; " + esc(r.note) : "") + (r.contact ? " &middot; " + socLink(r.contact) : "") + ' <span class="dim">(' + esc(r.updated) + ")</span></div>"; }).join("");
       out = '<h2 class="subhead">Team info</h2><div class="infobox team-extra">' + logo + '<div class="te-body">' + (soc ? '<div class="te-soc">' + soc + "</div>" : "") + rec + '<div class="dim te-note">Provided by the team, reviewed before publishing.</div></div></div>';
     }
-    var q = "?template=claim-team.yml&title=" + encodeURIComponent("Claim: " + key) + "&team_url=" + encodeURIComponent(location.href.split("#")[0].replace(/[^/]*$/, "") + "#team/" + parts.join("/"));
-    return out + '<div class="claim"><a href="' + esc(ISSUE_NEW + q) + '" target="_blank" rel="noopener">' + (x ? "Update this team&rsquo;s info" : "Claim this team") + ' &#8599;</a> <span class="dim">add a logo, socials or a recruiting note (GitHub account; reviewed by hand)</span></div>';
+    return out + '<div class="claim dim">Team claims coming soon.</div>';
   }
   function vRecruiting() {
     setCrumbs([["Recruiting"]]);
-    var post = '<div class="forum-btns"><a class="gbtn" href="' + esc(ISSUE_NEW) + '?template=recruiting-post.yml" target="_blank" rel="noopener">Post LFT / LFP &#8599;</a></div>';
-    var intro = '<div class="infobox">LFP = team looking for a player, LFT = player looking for a team. Posts are sent as a GitHub issue and appear here after review. ' + post + "</div>";
+    var intro = '<div class="infobox">LFP = team looking for a player, LFT = player looking for a team. Posting is coming soon.</div>';
     if (CFG.extra && !extraX() && EX_STATE !== "fail") { loadExtra(); return std("LFP / LFT Recruiting Board", "", intro + '<div class="empty loading">Loading&hellip;</div>'); }
     var x = extraX() || { teams: {}, players: [] }, rows = [];
     Object.keys(x.teams || {}).forEach(function (k) {
@@ -2028,12 +2013,9 @@
     li.hidden = false;
   }
   function renderSideForum() {
-    var fx = forumX(), lt = fx ? (fx.latest || []).slice(0, 6) : [];
-    if (CFG.forum && !fx) loadForum();
-    $("#side-forum").innerHTML = (lt.length ? lt.map(function (d) {
-      return '<li title="' + esc(d.title) + '"><a href="' + esc(safeGh(d.url)) + '" target="_blank" rel="noopener">' + esc(d.title) + '</a><span class="cnt" title="replies">' + num(d.comments) + "</span></li>";
-    }).join("") : '<li class="empty">No threads yet.</li>') + '<li class="note">Forums run on GitHub Discussions. <a href="' + esc(DISC_URL) + '" target="_blank" rel="noopener">Open the forums &#8599;</a></li>';
+    $("#side-forum").innerHTML = '<li class="note">Forums are coming soon.</li>';
   }
+
 
   function renderTicker() {
     var bits = [];
