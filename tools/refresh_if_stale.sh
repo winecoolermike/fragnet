@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backup trigger for the FragNet refresh: dispatch deploy.yml only if there was no
 # successful run in the last 35 minutes and none is queued/running right now.
-# Needs: gh authenticated for winecoolermike/fragnet. Prints one status line; never prints secrets.
+# Needs: gh authenticated for this repo. Prints one status line; never prints secrets.
 set -euo pipefail
 REPO=winecoolermike/fragnet; WF=deploy.yml; MAX_AGE_MIN=${MAX_AGE_MIN:-35}
 active=$(gh run list -R "$REPO" -w "$WF" -L 10 --json status -q '[.[] | select(.status=="queued" or .status=="in_progress" or .status=="waiting" or .status=="pending")] | length')

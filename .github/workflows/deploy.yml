@@ -9,21 +9,16 @@ on:
 
 permissions:
   contents: write   # only used to append roundups/ and rankings/YYYY-wNN.json
-  pages: write
   discussions: read
-  id-token: write
 
 concurrency:
-  group: pages
+  group: deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15   # v4.5: the first run draws every share image (later runs reuse the cache)
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -224,22 +219,8 @@ jobs:
           path: .lastgood
           key: lastgood-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # Cloudflare Pages (primary); GitHub Pages kept in parallel until cutover is confirmed
       - name: Deploy to Cloudflare Pages
-        id: cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --yes wrangler@4 pages deploy dist --project-name=esportsscoreboard --branch=main
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5

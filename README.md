@@ -1,6 +1,6 @@
 # Esports Scoreboard
 
-**Live site: https://winecoolermike.github.io/fragnet/**
+**Live site: https://esportsscoreboard.com/** (Cloudflare Pages)
 
 Esports Scoreboard is an independent, fan-made tracker for **amateur and semi-pro esports**, styled
 like a classic mid-2000s esports portal:
@@ -108,14 +108,13 @@ page. `sitemap.xml` and `robots.txt` are written alongside. Share images (1200x6
 with Pillow for teams and matches and cached between runs, so only changed ones are redrawn. Generated files
 are never committed; they go straight into the Pages artifact. Local build: `python build_dist.py --pages --prerender`.
 
-## Custom domain (esportsscoreboard.com)
+## Hosting (Cloudflare Pages)
 
-Pages is deployed by the Actions workflow, so the custom domain is a Pages setting (a CNAME file is not used):
-`gh api -X PUT repos/winecoolermike/fragnet/pages -f cname=esportsscoreboard.com`, then, once GitHub has issued the
-certificate, `gh api -X PUT repos/winecoolermike/fragnet/pages -F https_enforced=true`. The repository variable
-`SITE_URL` (`gh variable set SITE_URL --body https://esportsscoreboard.com/`) switches canonical URLs, og tags,
-sitemap.xml, robots.txt and share images on the next deploy. All links inside the site are relative, so it works both
-under /fragnet/ and at the domain root.
+The Actions workflow builds `dist/` and deploys it with Wrangler to the Cloudflare Pages project
+`esportsscoreboard` (direct upload; secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`).
+Custom domains: `esportsscoreboard.com` and `www.esportsscoreboard.com`.
+The repository variable `SITE_URL` (`https://esportsscoreboard.com/`) sets canonical URLs, og tags,
+sitemap.xml, robots.txt and share images. Links inside the site are relative.
 
 ## Community: forums and comments (v5.0)
 The forums are the repo's **GitHub Discussions** (anyone reads; posting needs a free GitHub account).
