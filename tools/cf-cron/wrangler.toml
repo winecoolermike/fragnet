@@ -1,0 +1,8 @@
+name = "esb-refresh-cron"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+
+[triggers]
+crons = ["13,43 * * * *"]
+# secret (not in this file): npx wrangler secret put GH_DISPATCH_TOKEN
