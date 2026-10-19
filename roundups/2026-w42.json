@@ -1,0 +1,299 @@
+{
+ "cs_matches": 671,
+ "cs_with_scoreboards": 208,
+ "current": false,
+ "end": "2026-10-19T07:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 52,
+   "div": "EU Advanced",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-a4f36a69-877e-471b-bbce-d0adaba40311",
+   "nick": "certa1n",
+   "team": "ZOTIX",
+   "team_id": "bbd12cb2-b131-4dd5-b80d-6ec587991619"
+  },
+  {
+   "deaths": 43,
+   "div": "EU Intermediate",
+   "kills": 57,
+   "maps": 3,
+   "match": "1-9a578c4d-07ae-4d30-b501-a0ed8ab04754",
+   "nick": "-m0nst3r_off",
+   "team": "Miracles",
+   "team_id": "fde58975-d7a8-492e-bdb0-b3fa8c8ada57"
+  },
+  {
+   "deaths": 50,
+   "div": "EU Main",
+   "kills": 56,
+   "maps": 2,
+   "match": "1-dfd9a7d8-b51b-49e0-8b66-15d7805b3e83",
+   "nick": "AJ-",
+   "team": "Passion Academy",
+   "team_id": "55a70e32-d052-457d-92f4-2958a21febe0"
+  },
+  {
+   "deaths": 58,
+   "div": "NA Advanced",
+   "kills": 68,
+   "maps": 2,
+   "match": "1-a3878a0c-8be0-4d80-a0a2-50b3c69a4bbe",
+   "nick": "omoo",
+   "team": "Holly Molly",
+   "team_id": "932eb89c-1db6-4529-9b9d-ff920477081d"
+  },
+  {
+   "deaths": 34,
+   "div": "NA Intermediate",
+   "kills": 51,
+   "maps": 2,
+   "match": "1-8decffde-a04c-44ca-8c75-03e19f7691ba",
+   "nick": "arik",
+   "team": "fih hou",
+   "team_id": "24776169-c711-42e7-adc2-b447bb9abff4"
+  },
+  {
+   "deaths": 33,
+   "div": "NA Main",
+   "kills": 47,
+   "maps": 2,
+   "match": "1-9f823710-c01b-4d08-a0ef-ba6a1d7aaf89",
+   "nick": "basspumpin_",
+   "team": "Evil Space Wizards",
+   "team_id": "bb535e35-2ab3-40ab-9b25-669bbda9d852"
+  }
+ ],
+ "id": "2026-w42",
+ "label": "Oct 12 - Oct 18, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-699813f4-24d2-4bc6-a48f-4173ca33581c",
+   "d": 28,
+   "div": "EU Advanced",
+   "k": 55,
+   "maps": 2,
+   "nick": "P1kaN0--",
+   "rating": 1.46,
+   "rounds": 54,
+   "team": "eternal premium",
+   "team_id": "273e5af7-767e-42da-9b1b-cc501b780bd0"
+  },
+  "EU Intermediate": {
+   "best": "1-b8a21130-3bea-4437-b56e-ae4bed60b44c",
+   "d": 13,
+   "div": "EU Intermediate",
+   "k": 39,
+   "maps": 2,
+   "nick": "laughing",
+   "rating": 1.7,
+   "rounds": 35,
+   "team": "Seizer",
+   "team_id": "2b071fde-3404-443b-843b-f844badd241c"
+  },
+  "EU Main": {
+   "best": "1-3fb84236-4469-4811-86b8-c8e3c727e6e1",
+   "d": 19,
+   "div": "EU Main",
+   "k": 47,
+   "maps": 2,
+   "nick": "sayko769",
+   "rating": 1.63,
+   "rounds": 46,
+   "team": "4Z",
+   "team_id": "195410f5-9a2e-46e5-bf58-9f31b3598430"
+  },
+  "NA Advanced": {
+   "best": "1-ca2598e7-b327-4c69-bdff-8c61654374d8",
+   "d": 25,
+   "div": "NA Advanced",
+   "k": 52,
+   "maps": 3,
+   "nick": "shane",
+   "rating": 1.46,
+   "rounds": 53,
+   "team": "SportsBetExpert",
+   "team_id": "1c6fdb1b-5d10-4c66-8d59-be8d6b70d781"
+  },
+  "NA Intermediate": {
+   "best": "1-eb68a524-3ffe-4d4b-9fa8-2ad223e1442c",
+   "d": 22,
+   "div": "NA Intermediate",
+   "k": 46,
+   "maps": 2,
+   "nick": "executexd",
+   "rating": 1.57,
+   "rounds": 39,
+   "team": "KIS",
+   "team_id": "aacaf68a-962f-4080-80fd-45541bd11100"
+  },
+  "NA Main": {
+   "best": "1-51e6c97a-6aaf-4d6a-b0f2-4e864e503002",
+   "d": 17,
+   "div": "NA Main",
+   "k": 39,
+   "maps": 2,
+   "nick": "monkfry",
+   "rating": 1.7,
+   "rounds": 33,
+   "team": "Kairo",
+   "team_id": "ab8d6f20-2f29-4c68-a0c3-638b23d0f4e0"
+  }
+ },
+ "start": "2026-10-12T07:00:00+00:00",
+ "streaks": [
+  {
+   "div": "NA Advanced",
+   "id": "932eb89c-1db6-4529-9b9d-ff920477081d",
+   "last": "1-7b82ca62-c6bc-403c-8371-b560f898ca2e",
+   "n": 4,
+   "name": "Holly Molly"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "2bfd608f-a95b-4709-ab80-71e095e2a4c3",
+   "last": "1-2ed73b21-82f5-4c4c-9cf4-9293a9d13f47",
+   "n": 4,
+   "name": "my life be like"
+  },
+  {
+   "div": "NA Main",
+   "id": "b545be4b-847a-4b47-a77c-a96585899301",
+   "last": "1-01e7ecaa-cc53-4f96-bd9d-5ba9a6cc75ce",
+   "n": 3,
+   "name": "5Frag Gaming"
+  },
+  {
+   "div": "EU Intermediate",
+   "id": "335cc81c-08b7-4a7a-9853-23722a511298",
+   "last": "1-d90b05b8-260f-4c3b-b1f2-26be206df48d",
+   "n": 3,
+   "name": "5Stars"
+  },
+  {
+   "div": "EU Advanced",
+   "id": "fe66f943-b5ab-46f6-9f43-c3ed3b9b904a",
+   "last": "1-65b01032-488e-4784-bcd1-0f1ec8a83422",
+   "n": 3,
+   "name": "A Great Chaos"
+  }
+ ],
+ "totw": {
+  "EU Advanced": {
+   "division": "Advanced",
+   "gain": 38.0,
+   "id": "273e5af7-767e-42da-9b1b-cc501b780bd0",
+   "l": 0,
+   "matches": 3,
+   "name": "eternal premium",
+   "played": 2,
+   "pts": 1655.6,
+   "region": "EU",
+   "w": 3
+  },
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": 60.3,
+   "id": "16615bf0-11c4-4d20-8605-b5e8346496bf",
+   "l": 0,
+   "matches": 3,
+   "name": "DH Premium",
+   "played": 3,
+   "pts": 1360.3,
+   "region": "EU",
+   "w": 3
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 49.8,
+   "id": "ff47b2ea-2f12-47b8-b984-cb75b7c54d38",
+   "l": 0,
+   "matches": 3,
+   "name": "Agency of Violence",
+   "played": 3,
+   "pts": 1499.8,
+   "region": "EU",
+   "w": 3
+  },
+  "NA Advanced": {
+   "division": "Advanced",
+   "gain": 67.4,
+   "id": "1c6fdb1b-5d10-4c66-8d59-be8d6b70d781",
+   "l": 0,
+   "matches": 3,
+   "name": "SportsBetExpert",
+   "played": 3,
+   "pts": 1667.4,
+   "region": "NA",
+   "w": 3
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 24.6,
+   "id": "80d856fb-88e2-40ba-a594-5499b4784315",
+   "l": 0,
+   "matches": 3,
+   "name": "FourStrokeGang",
+   "played": 2,
+   "pts": 1324.6,
+   "region": "NA",
+   "w": 3
+  },
+  "NA Main": {
+   "division": "Main",
+   "gain": 46.5,
+   "id": "5477fad6-a70d-4725-ba9f-f11970451ce8",
+   "l": 1,
+   "matches": 3,
+   "name": "UnitedStatesArmy Esports",
+   "played": 2,
+   "pts": 1478.1,
+   "region": "NA",
+   "w": 2
+  }
+ },
+ "upsets": [
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-47214afd-df46-4a09-854f-77fe36cfcd22",
+   "loser": {
+    "id": "6e30925c-b959-401b-a64b-571bd81da2f7",
+    "name": "NuTorious",
+    "rank": 2
+   },
+   "region": "NA",
+   "score": "13:11",
+   "t": "2026-10-16T02:31:05+00:00",
+   "winner": {
+    "id": "aef3a526-ddcf-4fa5-ac37-5d737e2eb159",
+    "name": "Diggers",
+    "rank": 29
+   }
+  },
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-db96ad35-1ef6-4ba2-81e9-50502fbb2bff",
+   "loser": {
+    "id": "8b7c27bc-3837-4ffd-9e13-48b477b003b3",
+    "name": "IC Prospect",
+    "rank": 4
+   },
+   "region": "EU",
+   "score": "13:11",
+   "t": "2026-10-15T18:58:32+00:00",
+   "winner": {
+    "id": "52c4a134-5cc8-4482-816c-9283ae8a4d23",
+    "name": "IMAPROBLEM",
+    "rank": 18
+   }
+  }
+ ],
+ "wow": {
+  "guilds": [],
+  "kills": 0,
+  "raid": "The Venomous Abyss"
+ }
+}
