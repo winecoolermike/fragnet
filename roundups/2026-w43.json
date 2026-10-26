@@ -1,0 +1,262 @@
+{
+ "cs_matches": 526,
+ "cs_with_scoreboards": 179,
+ "current": false,
+ "end": "2026-10-26T07:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 53,
+   "div": "EU Advanced",
+   "kills": 75,
+   "maps": 4,
+   "match": "1-6e2d6aca-d589-464f-99eb-efa0c3ddb8b0",
+   "nick": "njuKI-",
+   "team": "Al Ahli Esports",
+   "team_id": "5b1be77d-1cbe-4efd-981f-cda176c24061"
+  },
+  {
+   "deaths": 41,
+   "div": "EU Intermediate",
+   "kills": 52,
+   "maps": 2,
+   "match": "1-e9322a3a-6f36-4afa-a53f-4bbea34a485e",
+   "nick": "SwagMort",
+   "team": "Valley Trawlers",
+   "team_id": "1175359a-4b77-4af0-8aca-6632aba6cffe"
+  },
+  {
+   "deaths": 49,
+   "div": "EU Main",
+   "kills": 73,
+   "maps": 3,
+   "match": "1-116973f9-9eef-456c-a1d6-5e2d35940b72",
+   "nick": "imawashi",
+   "team": "Erlamand",
+   "team_id": "257df3ae-f478-43d2-a2f1-9e3ac1aa468b"
+  },
+  {
+   "deaths": 38,
+   "div": "NA Advanced",
+   "kills": 51,
+   "maps": 3,
+   "match": "1-1d4bf315-b638-4548-a243-56058541f880",
+   "nick": "CrePoW",
+   "team": "DETONATE",
+   "team_id": "15275e07-c906-4014-990a-0ed58dbf86d2"
+  },
+  {
+   "deaths": 21,
+   "div": "NA Intermediate",
+   "kills": 38,
+   "maps": 1,
+   "match": "1-60cc53ff-9b5d-4ec4-a60d-db40059f13cc",
+   "nick": "V1RuS",
+   "team": "RH Help Desk",
+   "team_id": "2f75e970-b8ea-4f22-98fd-3b9cfcba9cad"
+  },
+  {
+   "deaths": 27,
+   "div": "NA Main",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-0be6505e-8fce-4fb7-90f2-2534a09e3c3e",
+   "nick": "d1nk_",
+   "team": "Team Amplus",
+   "team_id": "a3a66da0-7b75-4b14-a9ca-d66063a529e4"
+  }
+ ],
+ "id": "2026-w43",
+ "label": "Oct 19 - Oct 25, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-7254db2c-676b-4070-8ce3-7c61ad5ee04e",
+   "d": 26,
+   "div": "EU Advanced",
+   "k": 42,
+   "maps": 2,
+   "nick": "h1mal8ya",
+   "rating": 1.38,
+   "rounds": 44,
+   "team": "IC Prospect",
+   "team_id": "8b7c27bc-3837-4ffd-9e13-48b477b003b3"
+  },
+  "EU Intermediate": {
+   "best": "1-ca53c358-c205-44d5-b5d7-8c60edc2fa5f",
+   "d": 14,
+   "div": "EU Intermediate",
+   "k": 39,
+   "maps": 2,
+   "nick": "eskyy",
+   "rating": 1.77,
+   "rounds": 32,
+   "team": "Izako Boars",
+   "team_id": "d93b9fa9-ba5a-4973-9038-33a117578341"
+  },
+  "EU Main": {
+   "best": "1-8f89a18b-1f59-4812-9fa7-6df9ce3dce25",
+   "d": 23,
+   "div": "EU Main",
+   "k": 50,
+   "maps": 2,
+   "nick": "-relaxbtw-",
+   "rating": 1.61,
+   "rounds": 39,
+   "team": "Hussars",
+   "team_id": "1f69e1f4-daeb-48be-82cf-9cbf0b638816"
+  },
+  "NA Advanced": {
+   "best": "1-eee91000-66fa-40bb-b771-3ac67736faf1",
+   "d": 17,
+   "div": "NA Advanced",
+   "k": 46,
+   "maps": 2,
+   "nick": "nicx",
+   "rating": 1.69,
+   "rounds": 38,
+   "team": "Marsborne",
+   "team_id": "8121d96b-2094-4bf7-970d-22765b8b4779"
+  },
+  "NA Intermediate": {
+   "best": "1-88dfd24b-ef7a-4b45-a1d2-f0d1955809dd",
+   "d": 26,
+   "div": "NA Intermediate",
+   "k": 36,
+   "maps": 2,
+   "nick": "AlexB",
+   "rating": 1.25,
+   "rounds": 41,
+   "team": "ItAintOverYet",
+   "team_id": "a6a91b5a-3481-470c-823f-ef5039c05829"
+  },
+  "NA Main": {
+   "best": "1-ffd7f073-6bbc-42d1-898c-1f77dd0f0fa9",
+   "d": 27,
+   "div": "NA Main",
+   "k": 67,
+   "maps": 3,
+   "nick": "d1nk_",
+   "rating": 1.57,
+   "rounds": 59,
+   "team": "Team Amplus",
+   "team_id": "a3a66da0-7b75-4b14-a9ca-d66063a529e4"
+  }
+ },
+ "start": "2026-10-19T07:00:00+00:00",
+ "streaks": [
+  {
+   "div": "EU Advanced",
+   "id": "5b1be77d-1cbe-4efd-981f-cda176c24061",
+   "last": "1-daf28558-0d28-4274-9842-758563fcb030",
+   "n": 4,
+   "name": "Al Ahli Esports"
+  },
+  {
+   "div": "NA Main",
+   "id": "1fa454b8-385a-4c5d-b9c8-a666be19368b",
+   "last": "1-11f59460-ec18-4cda-b1ee-2a1ef4a6c8bb",
+   "n": 4,
+   "name": "DESPAIR"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "0baf728d-ddf0-4773-8064-77e96285aabf",
+   "last": "1-1d4bf315-b638-4548-a243-56058541f880",
+   "n": 4,
+   "name": "EMPIRE"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "2bfd608f-a95b-4709-ab80-71e095e2a4c3",
+   "last": "1-de9cf5cf-f4f8-47a4-8c2f-5535e3ff020f",
+   "n": 4,
+   "name": "my life be like"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "a128039e-1e53-4b66-bc8c-4d7a3c8853be",
+   "last": "1-9ee2286c-48ac-4718-b550-5fa3cef611a5",
+   "n": 4,
+   "name": "Olympus"
+  }
+ ],
+ "totw": {
+  "EU Advanced": {
+   "division": "Advanced",
+   "gain": 75.7,
+   "id": "5b1be77d-1cbe-4efd-981f-cda176c24061",
+   "l": 1,
+   "matches": 5,
+   "name": "Al Ahli Esports",
+   "played": 4,
+   "pts": 1654.9,
+   "region": "EU",
+   "w": 4
+  },
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": 47.4,
+   "id": "9a2eaa62-4841-4f6b-ae1e-e693c2a51827",
+   "l": 1,
+   "matches": 3,
+   "name": "YUYIETTE",
+   "played": 2,
+   "pts": 1324.2,
+   "region": "EU",
+   "w": 2
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 54.0,
+   "id": "2ff9f219-2a0f-4de1-8e4d-26eda10057f9",
+   "l": 0,
+   "matches": 3,
+   "name": "Borealis",
+   "played": 3,
+   "pts": 1504.0,
+   "region": "EU",
+   "w": 3
+  },
+  "NA Advanced": {
+   "division": "Advanced",
+   "gain": 42.5,
+   "id": "ad5e40f9-ec10-4e32-b005-9f74705a93c5",
+   "l": 1,
+   "matches": 3,
+   "name": "Beyond Limits",
+   "played": 2,
+   "pts": 1623.3,
+   "region": "NA",
+   "w": 2
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 41.3,
+   "id": "b98be84b-ffa6-4d4c-ad0c-7b0589fe79a0",
+   "l": 1,
+   "matches": 3,
+   "name": "monitor off",
+   "played": 2,
+   "pts": 1323.7,
+   "region": "NA",
+   "w": 2
+  },
+  "NA Main": {
+   "division": "Main",
+   "gain": 66.4,
+   "id": "dae52217-785a-442e-87f0-5e95512af168",
+   "l": 1,
+   "matches": 4,
+   "name": "teamington",
+   "played": 3,
+   "pts": 1497.2,
+   "region": "NA",
+   "w": 3
+  }
+ },
+ "upsets": [],
+ "wow": {
+  "guilds": [],
+  "kills": 0,
+  "raid": "The Venomous Abyss"
+ }
+}
