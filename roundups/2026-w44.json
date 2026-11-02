@@ -1,0 +1,299 @@
+{
+ "cs_matches": 661,
+ "cs_with_scoreboards": 207,
+ "current": false,
+ "end": "2026-11-02T08:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 36,
+   "div": "EU Advanced",
+   "kills": 56,
+   "maps": 3,
+   "match": "1-505e367f-9b91-4b79-a74c-b536461b297a",
+   "nick": "MoNaTy",
+   "team": "YOUNGLINGS",
+   "team_id": "dda1dfd9-8c7b-4709-bc08-d945226b53ca"
+  },
+  {
+   "deaths": 33,
+   "div": "EU Intermediate",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-9990d390-4d19-4859-a410-c9a28476a239",
+   "nick": "D0cC",
+   "team": "FACEIT DEMON",
+   "team_id": "93d37859-9fe5-4067-afc6-66eac4c2282a"
+  },
+  {
+   "deaths": 51,
+   "div": "EU Main",
+   "kills": 100,
+   "maps": 3,
+   "match": "1-d101ad3f-a4ec-4079-9f5c-dfc1a93f0b66",
+   "nick": "SaFFroNNNN",
+   "team": "Bad Beavers",
+   "team_id": "8fc2d2c3-2919-4192-8311-fbc3275b96ef"
+  },
+  {
+   "deaths": 38,
+   "div": "NA Advanced",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-40d48eb5-41ec-47e8-a94d-8786228ab707",
+   "nick": "AtomiK",
+   "team": "Axial",
+   "team_id": "d4de48f0-b65a-4843-82e3-1538f3eb4abe"
+  },
+  {
+   "deaths": 44,
+   "div": "NA Intermediate",
+   "kills": 50,
+   "maps": 2,
+   "match": "1-b3f05e66-72d6-4b7b-8c8a-6389ff6a53c3",
+   "nick": "pusEx-",
+   "team": "ASCEND",
+   "team_id": "63057073-b1b1-4cee-9335-448893e828db"
+  },
+  {
+   "deaths": 62,
+   "div": "NA Main",
+   "kills": 81,
+   "maps": 3,
+   "match": "1-cb5fdb67-e5e3-4ba2-9008-bd7536bfbc88",
+   "nick": "clouwud_ttv",
+   "team": "F1lthy Puggers",
+   "team_id": "507169e8-aeb4-4b59-9487-7a8fedc674b8"
+  }
+ ],
+ "id": "2026-w44",
+ "label": "Oct 26 - Nov 1, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-3a7ea2b0-4deb-4d88-b7db-51e0797d418f",
+   "d": 14,
+   "div": "EU Advanced",
+   "k": 34,
+   "maps": 2,
+   "nick": "H1kari",
+   "rating": 1.59,
+   "rounds": 35,
+   "team": "Fraternity",
+   "team_id": "e09a5784-3de2-4132-87f5-65e907bcc602"
+  },
+  "EU Intermediate": {
+   "best": "1-0c96e8ed-23c8-470d-89af-0a66c9cdb610",
+   "d": 22,
+   "div": "EU Intermediate",
+   "k": 50,
+   "maps": 2,
+   "nick": "sssady",
+   "rating": 1.61,
+   "rounds": 39,
+   "team": "Papillon",
+   "team_id": "03d0fb44-9eba-4744-b6a6-781a2340371b"
+  },
+  "EU Main": {
+   "best": "1-fb2e02ac-0d06-431a-ac14-fd260f0c8da8",
+   "d": 51,
+   "div": "EU Main",
+   "k": 100,
+   "maps": 3,
+   "nick": "SaFFroNNNN",
+   "rating": 1.47,
+   "rounds": 88,
+   "team": "Bad Beavers",
+   "team_id": "8fc2d2c3-2919-4192-8311-fbc3275b96ef"
+  },
+  "NA Advanced": {
+   "best": "1-0c0c350d-8c20-422d-b19f-b443594252ed",
+   "d": 38,
+   "div": "NA Advanced",
+   "k": 67,
+   "maps": 3,
+   "nick": "AtomiK",
+   "rating": 1.42,
+   "rounds": 63,
+   "team": "Axial",
+   "team_id": "d4de48f0-b65a-4843-82e3-1538f3eb4abe"
+  },
+  "NA Intermediate": {
+   "best": "1-0ea9dd47-575d-4b82-a9f0-aa1bf82423cc",
+   "d": 20,
+   "div": "NA Intermediate",
+   "k": 47,
+   "maps": 2,
+   "nick": "OJISBAE",
+   "rating": 1.8,
+   "rounds": 34,
+   "team": "brb grinding minecraft",
+   "team_id": "7ca0b152-59bb-4c56-9bdf-71296706937a"
+  },
+  "NA Main": {
+   "best": "1-7cd4a295-f1ad-4be0-8789-248c3cc49808",
+   "d": 12,
+   "div": "NA Main",
+   "k": 36,
+   "maps": 2,
+   "nick": "kkyle",
+   "rating": 1.69,
+   "rounds": 35,
+   "team": "SquadUp",
+   "team_id": "bacb2438-5a57-4126-9f03-60e21cca202c"
+  }
+ },
+ "start": "2026-10-26T07:00:00+00:00",
+ "streaks": [
+  {
+   "div": "NA Advanced",
+   "id": "d4de48f0-b65a-4843-82e3-1538f3eb4abe",
+   "last": "1-5568d78d-704f-4240-8d87-bf4a2c2b8ced",
+   "n": 4,
+   "name": "Axial"
+  },
+  {
+   "div": "EU Advanced",
+   "id": "f3b3ace1-84f1-448c-bc88-e222e3d3f085",
+   "last": "1-8dd349b1-cc25-41ff-8aa6-ed0af6cba274",
+   "n": 4,
+   "name": "B8 Academy"
+  },
+  {
+   "div": "EU Main",
+   "id": "99335c5c-c93a-487b-ac8d-a852338cf979",
+   "last": "1-4b2fbb9c-e1bb-4ef8-ad48-0cc376501819",
+   "n": 4,
+   "name": "LeetCase"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "a128039e-1e53-4b66-bc8c-4d7a3c8853be",
+   "last": "1-b0c5e136-0b14-4c67-97c2-20ec6e8ebcb6",
+   "n": 4,
+   "name": "Olympus"
+  },
+  {
+   "div": "EU Main",
+   "id": "1ce16320-21c5-4cfe-a4e1-1fcb599a2a35",
+   "last": "1-d1470548-ac0b-437c-86e0-7ea18e417896",
+   "n": 3,
+   "name": "100 Oxygen Thieves"
+  }
+ ],
+ "totw": {
+  "EU Advanced": {
+   "division": "Advanced",
+   "gain": 42.0,
+   "id": "e09a5784-3de2-4132-87f5-65e907bcc602",
+   "l": 1,
+   "matches": 5,
+   "name": "Fraternity",
+   "played": 2,
+   "pts": 1642.9,
+   "region": "EU",
+   "w": 4
+  },
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": 45.4,
+   "id": "ac8d9230-66a4-4452-b022-a9401dd7730f",
+   "l": 1,
+   "matches": 3,
+   "name": "Boolsheet",
+   "played": 2,
+   "pts": 1326.2,
+   "region": "EU",
+   "w": 2
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 59.2,
+   "id": "99335c5c-c93a-487b-ac8d-a852338cf979",
+   "l": 0,
+   "matches": 4,
+   "name": "Relicta LFO",
+   "played": 4,
+   "pts": 1509.2,
+   "region": "EU",
+   "w": 4
+  },
+  "NA Advanced": {
+   "division": "Advanced",
+   "gain": 53.8,
+   "id": "d4de48f0-b65a-4843-82e3-1538f3eb4abe",
+   "l": 0,
+   "matches": 4,
+   "name": "Axial",
+   "played": 3,
+   "pts": 1672.2,
+   "region": "NA",
+   "w": 4
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 56.0,
+   "id": "3c475a54-af37-43b5-a590-9fe1eecca4ff",
+   "l": 0,
+   "matches": 3,
+   "name": "Cream Team",
+   "played": 3,
+   "pts": 1356.0,
+   "region": "NA",
+   "w": 3
+  },
+  "NA Main": {
+   "division": "Main",
+   "gain": 62.2,
+   "id": "ab8d6f20-2f29-4c68-a0c3-638b23d0f4e0",
+   "l": 0,
+   "matches": 3,
+   "name": "Kairo",
+   "played": 3,
+   "pts": 1512.2,
+   "region": "NA",
+   "w": 3
+  }
+ },
+ "upsets": [
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-baf3b927-8175-4a0d-a865-420250290bc3",
+   "loser": {
+    "id": "68c9c60e-2f40-4bae-acf3-ae4712c74734",
+    "name": "MTX",
+    "rank": 3
+   },
+   "region": "EU",
+   "score": "13:9",
+   "t": "2026-11-01T18:54:41+00:00",
+   "winner": {
+    "id": "5f2e9987-a2a3-4901-94cf-8fa9457f307b",
+    "name": "XI Esport",
+    "rank": 12
+   }
+  },
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-ebab8f6a-9306-4437-804a-2ede4f311e1c",
+   "loser": {
+    "id": "ee2358dc-3699-4a4d-b701-615d049d2a38",
+    "name": "Addice",
+    "rank": 4
+   },
+   "region": "NA",
+   "score": "13:9",
+   "t": "2026-10-30T01:51:52+00:00",
+   "winner": {
+    "id": "4ac11c02-1c6a-4b91-9ad7-2324cd776323",
+    "name": "FlyQuest RED",
+    "rank": 9
+   }
+  }
+ ],
+ "wow": {
+  "guilds": [],
+  "kills": 0,
+  "raid": "The Venomous Abyss"
+ }
+}
