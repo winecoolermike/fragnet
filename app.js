@@ -1454,7 +1454,16 @@
       return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
     }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + cards + homeSpot() + myMatches("home") + todayBoard(true) +
+    /* Featured: World of Warcraft: Forever (official Blizzard product; not Classic). No invented live stats. */
+    var wf = '<aside class="feat-wf" aria-label="Featured: WoW Forever">'
+      + '<div class="feat-wf-kicker">Featured</div>'
+      + '<div class="feat-wf-title">World of Warcraft: Forever</div>'
+      + '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. Separate from Retail Mythic rankings below and not WoW Classic.</p>'
+      + '<div class="feat-wf-links">'
+      + '<a class="feat-wf-btn" href="https://worldofwarcraft.blizzard.com/en-us/forever" target="_blank" rel="noopener">Official Forever page</a>'
+      + '<a class="feat-wf-btn alt" href="https://us.forums.blizzard.com/en/wow/t/2360696" target="_blank" rel="noopener">Beta development notes</a>'
+      + '</div></aside>';
+    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + cards + homeSpot() + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
   }
 

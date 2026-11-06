@@ -496,6 +496,16 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .ev-pick{border-top:none}
 /* home hub: game cards */
 .hub-intro{border-bottom:1px solid var(--tline)}
+/* Featured: WoW Forever (restrained blue; readable on light + night) */
+.feat-wf{margin:8px 0 10px;padding:10px 12px;background:#F4F8FC;border:1px solid #9BB4C9;border-left:4px solid #3D6F94;color:#1B2834}
+.feat-wf-kicker{font:bold 10px var(--ui);letter-spacing:.6px;text-transform:uppercase;color:#3D6F94;margin-bottom:2px}
+.feat-wf-title{font:bold 16px/1.2 var(--head);color:#164567;margin:0 0 4px}
+.feat-wf-body{margin:0 0 8px;font:12px/1.45 var(--ui);color:#243240}
+.feat-wf-links{display:flex;flex-wrap:wrap;gap:6px}
+.feat-wf-btn{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:4px 10px;background:linear-gradient(#fff,#E8EEF4);border:1px solid #9BB4C9;border-radius:3px;font:bold 12px/1.2 var(--ui);color:#164567;text-decoration:none!important}
+.feat-wf-btn:hover{background:#DAEEFF;border-color:#2F6DB8}
+.feat-wf-btn.alt{background:transparent;border-style:dashed}
+@media (max-width:600px){.feat-wf-btn{min-height:42px;font-size:13px;flex:1 1 auto}}
 .gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 8px}
 .gcard{display:flex;flex-direction:column;background:#fff;border:1px solid #000;border-top:4px solid var(--orange);min-width:0}
 .gcard.g-valorant{border-top-color:#C62828}
@@ -615,6 +625,12 @@ body{background:var(--page);color:var(--text)}
 [data-theme=night] .tile>span,[data-theme=night] .seg-l{color:var(--muted)}
 [data-theme=night] .tile .w{color:var(--green)} [data-theme=night] .tile .l{color:var(--red)}
 [data-theme=night] .gcard{background:var(--box)} [data-theme=night] .gc-teaser b{color:var(--navy)}
+[data-theme=night] .feat-wf{background:#1A222B;border-color:#3A5368;border-left-color:#6FA3C9;color:var(--text)}
+[data-theme=night] .feat-wf-kicker{color:#8FB6D4}
+[data-theme=night] .feat-wf-title{color:#B7D4EC}
+[data-theme=night] .feat-wf-body{color:#C5CDD6}
+[data-theme=night] .feat-wf-btn{background:#262C34;border-color:#3A5368;color:#CFE3F7}
+[data-theme=night] .feat-wf-btn:hover{background:#2E3946;color:#fff}
 [data-theme=night] .gbtn,[data-theme=night] .seg a,[data-theme=night] .pager a,[data-theme=night] .fbtn{background:#262C34;border-color:#3A4552;color:#CFE3F7}
 [data-theme=night] .gbtn:hover,[data-theme=night] .seg a:hover,[data-theme=night] .pager a:hover{background:#2E3946;color:#fff}
 [data-theme=night] .seg a.on,[data-theme=night] .pager span.act{background:#2F6FB5;border-color:#4A86C8;color:#fff}

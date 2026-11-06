@@ -88,6 +88,18 @@ def render(d):
     parts = [std("Esports Scoreboard Front Page", "updated " + e(upd),
                  '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. '
                  "This is a static snapshot; with JavaScript enabled you get every division, team and player page, match scoreboards and search. All times Pacific.</div>")]
+    # Featured WoW Forever (official Blizzard product; not Classic). Outbound links only; no invented stats.
+    parts.append(
+        '<aside class="feat-wf" aria-label="Featured: WoW Forever">'
+        '<div class="feat-wf-kicker">Featured</div>'
+        '<div class="feat-wf-title">World of Warcraft: Forever</div>'
+        '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. '
+        'Separate from Retail Mythic rankings below and not WoW Classic.</p>'
+        '<div class="feat-wf-links">'
+        + ext("https://worldofwarcraft.blizzard.com/en-us/forever", "Official Forever page").replace("<a ", '<a class="feat-wf-btn" ')
+        + ext("https://us.forums.blizzard.com/en/wow/t/2360696", "Beta development notes").replace("<a ", '<a class="feat-wf-btn alt" ')
+        + "</div></aside>"
+    )
     divs = [dv for dv in na_first(cs.get("divisions")) if dv.get("teams")]
     d0 = divs[0] if divs else None
     cs_t = " &middot; ".join(x for x in [
