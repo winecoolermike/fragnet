@@ -535,7 +535,7 @@
     if (RK_STATE || !CFG.rank) return;
     RK_STATE = "loading";
     var s = document.createElement("script");
-    function done() { RK_STATE = rankX() ? "ok" : "fail"; RKIDX = null; if (/^#(cs2|team\/cs2|player\/cs2|match\/cs2|home)?/.test(curHash())) { KEEP_SCROLL = true; route(); } }
+    function done() { RK_STATE = rankX() ? "ok" : "fail"; RKIDX = null; var h = curHash(); if (!h || h === "#" || /^#home$/.test(h) || /^#(cs2|team\/cs2|player\/cs2|match\/cs2)/.test(h)) { KEEP_SCROLL = true; route(); } }
     s.src = "rank.js"; s.onload = done; s.onerror = done;
     document.body.appendChild(s);
   }
@@ -770,13 +770,20 @@
   function csUpcomingTable(rows, opts) {
     opts = opts || {};
     if (!rows.length) return csEmpty("upcoming matches");
-    return '<div class="rankbox"><table class="tbl res cs-up"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team">' + (opts.showDiv ? '<col class="c-div hide-sm">' : '<col class="c-rd hide-sm">') + "</colgroup><thead><tr>" +
+    ensureRank();
+    var anyPred = false;
+    var tbl = '<div class="rankbox"><table class="tbl res cs-up"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team">' + (opts.showDiv ? '<col class="c-div hide-sm">' : '<col class="c-rd hide-sm">') + "</colgroup><thead><tr>" +
       '<th class="first" title="scheduled start, Pacific Time (as listed on FACEIT; may change)">Scheduled (PT)</th><th class="n">Team 1</th><th class="c"></th><th>Team 2</th><th class="hide-sm">' + (opts.showDiv ? "Division" : "Round") + "</th></tr></thead><tbody>" +
       rows.map(function (m) {
-        var ru = roomUrl(m);
-        return '<tr><td class="dim" title="' + esc(m.t ? fmt(m.t) : "") + '">' + (m.t ? fmt(m.t, "short").replace(/ [A-Z]{3,4}$/, "") : "TBD") + '</td><td class="n tm">' + csSide(m.t1) + '</td><td class="score">' + (ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="match room on FACEIT">vs</a>' : "vs") +
-          '</td><td class="tm">' + csSide(m.t2) + '</td><td class="hide-sm rd">' + (opts.showDiv ? ilink("cs2/" + divOf(m), m.region + " " + m.division) + '<span class="cc">R' + num(m.round) + "</span>" : "Round " + num(m.round) + (m.conf ? '<span class="cc">' + esc(m.conf) + "</span>" : "")) + "</td></tr>";
+        var ru = roomUrl(m), h = csMatchHash(m), pick = predPick(m), mid;
+        if (pick) {
+          anyPred = true;
+          mid = h ? '<a class="wp-chip" href="#' + esc(h) + '" title="win probability, experimental; open match preview">' + pick.pct + "%</a>" : '<span class="wp-chip">' + pick.pct + "%</span>";
+        } else mid = ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="match room on FACEIT">vs</a>' : "vs";
+        return '<tr><td class="dim" title="' + esc(m.t ? fmt(m.t) : "") + '">' + (m.t ? fmt(m.t, "short").replace(/ [A-Z]{3,4}$/, "") : "TBD") + '</td><td class="n tm' + (pick && pick.fav === 1 ? " fav" : "") + '">' + csSide(m.t1) + '</td><td class="score">' + mid +
+          '</td><td class="tm' + (pick && pick.fav === 2 ? " fav" : "") + '">' + csSide(m.t2) + '</td><td class="hide-sm rd">' + (opts.showDiv ? ilink("cs2/" + divOf(m), m.region + " " + m.division) + '<span class="cc">R' + num(m.round) + "</span>" : "Round " + num(m.round) + (m.conf ? '<span class="cc">' + esc(m.conf) + "</span>" : "")) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
+    return tbl + (anyPred ? '<div class="note">NA win % is an experimental estimate based on season results.</div>' : "");
   }
   function csMatchNote() {
     var mm = csMeta();
@@ -850,9 +857,18 @@
      Only the regions listed in pred.regions show it; everything else keeps the plain "no predictions" preview. */
   function predOf(m) {
     var x = rankX(), pd = x && x.pred;
-    if (!pd || (pd.regions || []).indexOf(m.region) < 0 || (pd.divisions || []).indexOf(m.division) < 0) return null;
+    if (!pd || !m || (pd.regions || []).indexOf(m.region) < 0 || (pd.divisions || []).indexOf(m.division) < 0) return null;
     return { pd: pd, p: (pd.matches || {})[m.id] || null };
   }
+  function predPick(m) {
+    var o = predOf(m), p;
+    if (!o || !o.p || o.p.p1 == null) return null;
+    p = Number(o.p.p1);
+    if (!(p >= 0 && p <= 1)) return null;
+    var fav = p > 0.5 ? 1 : p < 0.5 ? 2 : 0;
+    return { fav: fav, pct: Math.round(100 * (fav === 2 ? 1 - p : p)), p1: p };
+  }
+  function ensureRank() { if (CFG.rank && !rankX() && RK_STATE !== "fail") loadRank(); }
   function predHtml(m) {
     if (CFG.rank && !rankX() && RK_STATE !== "fail") { loadRank(); return '<h2 class="subhead">Win probability <small>experimental</small></h2><div class="empty loading">Loading&hellip;</div>'; }
     var o = predOf(m); if (!o) return "";
@@ -1345,6 +1361,55 @@
     if (all.length) return all.length + " EU match" + (all.length === 1 ? "" : "es") + " today";
     return "";
   }
+  function naUpcomingRows() {
+    var seen = {}, out = [];
+    function add(m) {
+      if (!m || !m.id || seen[m.id] || m.region !== "NA" || !m.t1 || !m.t2) return;
+      seen[m.id] = 1;
+      out.push(m);
+    }
+    ((D.cs && D.cs.live) || []).forEach(add);
+    csUpcoming().forEach(add);
+    var tx = teamsX();
+    if (tx && tx.upcoming) tx.upcoming.forEach(add);
+    out.sort(function (a, b) { return String(a.t || "").localeCompare(String(b.t || "")); });
+    return out;
+  }
+  function naPicksBox() {
+    ensureRank();
+    var all = naUpcomingRows(), rows = [], i, pick;
+    for (i = 0; i < all.length && rows.length < 5; i++) {
+      pick = predPick(all[i]);
+      if (pick) rows.push({ m: all[i], pick: pick });
+    }
+    if (!rows.length) {
+      return (CFG.rank && !rankX() && RK_STATE !== "fail") ? std("Next NA Picks", "", '<div class="empty loading">Loading&hellip;</div>', "na-picks") : "";
+    }
+    var first = rows[0].m, today = dayKey(new Date()), k = first.t ? dayKey(new Date(first.t)) : "", title, meta = "";
+    if (k && k === today) title = "Tonight&rsquo;s NA Picks";
+    else if (k) {
+      var d = keyDate(k);
+      title = "Next NA Picks";
+      meta = DAYS[d.getUTCDay()].slice(0, 3) + " " + MON[d.getUTCMonth()] + " " + d.getUTCDate();
+    } else title = "Next NA Picks";
+    var body = '<div class="rankbox"><table class="tbl res compact na-picks-tbl"><thead><tr><th class="first">Time</th><th class="n">Favorite</th><th class="c">Win</th><th>Opponent</th><th class="hide-sm">Division</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var m = r.m, pick = r.pick, fav = pick.fav === 2 ? m.t2 : m.t1, dog = pick.fav === 2 ? m.t1 : m.t2, h = csMatchHash(m);
+        var href = h ? "#" + esc(h) : "#cs2/today";
+        var when = m.t ? hhmm(m.t) : "TBD";
+        if (m.t && k && dayKey(new Date(m.t)) !== k) {
+          var md = keyDate(dayKey(new Date(m.t)));
+          when = DAYS[md.getUTCDay()].slice(0, 3) + " " + when;
+        }
+        return '<tr><td class="dim"><a href="' + href + '">' + when + '</a><div class="res-divmap">' + esc(m.division || "") + "</div></td>" +
+          '<td class="n tm fav"><a href="' + href + '">' + esc((fav && fav.name) || "") + "</a></td>" +
+          '<td class="score"><a class="wp-chip" href="' + href + '" title="win probability, experimental">' + pick.pct + "%</a></td>" +
+          '<td class="tm"><a href="' + href + '">' + esc((dog && dog.name) || "") + "</a></td>" +
+          '<td class="hide-sm dim">' + esc(m.division || "") + "</td></tr>";
+      }).join("") + "</tbody></table></div>" +
+      '<div class="note">Experimental estimate based on season results.</div>';
+    return std(title, meta, body, "na-picks");
+  }
   function naHomeBoard() {
     var today = naTodayRows(), p = ptParts(new Date()), eu = euTodayNote();
     var euLine = eu ? '<div class="note">' + eu + ' &middot; <a href="#cs2/today/f-eu">EU matches today &raquo;</a></div>' : "";
@@ -1486,6 +1551,7 @@
   }
   function todayTab() { var t = lsGet("esb-today-tab", "all"); return TABS.some(function (x) { return x[0] === t; }) ? t : "all"; }
   function todayBoard(preview) {
+    ensureRank();
     var flt = preview ? "na" : todayFilter(), all = todayRows().filter(function (r) { return passFilter(r, flt); }), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
     all.forEach(function (r) { counts[r.st]++; if (rowMine(r)) counts.mine++; });
     var tabsHtml = preview ? "" : '<div class="segs segs2 st-tabs"><div class="seg" role="tablist" aria-label="Match status"><span class="seg-l">Show</span>' + TABS.map(function (x) {
@@ -1540,19 +1606,19 @@
             '<td class="tm ' + (v2 ? "win" : "lose") + '">' + ilink(valHash(m.team2), m.team2) + '</td><td class="hide-sm div" title="' + esc(m.event + (m.series ? " - " + m.series : "")) + '"><span class="gtag">VAL</span>' + esc(shortEv(m.event)) +
             '</td><td class="hide-sm dim">&ndash;</td></tr>';
         }
-        var ru = roomUrl(m), w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2, mid;
+        var ru = roomUrl(m), w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2, mid, pick = (r.st === "up" || r.st === "live") ? predPick(m) : null;
         if (r.st === "done") mid = '<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>";
-        else if (r.st === "live") mid = '<span class="live-b">LIVE</span>';
-        else mid = "vs";
-        var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : "match room on FACEIT";
+        else if (r.st === "live") mid = '<span class="live-b">LIVE</span>' + (pick ? ' <span class="wp-chip">' + pick.pct + "%</span>" : "");
+        else mid = pick ? '<span class="wp-chip">' + pick.pct + "%</span>" : "vs";
+        var tip = r.st === "done" ? "match room on FACEIT" : r.st === "live" ? "live now (as of the last update) - match room on FACEIT" : (pick ? "match preview, win probability is experimental" : "match room on FACEIT");
         return '<tr class="g-cs st-' + r.st + '"><td class="dim" title="' + esc((r.st === "done" ? "finished " : r.st === "live" ? "started " : "scheduled ") + (m.t ? fmt(m.t) : "")) + '">' + (m.t ? hhmm(m.t) + relSpan(r.st, m.t, "cs") : "TBD") + "</td>" +
-          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + rankPre(m.t1) + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) + (isFF(m) ? ' <span class="ff-tag" title="forfeit (FACEIT result with no rounds played)">FF</span>' : "") : (r.st === "up" && csMatchHash(m) ? '<a href="#' + esc(csMatchHash(m)) + '" title="match preview">' + mid + "</a>" : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid)) + (r.st === "done" ? mapChips(m) : "") + "</td>" +
-          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + rankPre(m.t2) + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : (pick && pick.fav === 1 ? "fav" : "")) + '">' + rankPre(m.t1) + csSide(m.t1) + '</td><td class="score">' + (r.st === "done" ? scoreLink(csMatchHash(m), mid, ru, tip) + (isFF(m) ? ' <span class="ff-tag" title="forfeit (FACEIT result with no rounds played)">FF</span>' : "") : (r.st === "up" && csMatchHash(m) ? '<a href="#' + esc(csMatchHash(m)) + '" title="match preview">' + mid + "</a>" : ru ? '<a href="' + esc(safeUrl(ru)) + '" target="_blank" rel="noopener" title="' + tip + '">' + mid + "</a>" : mid)) + (r.st === "done" ? mapChips(m) : "") + "</td>" +
+          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : (pick && pick.fav === 2 ? "fav" : "")) + '">' + rankPre(m.t2) + csSide(m.t2) + '</td><td class="hide-sm div" title="' + esc(m.region + " " + m.division + (m.conf ? " - conference " + m.conf : "") + " - round " + m.round) + '"><span class="gtag">CS2</span>' +
           ilink("cs2/" + divOf(m), m.region + " " + m.division) + (m.bo ? ' <span class="bo-tag">Bo' + num(m.bo) + "</span>" : "") + '</td><td class="hide-sm">' + (r.st === "done" ? mapCell(m) : '<span class="dim">&ndash;</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div>" +
       (preview ? '<div class="note see-all">' + all.length + " match" + (all.length === 1 ? "" : "es") + ' today &middot; <a href="#cs2/today">see all matches today &raquo;</a></div>' :
       '<div class="note">' + all.length + " match" + (all.length === 1 ? "" : "es") + " today" + (cut ? " &middot; showing " + [live.length ? "live matches" : "", done.length ? "the latest " + Math.min(N, done.length) + " result" + (Math.min(N, done.length) === 1 ? "" : "s") : "", up.length ? "the next " + Math.min(N, up.length) + " start" + (Math.min(N, up.length) === 1 ? "" : "s") : ""].filter(Boolean).join(", ") + ' (<a href="#cs2/results">all results &raquo;</a>)' : "") +
-      ". Times in Pacific Time. Click a final score for the match page (&#8599; = source), vs / LIVE for the match room. LIVE = in progress at the last update.</div>");
+      ". Times in Pacific Time. Click a final score for the match page (&#8599; = source), vs / LIVE for the match room. LIVE = in progress at the last update." + (rows.some(function (r) { return r.g === "cs" && (r.st === "up" || r.st === "live") && predPick(r.m); }) ? " NA win % is an experimental estimate based on season results." : "") + "</div>");
     return std(esc(title), meta, body, "today-board");
   }
 
@@ -1664,6 +1730,7 @@
     var cards = '<div class="gcards home-gcards">' +
       card("cs2", csT, [["Standings", csHome()], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
       naHomeBoard() +
+      naPicksBox() +
       card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
       card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. All times Pacific.</div>';

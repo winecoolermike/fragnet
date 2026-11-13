@@ -529,11 +529,12 @@ body:not(.on-home) #side-na{display:none}
 .wf-stand{margin:8px 0;padding:10px 12px;border:1px solid #9BB4C9;border-left:4px solid #3D6F94;background:#F4F8FC;color:#243240;font-style:normal}
 .gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 8px}
 @media (min-width:901px){
-  .home-gcards{grid-template-areas:"cs2 val wow" "res res res"}
+  .home-gcards{grid-template-areas:"cs2 val wow" "res res res" "picks picks picks"}
   .home-gcards > .g-cs2{grid-area:cs2}
   .home-gcards > .g-valorant{grid-area:val}
   .home-gcards > .g-wow{grid-area:wow}
   .home-gcards > #today-board{grid-area:res;margin:6px 0 0}
+  .home-gcards > #na-picks{grid-area:picks;margin:6px 0 0}
 }
 .res-hint{font:10px var(--ui);color:var(--muted,#5B6470);padding:2px 6px 0;letter-spacing:.01em}
 .res-divmap{font-size:10px;line-height:1.2;margin-top:1px;white-space:normal;overflow-wrap:anywhere}
@@ -901,3 +902,13 @@ td.score a.xl:hover{color:var(--link)}
   }
   .tbl.res td.score,.tbl.res td.dim{white-space:nowrap;overflow:visible;text-overflow:clip}
 }
+
+/* compact NA win % in upcoming / today lists and the home NA Picks box */
+.wp-chip{font:bold 11px var(--ui);color:var(--navy);white-space:nowrap;letter-spacing:.02em}
+a.wp-chip,a.wp-chip:visited{color:var(--navy);text-decoration:none}
+a.wp-chip:hover{text-decoration:underline}
+.tbl td.fav,.tbl td.fav a{font-weight:bold;color:var(--navy)}
+.na-picks-tbl{margin:0}
+#na-picks .std-header h1,#na-picks .std-header h2{font-size:13px}
+[data-theme=night] .wp-chip, [data-theme=night] a.wp-chip, [data-theme=night] a.wp-chip:visited{color:#9cc7ee}
+[data-theme=night] .tbl td.fav,[data-theme=night] .tbl td.fav a{color:#9cc7ee}

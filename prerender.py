@@ -101,7 +101,103 @@ def cs_div_map(m):
     return f"{d} · {mp}" if d and mp else (mp or d)
 
 
-def render(d):
+def pred_pick(pred, m):
+    """Favorite side (1 or 2) and integer percent, or None."""
+    if not pred or not m:
+        return None
+    rec = (pred.get("matches") or {}).get(m.get("id"))
+    if not rec or rec.get("p1") is None:
+        return None
+    if m.get("region") not in (pred.get("regions") or []) or m.get("division") not in (pred.get("divisions") or []):
+        return None
+    try:
+        p = float(rec["p1"])
+    except (TypeError, ValueError):
+        return None
+    if not 0 <= p <= 1:
+        return None
+    fav = 1 if p > 0.5 else (2 if p < 0.5 else 0)
+    pct = int(round(100 * ((1 - p) if fav == 2 else p)))
+    return fav, pct
+
+
+def load_sidecar(data_path, name):
+    side = os.path.join(os.path.dirname(os.path.abspath(data_path)), name)
+    try:
+        with open(side, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
+def na_picks_box(d, data_path):
+    """Compact Next/Tonight NA Picks for the no-JS snapshot, if rank.json is beside data.json."""
+    pred = (load_sidecar(data_path, "rank.json") or {}).get("pred") or {}
+    if not pred or pred.get("paused") or not pred.get("matches"):
+        return ""
+    teams = load_sidecar(data_path, "teams.json") or {}
+    cs = d.get("cs") or {}
+    seen, rows = set(), []
+    for m in (cs.get("live") or []) + (cs.get("upcoming") or []) + (teams.get("upcoming") or []):
+        if not m or m.get("id") in seen or m.get("region") != "NA" or not (m.get("t1") and m.get("t2")):
+            continue
+        seen.add(m["id"])
+        rows.append(m)
+    rows.sort(key=lambda m: str(m.get("t") or ""))
+    picks = []
+    for m in rows:
+        pk = pred_pick(pred, m)
+        if pk:
+            picks.append((m, pk[0], pk[1]))
+        if len(picks) >= 5:
+            break
+    if not picks:
+        return ""
+    first_t = picks[0][0].get("t")
+    try:
+        first_d = datetime.fromisoformat(str(first_t).replace("Z", "+00:00")).astimezone(PT).date()
+    except (TypeError, ValueError):
+        first_d = None
+    today = datetime.now(PT).date()
+    if first_d == today:
+        title, meta = "Tonight's NA Picks", ""
+    elif first_d:
+        title, meta = "Next NA Picks", first_d.strftime("%a %b %-d")
+    else:
+        title, meta = "Next NA Picks", ""
+    trs = []
+    for m, fav, pct in picks:
+        t1, t2 = m.get("t1") or {}, m.get("t2") or {}
+        fav_t, dog_t = (t2, t1) if fav == 2 else (t1, t2)
+        href = f"match/cs2/{m.get('id')}/" if re.match(r"^[0-9a-z-]+$", str(m.get("id") or ""), re.I) else ""
+        when = pt(m.get("t"), "%H:%M") if m.get("t") else "TBD"
+        try:
+            md = datetime.fromisoformat(str(m.get("t")).replace("Z", "+00:00")).astimezone(PT).date()
+            if first_d and md != first_d:
+                when = md.strftime("%a ") + when
+        except (TypeError, ValueError):
+            pass
+        cell = (lambda u, text: f'<a href="{e(u)}">{e(text)}</a>' if u else e(text))
+        div = m.get("division") or ""
+        score = (f'<a class="wp-chip" href="{e(href)}">{e(str(pct) + "%")}</a>' if href else e(str(pct) + "%"))
+        trs.append(
+            "<tr>"
+            + f'<td class="dim">{cell(href, when)}' + (f'<div class="res-divmap">{e(div)}</div>' if div else "") + "</td>"
+            + f'<td class="n tm fav">{cell(href, fav_t.get("name"))}</td>'
+            + f'<td class="score">{score}</td>'
+            + f'<td class="tm">{cell(href, dog_t.get("name"))}</td>'
+            + f'<td class="hide-sm dim">{e(div)}</td></tr>'
+        )
+    inner = (
+        '<div class="rankbox"><table class="tbl res compact na-picks-tbl"><thead><tr>'
+        '<th class="first">Time</th><th class="n">Favorite</th><th class="c">Win</th><th>Opponent</th><th class="hide-sm">Division</th>'
+        "</tr></thead><tbody>" + "".join(trs) + "</tbody></table></div>"
+        '<div class="note">Experimental estimate based on season results.</div>'
+    )
+    return std(title, meta, inner, "na-picks")
+
+
+def render(d, data_path=""):
     """v4.0 calm home: three game cards, the latest 5 ESEA results, 5 headlines (North America first)."""
     cs, val, wow = d.get("cs") or {}, d.get("valorant") or {}, d.get("wow") or {}
     upd = pt(d.get("fetched_at"))
@@ -210,7 +306,8 @@ def render(d):
                  + ('<div class="rankbox"><table class="tbl res"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
                  + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">No NA matches scheduled yet today.</div>'),
                  "today-board")
-    parts.append('<div class="gcards home-gcards">' + cs2_card + res_box + val_card + wow_card + "</div>")
+    picks_box = na_picks_box(d, data_path) if data_path else ""
+    parts.append('<div class="gcards home-gcards">' + cs2_card + res_box + picks_box + val_card + wow_card + "</div>")
 
     # side news (right rail only; no duplicate block in the main column)
     news = sorted((d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)
@@ -260,8 +357,8 @@ def well_formed(fragment):
     return not p.bad and not p.stack
 
 
-def inject(page, data):
-    view, side, side_na, upd, desc = render(data)
+def inject(page, data, data_path=""):
+    view, side, side_na, upd, desc = render(data, data_path)
     if not (well_formed(view) and well_formed(side) and well_formed(side_na)):
         raise ValueError("rendered snapshot is not well-formed HTML")
     _e = view.find("</h1>")   # audit2 A7: one h1 in the no-JS front page too (later box titles become h2, same look)
@@ -318,7 +415,7 @@ def main(argv):
     if MARK in page:
         print("[prerender] already pre-rendered; nothing to do")
         return 0
-    page = inject(page, data)
+    page = inject(page, data, data_path)
     probs = check_page(page)
     if probs:
         print("[prerender] FAILED: " + "; ".join(probs))

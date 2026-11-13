@@ -866,6 +866,12 @@ def build(dist, site, og_cache, do_og=True):
         fh.write(home)
     os.replace(tpl_path + ".tmp", tpl_path)
     # audit B12: small home.json for the front page's first paint (the SPA loads data.json right after)
+    def _home_upcoming(cs, near):
+        """Near-term slate plus the next few NA matches (for the home NA Picks box mid-week)."""
+        up = [m for m in cs.get("upcoming") or [] if near(m, 30)]
+        seen = {m.get("id") for m in up}
+        na = sorted((m for m in (cs.get("upcoming") or []) if m.get("region") == "NA" and m.get("id") not in seen), key=lambda m: str(m.get("t") or ""))
+        return up + na[:8]
     try:
         d = s.d
         now = datetime.now(timezone.utc)
@@ -878,7 +884,7 @@ def build(dist, site, og_cache, do_og=True):
         hd = {k: d.get(k) for k in ("fetched_at", "generator", "display_tz", "status")}
         hd["cs"] = {"season": cs.get("season"), "live": cs.get("live") or [],
                     "divisions": [dict({k: v for k, v in dv.items() if k != "teams"}, teams=(dv.get("teams") or [])[:3]) for dv in sorted(cs.get("divisions") or [], key=lambda dv: 0 if dv.get("region") == "NA" else 1)],
-                    "upcoming": [m for m in cs.get("upcoming") or [] if near(m, 30)], "matches": [m for m in cs.get("matches") or [] if near(m, 30)]}
+                    "upcoming": _home_upcoming(cs, near), "matches": [m for m in cs.get("matches") or [] if near(m, 30)]}
         va = d.get("valorant") or {}
         hd["valorant"] = {k: v for k, v in va.items() if k not in ("events", "results", "top_players")}
         hd["valorant"].update(events=[{k: v for k, v in ev.items() if not isinstance(v, (list, dict))} for ev in va.get("events") or []], top_players=(va.get("top_players") or [])[:1], results=[])
