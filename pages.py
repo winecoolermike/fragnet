@@ -896,7 +896,7 @@ def build(dist, site, og_cache, do_og=True):
             fh.write(f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Moved :: Esports Scoreboard</title><meta name="robots" content="noindex"><meta name="esb-redirect">'
                      f'<link rel="canonical" href="{e(site + new + "/")}"><meta http-equiv="refresh" content="0; url={e(rel + new + "/")}">'
                      f'<script>location.replace({json.dumps(rel + new + "/")} + location.hash)</script></head><body><a href="{e(rel + new + "/")}">This page moved</a></body></html>')
-    seo.write_all(s, dist, site, s.pages, og_url)   # sitemap (per-page lastmod), robots, llms.txt, /api/, og.png, IndexNow key
+    seo.write_all(s, dist, site, s.pages, og_url, PATH_MAP)   # sitemap (per-page lastmod), robots, llms.txt, /api/, og.png, IndexNow key
     kinds = {}
     for p in s.pages:
         kinds[p["kind"]] = kinds.get(p["kind"], 0) + 1

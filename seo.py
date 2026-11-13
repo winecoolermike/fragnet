@@ -67,17 +67,14 @@ def _pt(iso):
         return str(iso or "")
 
 
-def api_and_llms(s, dist, site, pred=None):
+def api_and_llms(s, dist, site, pred=None, path_map=None):
     """Writes /api/*.json and returns (llms_txt, llms_full_txt). pred: {match_id: {...}} from rank.json (may be empty)."""
     d = s.d
     cs = d.get("cs") or {}
     season = (cs.get("season") or {}).get("name") or "ESEA League"
     fetched = d.get("fetched_at")
     pred = pred or {}
-    tpath = {}
-    for p in s.pages:
-        if p["kind"] == "team" and p["route"].startswith("team/"):
-            tpath[p["route"]] = site + (p.get("path") or p["route"]) + "/"
+    tpath = {old: site + new + "/" for old, new in (path_map or {}).items() if old.startswith("team/cs2/")}   # uuid route -> readable slug-id8 page
 
     def team_url(tid):
         return tpath.get("team/cs2/" + str(tid)) or ""
@@ -156,7 +153,7 @@ def changed_urls(rows, now=None, hours=36):
     return keep[:1000]
 
 
-def write_all(s, dist, site, pages, og_url):
+def write_all(s, dist, site, pages, og_url, path_map=None):
     """Writes everything above except the front page JSON-LD (pages.py adds that to the template)."""
     day = (s.d.get("fetched_at") or datetime.now(timezone.utc).isoformat())[:10]
     sm, rows = sitemap(site, pages, day)
@@ -170,7 +167,7 @@ def write_all(s, dist, site, pages, og_url):
             rk = json.load(fh)
     except (OSError, ValueError):
         pass
-    short, full = api_and_llms(s, dist, site, (rk.get("pred") or {}).get("matches") if isinstance(rk.get("pred"), dict) else None)
+    short, full = api_and_llms(s, dist, site, (rk.get("pred") or {}).get("matches") if isinstance(rk.get("pred"), dict) else None, path_map)
     with open(os.path.join(dist, "llms.txt"), "w", encoding="utf-8") as fh:
         fh.write(short)
     with open(os.path.join(dist, "llms-full.txt"), "w", encoding="utf-8") as fh:
