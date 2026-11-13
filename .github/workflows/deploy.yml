@@ -131,8 +131,12 @@ jobs:
         continue-on-error: true
         run: python teams_extra.py dist --src teams-extra.json
 
-      - name: ESB Team Ranking and Player Rating (v6)
+      - name: ESB Team Ranking and Player Rating (v6) + experimental win probability (v6.5)
         continue-on-error: true
+        env:
+          ESB_PRED_REGIONS: NA   # US first; "NA,EU" would add EU Main later
+          # optional repository variable: 1 = hide estimates while the walk-forward backtest is no better than a coin flip
+          ESB_PRED_REQUIRE_SKILL: ${{ vars.ESB_PRED_REQUIRE_SKILL }}
         run: python ranking.py dist --archive rankings
 
       - name: Per-region lazy team files (teams-na.js, teams-eu.js)

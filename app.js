@@ -845,6 +845,31 @@
     });
     return rec;
   }
+  /* v6.5 (Nov 13) experimental win probability for ESEA NA Main previews (rank.js "pred", from ranking.py map Elo). US first:
+     only the regions listed in pred.regions show it; everything else keeps the plain "no predictions" preview. */
+  function predOf(m) {
+    var x = rankX(), pd = x && x.pred;
+    if (!pd || (pd.regions || []).indexOf(m.region) < 0 || (pd.divisions || []).indexOf(m.division) < 0) return null;
+    return { pd: pd, p: (pd.matches || {})[m.id] || null };
+  }
+  function predHtml(m) {
+    if (CFG.rank && !rankX() && RK_STATE !== "fail") { loadRank(); return '<h2 class="subhead">Win probability <small>experimental</small></h2><div class="empty loading">Loading&hellip;</div>'; }
+    var o = predOf(m); if (!o) return "";
+    var a = m.t1 || {}, b = m.t2 || {}, pr = o.p, pd = o.pd, head = '<h2 class="subhead">Win probability <small>experimental model</small></h2>';
+    if (!pr && (pd.held || []).indexOf(m.region + " " + m.division) >= 0) return head + '<div class="empty">Paused: the model has not beaten a 50/50 coin flip on earlier ' + esc(m.region + " " + m.division) + " matches yet, so no estimate is shown.</div>";
+    if (!pr) return head + '<div class="empty">No estimate for this match in the latest model run.</div>';
+    var pa = Math.round(100 * pr.p1), pb = 100 - pa, cl = { high: "High", medium: "Medium", low: "Low" }[pr.conf] || "Low";
+    var bt = (pd.backtest || {})[m.region + " " + m.division] || {};
+    var btTxt = bt.n ? "Brier score " + Number(bt.brier).toFixed(3) + " vs 0.250 for a 50/50 coin flip over " + num(bt.n) + " earlier " + esc(m.region + " " + m.division) + " matches" +
+      (bt.brier < 0.25 ? " (lower is better)" : " &mdash; <b>no edge over a coin flip yet</b>") : "not enough finished matches yet";
+    return head + '<div class="wp" role="img" aria-label="' + esc(a.name) + " " + pa + "%, " + esc(b.name) + " " + pb + '%">' +
+      '<div class="wp-names"><span>' + esc(a.name) + " <b>" + pa + '%</b></span><span><b>' + pb + "%</b> " + esc(b.name) + "</span></div>" +
+      '<div class="wp-bar"><span class="wp-a" style="width:' + pa + '%"></span><span class="wp-b" style="width:' + pb + '%"></span></div></div>' +
+      kv([["Data confidence", '<span class="wp-conf ' + esc(pr.conf) + '">' + cl + "</span> " + '<span class="dim">(' + esc(a.name) + " " + num(pr.n1) + " rated maps, " + esc(b.name) + " " + num(pr.n2) + " in the tracked results; High needs 6+ each)</span>"],
+        ["Model", esc(pd.model || "") + (num(pr.bo) === 3 ? ' <span class="dim">Per-map chance ' + Math.round(100 * pr.map_p1) + "% for " + esc(a.name) + ".</span>" : "")],
+        ["Backtest so far", btTxt + ' &middot; <a href="#cs2/methodology">ranking method</a>']]) +
+      '<div class="note wp-disc"><b>' + esc(pd.disclaimer || "Experimental model estimate\u2014not a guarantee or betting advice.") + "</b> No predicted score or map veto.</div>";
+  }
   function vPreviewCS(m) {
     var fin = csAllFinished(), a = m.t1 || {}, b = m.t2 || {}, ra = mapRecord(fin, a.id), rb = mapRecord(fin, b.id);
     var maps = Object.keys(ra).concat(Object.keys(rb)).filter(function (x, i, l) { return l.indexOf(x) === i; }).sort();
@@ -864,12 +889,12 @@
     var info = kv([["When", m.t ? fmt(m.t) + " " + relSpan(live ? "live" : "up", m.t, "cs") : "TBD"], ["Division", esc(m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + (m.round ? " &middot; round " + num(m.round) : "")],
       ["Format", "best of " + num(m.bo || 1)], ["Standing now", rankPre(a) + esc(a.name) + " &middot; " + rankPre(b) + esc(b.name)], ["Match room", ru ? ext(ru, live ? "Follow live on FACEIT" : "Match room on FACEIT") : ""]]);
     setCrumbs([["CS2", "cs2"], ["Matches Today", "cs2/today"], [a.name + " vs " + b.name]]);
-    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) +
+    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) + predHtml(m) +
       '<h2 class="subhead">Map win rates this season <small>maps tracked here; n&lt;2 greyed</small></h2>' + mapTbl +
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
       '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') + relatedMatchCS(m) +
-      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). No predictions. Times in Pacific Time.</div>';
+      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). ' + (predOf(m) ? "The win probability above is an experimental estimate." : "No predictions.") + " Times in Pacific Time.</div>";
   }
   function rankLine(id) {
     if (!CFG.rank) return "";

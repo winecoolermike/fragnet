@@ -272,7 +272,104 @@ def build(data, teams, now=None):
             "formula_team": FORMULA_TEAM, "formula_player": FORMULA_PLAYER, "prior": PRIOR, "divs": DIVS, "weights": W, "min_rounds": MIN_ROUNDS,
             "teams": cur, "avgs": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in avgs.items()},
             "ratings": {p["nick"] + "|" + p["region"] + "|" + p["division"]: p["rating"] for p in pr}, "top20": top, "top20_fun": fun, "provisional": prov,
-            "top_min": {"current": tmin, "early": TOP_MIN_EARLY, "late": TOP_MIN_LATE, "switch": TOP_MIN_SWITCH}}
+            "top_min": {"current": tmin, "early": TOP_MIN_EARLY, "late": TOP_MIN_LATE, "switch": TOP_MIN_SWITCH},
+            "pred": predictions(data, teams, res)}
+
+
+# ---------------------------------------------------------------- v6.5 experimental win probability (Nov 13, 2026)
+# Reuses the map Elo above: per map p = 1/(1+10^((Rb-Ra)/400)); a best-of-3 becomes p^2 (3 - 2p). No predicted score or veto.
+# US first: only NA Main is published (ESB_PRED_REGIONS="NA,EU" would add EU Main later). Confidence is about the DATA
+# (rated maps both teams have in the tracked results), not about the pick.
+PRED_REGIONS = [r.strip().upper() for r in os.environ.get("ESB_PRED_REGIONS", "NA").split(",") if r.strip()]
+PRED_DIVISIONS = ["Main"]
+PRED_DISCLAIMER = "Experimental model estimate\u2014not a guarantee or betting advice."
+PRED_MODEL = ("ESB map Elo (same numbers as the ESB Team Ranking): chance per map = 1/(1+10^((opponent - team)/400)); "
+              "best of 3 = p^2 x (3 - 2p). Built only from tracked ESEA results this season.")
+
+
+def series_p(p, bo):
+    bo = int(bo or 1)
+    return p * p * (3 - 2 * p) if bo == 3 else p
+
+
+def rated_maps(results, upto=None):
+    n = {}
+    for m in results:
+        if upto and ts(m["t"]) >= upto:
+            break
+        if is_skip(m):
+            continue
+        k = len(maps_of(m))
+        for s in ("t1", "t2"):
+            n[m[s]["id"]] = n.get(m[s]["id"], 0) + k
+    return n
+
+
+def confidence(n1, n2):
+    lo = min(n1, n2)
+    return "high" if lo >= 6 else "medium" if lo >= 3 else "low"
+
+
+def predict(R, n, m):
+    pri = PRIOR.get(m.get("division"), 1300.0)
+    ra, rb = R.get(m["t1"]["id"], pri), R.get(m["t2"]["id"], pri)
+    pm = 1 / (1 + 10 ** ((rb - ra) / 400))
+    n1, n2 = n.get(m["t1"]["id"], 0), n.get(m["t2"]["id"], 0)
+    return {"p1": round(series_p(pm, m.get("bo")), 3), "map_p1": round(pm, 3), "conf": confidence(n1, n2), "n1": n1, "n2": n2, "bo": int(m.get("bo") or 1)}
+
+
+def backtest(results, region, division):
+    """Walk forward in time: predict each finished match from earlier matches only, then compare with the result.
+    Returns Brier score vs the 50/50 coin flip (0.25), log loss, accuracy and calibration bins (favourite's side)."""
+    import math
+    rows = []
+    for m in results:
+        if m.get("region") != region or m.get("division") != division or is_skip(m):
+            continue
+        R, _ = elo(results, ts(m["t"]))
+        pr = predict(R, rated_maps(results, ts(m["t"])), m)
+        rows.append((pr["p1"], 1.0 if m["winner"] == 1 else 0.0, pr["conf"], m["t"]))
+    if not rows:
+        return {"n": 0}
+    def stats(rs):
+        if not rs:
+            return {"n": 0}
+        b = sum((p - y) ** 2 for p, y, *_ in rs) / len(rs)
+        ll = -sum(y * math.log(max(p, 1e-6)) + (1 - y) * math.log(max(1 - p, 1e-6)) for p, y, *_ in rs) / len(rs)
+        dec = [r for r in rs if abs(r[0] - 0.5) > 1e-9]
+        acc = sum(1 for p, y, *_ in dec if (p > 0.5) == (y == 1.0)) / len(dec) if dec else None
+        return {"n": len(rs), "brier": round(b, 4), "brier_coinflip": 0.25, "skill_vs_coinflip": round(1 - b / 0.25, 3),
+                "logloss": round(ll, 4), "logloss_coinflip": round(math.log(2), 4), "accuracy": round(acc, 3) if acc is not None else None, "decided": len(dec)}
+    bins = []
+    for lo, hi in ((0.5, 0.55), (0.55, 0.65), (0.65, 0.75), (0.75, 1.01)):
+        sel = [(max(p, 1 - p), y if p >= 0.5 else 1 - y) for p, y, *_ in rows if lo <= max(p, 1 - p) < hi]
+        if sel:
+            bins.append({"range": f"{round(lo * 100)}-{min(100, round(hi * 100))}%", "n": len(sel), "predicted": round(sum(a for a, _ in sel) / len(sel), 3),
+                         "actual": round(sum(b for _, b in sel) / len(sel), 3)})
+    return dict(stats(rows), first=rows[0][3], last=rows[-1][3], calibration=bins,
+                by_confidence={c: stats([r for r in rows if r[2] == c]) for c in ("high", "medium", "low")})
+
+
+def predictions(data, teams, res):
+    R, _ = elo(res)
+    n = rated_maps(res)
+    cs = data.get("cs") or {}
+    seen, out, divkey = set(), {}, {}
+    for m in (cs.get("live") or []) + (cs.get("upcoming") or []) + ((teams or {}).get("upcoming") or []):
+        if not m or m.get("id") in seen or not m.get("t1") or not m.get("t2") or not m["t1"].get("id") or not m["t2"].get("id"):
+            continue
+        seen.add(m["id"])
+        if m.get("region") in PRED_REGIONS and m.get("division") in PRED_DIVISIONS:
+            out[m["id"]] = predict(R, n, m)
+            divkey[m["id"]] = f"{m['region']} {m['division']}"
+    bt = {f"{r} {d}": backtest(res, r, d) for r in PRED_REGIONS for d in PRED_DIVISIONS}
+    held = []
+    if os.environ.get("ESB_PRED_REQUIRE_SKILL", "").strip() == "1":   # optional quality gate: hide estimates while the backtest is no better than 50/50
+        held = [k for k, v in bt.items() if not v.get("n") or (v.get("brier") or 1) >= 0.25]
+        out = {mid: v for mid, v in out.items() if divkey.get(mid) not in held}
+    return {"held": held, "regions": PRED_REGIONS, "divisions": PRED_DIVISIONS, "model": PRED_MODEL, "disclaimer": PRED_DISCLAIMER,
+            "backtest": {k: {kk: v.get(kk) for kk in ("n", "brier", "brier_coinflip", "skill_vs_coinflip", "accuracy", "first", "last")} for k, v in bt.items()},
+            "matches": out}
 
 
 def browser_blob(rk):
@@ -323,7 +420,10 @@ def main(argv=None):
     open(os.path.join(dist, "rank.json"), "w", encoding="utf-8").write(blob)
     open(os.path.join(dist, "rank.js"), "w", encoding="utf-8").write("window.ESB_RANK = " + browser_blob(rk).replace("</", "<\\/") + ";\n")
     w = archive(rk, arch) if arch else None
-    print(f"[ranking] {len(rk['teams'])} ranked teams, {len(rk['ratings'])} rated players, top20 {len(rk['top20'])}" + (f"; archived {w}" if w else ""))
+    pd = rk.get("pred") or {}
+    print(f"[ranking] {len(rk['teams'])} ranked teams, {len(rk['ratings'])} rated players, top20 {len(rk['top20'])}" + (f"; archived {w}" if w else "")
+          + f"; win-probability previews {len(pd.get('matches') or {})} ({', '.join(pd.get('regions') or [])} Main)"
+          + "".join(f"; backtest {k}: Brier {v.get('brier')} vs 0.25 over {v.get('n')} matches" for k, v in (pd.get("backtest") or {}).items()))
     return 0
 
 
