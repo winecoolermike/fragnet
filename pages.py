@@ -445,10 +445,27 @@ class Site:
                  std("LFP / LFT Recruiting Board", "reviewed posts", '<div class="infobox">Teams looking for players and players looking for teams. Posts are reviewed before they appear. Enable JavaScript to see the board and the post forms.</div>'))
         self.add("wow", "World of Warcraft Mythic Raid Race :: Esports Scoreboard", f"World of Warcraft Mythic raid race in {raid}: US and EU guild rankings from Raider.IO.",
                  std("World of Warcraft :: Mythic Raid Race", e(raid), f'<div class="infobox">{ilink("wow/us", "US rankings")} &middot; {ilink("wow/eu", "EU rankings")}</div>'))
+        all_news = sorted((self.d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)
+        wf_news = [n for n in all_news if str(n.get("tag") or "").upper() == "WOW"
+                   and re.search(r"\bforever\b", f"{n.get('title') or ''} {n.get('url') or ''}", re.I)]
+        wf_links = (ext("https://worldofwarcraft.blizzard.com/en-us/forever", "Official Forever page").replace("<a ", '<a class="feat-wf-btn" ')
+                    + ext("https://us.forums.blizzard.com/en/wow/t/2360696", "Beta development notes").replace("<a ", '<a class="feat-wf-btn alt" '))
+        wf_head = ('<div class="newsbox">' + "".join(
+            f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>'
+            for n in wf_news[:15]) + "</div>") if wf_news else '<div class="empty">No WoW Forever headlines in the current news feed.</div>'
+        self.add("wow-forever", "World of Warcraft: Forever :: Esports Scoreboard",
+                 "World of Warcraft: Forever, Blizzard's reimagined Azeroth. Separate from Retail Mythic rankings and not WoW Classic. Official links and headlines.",
+                 std("World of Warcraft: Forever", "separate from Retail",
+                     '<div class="infobox">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. This page is separate from Retail Mythic rankings and is not WoW Classic.</div>'
+                     f'<div class="feat-wf-links">{wf_links}</div>'
+                     '<h2 class="subhead">Standings</h2>'
+                     '<div class="empty wf-stand">Standings are not available yet. There is no public live-data source for WoW Forever guild or raid standings here. When one is published, it will appear on this page.</div>'
+                     '<div class="note">Retail Mythic raid rankings stay on the ' + ilink("wow", "WoW Retail") + ' page.</div>'
+                     '<h2 class="subhead">Headlines</h2>' + wf_head))
         self.add("about", "About :: Esports Scoreboard", "About Esports Scoreboard, an independent fan-made tracker for ESEA League CS2, Valorant Challengers and the WoW Mythic raid race.",
                  std("About Esports Scoreboard", "independent fan project", '<div class="infobox">An independent fan project tracking ESEA League CS2, Valorant Challengers / Game Changers and the WoW Mythic raid race. Data from FACEIT, vlr.gg and Raider.IO; every team, player and guild links to its source. Not affiliated with FACEIT, ESEA, Valve, Riot Games or Blizzard.</div>'))
         self.add("search", "Search :: Esports Scoreboard", "Search teams, players, guilds and headlines on Esports Scoreboard.",
-                 std("Search", "teams, players, guilds", '<div class="infobox">Search needs JavaScript. Browse: ' + ilink("cs2", "CS2 standings") + " &middot; " + ilink("valorant", "Valorant") + " &middot; " + ilink("wow", "WoW") + "</div>"))
+                 std("Search", "teams, players, guilds", '<div class="infobox">Search needs JavaScript. Browse: ' + ilink("cs2", "CS2 standings") + " &middot; " + ilink("valorant", "Valorant") + " &middot; " + ilink("wow", "WoW Retail") + " &middot; " + ilink("wow-forever", "WoW Forever") + "</div>"))
 
     # ------------------------------------------------------------- v5.2 weekly roundups (spot.json from spotlight.py)
     def spot_html(self, b, routes):
@@ -692,7 +709,7 @@ def build(dist, site, og_cache, do_og=True):
         if r == "home":
             return f'href="./" data-h="#home"'
         return f'href="{r}/" data-h="#{r}"' if r in have else m.group(0)
-    tpl = re.sub(r'href="#(home|cs2|valorant|wow|news|forums|about|search|recruiting|roundup)"', _nav, tpl)
+    tpl = re.sub(r'href="#(home|cs2|valorant|wow-forever|wow|news|forums|about|search|recruiting|roundup)"', _nav, tpl)
     # share images (teams + matches + site), cached by content hash
     og_url, n_drawn, n_reused = {}, 0, 0
     if do_og:
@@ -774,10 +791,10 @@ def build(dist, site, og_cache, do_og=True):
     # audit B5: 404.html with site chrome; known or old paths redirect to the matching hash route
     from urllib.parse import urlparse
     base = urlparse(site).path or "/"
-    nf = tpl.replace("<head>", '<head>\n<script>(function(){var B=' + json.dumps(base) + ',p=location.pathname;if(p.indexOf(B)===0){p=p.slice(B.length).replace(/\\/+$/,"").replace(/\\/index\\.html$/,"");}if(p&&!/\\.(png|js|json|css|svg|xml|txt|webmanifest)$/i.test(p)){location.replace(B+"#"+(/^(home|cs2|valorant|wow|news|forums|roundup|recruiting|about|search|status|team|player|match|guild)(\\/|$)/.test(p)?p:"notfound/"+p));}})();</script>', 1)
+    nf = tpl.replace("<head>", '<head>\n<script>(function(){var B=' + json.dumps(base) + ',p=location.pathname;if(p.indexOf(B)===0){p=p.slice(B.length).replace(/\\/+$/,"").replace(/\\/index\\.html$/,"");}if(p&&!/\\.(png|js|json|css|svg|xml|txt|webmanifest)$/i.test(p)){location.replace(B+"#"+(/^(home|cs2|valorant|wow-forever|wow|news|forums|roundup|recruiting|about|search|status|team|player|match|guild)(\\/|$)/.test(p)?p:"notfound/"+p));}})();</script>', 1)
     nf = nf.replace('<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="viewport" content="width=device-width, initial-scale=1">\n<base href="' + e(base) + '">\n<meta name="robots" content="noindex">', 1)
     nf = re.sub(r"<title>[^<]*</title>", "<title>Page not found :: Esports Scoreboard</title>", nf, count=1)
-    nf = nf.replace('<div id="view" aria-live="polite"></div>', '<div id="view" aria-live="polite"><div class="std"><div class="std-header"><h1>Page not found</h1></div><div class="empty miss">That page doesn&rsquo;t exist. <a href="./">Front page</a> &middot; <a href="cs2/">CS2</a> &middot; <a href="valorant/">Valorant</a> &middot; <a href="wow/">WoW</a></div></div></div>', 1)
+    nf = nf.replace('<div id="view" aria-live="polite"></div>', '<div id="view" aria-live="polite"><div class="std"><div class="std-header"><h1>Page not found</h1></div><div class="empty miss">That page doesn&rsquo;t exist. <a href="./">Front page</a> &middot; <a href="cs2/">CS2</a> &middot; <a href="valorant/">Valorant</a> &middot; <a href="wow/">WoW Retail</a> &middot; <a href="wow-forever/">WoW Forever</a></div></div></div>', 1)
     with open(os.path.join(dist, "404.html"), "w", encoding="utf-8") as fh:
         fh.write(nf)
     # sitemap + robots

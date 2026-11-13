@@ -96,8 +96,7 @@ def render(d):
         '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. '
         'Separate from Retail Mythic rankings below and not WoW Classic.</p>'
         '<div class="feat-wf-links">'
-        + ext("https://worldofwarcraft.blizzard.com/en-us/forever", "Official Forever page").replace("<a ", '<a class="feat-wf-btn" ')
-        + ext("https://us.forums.blizzard.com/en/wow/t/2360696", "Beta development notes").replace("<a ", '<a class="feat-wf-btn alt" ')
+        '<a class="feat-wf-btn" href="wow-forever/">WoW Forever page</a>'
         + "</div></aside>"
     )
     divs = [dv for dv in na_first(cs.get("divisions")) if dv.get("teams")]
@@ -122,7 +121,7 @@ def render(d):
                         [((d0.get("region") + " " + d0.get("division") + " standings") if d0 else "Standings", (d0 or {}).get("link") or ESEA_PAGE), ("ESEA League on FACEIT", ESEA_PAGE)])
                  + card("valorant", "Valorant", "Challengers / Game Changers", val_t,
                         [("NA event on vlr.gg" if na_ev else "Events on vlr.gg", (na_ev or {}).get("url") or "https://www.vlr.gg/events"), ("Results on vlr.gg", "https://www.vlr.gg/matches/results")])
-                 + card("wow", "World of Warcraft", "Mythic raid race", wow_t,
+                 + card("wow", "WoW Retail", "Mythic raid race", wow_t,
                         [("US Rankings", rio_page(raid, "us")), ("EU Rankings", rio_page(raid, "eu"))])
                  + "</div>")
     # latest ESEA results (short)

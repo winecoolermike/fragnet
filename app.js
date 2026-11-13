@@ -85,7 +85,7 @@
   var SECTIONS = {
     cs2: { name: "Counter-Strike 2", short: "CS2", sub: "ESEA League", tabs: [["standings", "cs2", "Standings"], ["results", "cs2/results", "Results"], ["players", "cs2/players", "Top Players"], ["today", "cs2/today", "Matches Today", "Today"], ["ranking", "cs2/ranking", "ESB Ranking", "Ranking"], ["top20", "cs2/top20", "Top 20", "Top 20"], ["awards", "cs2/awards", "Awards", "Awards"], ["playoffs", "cs2/playoffs", "Playoffs", "Playoffs"]] },
     valorant: { name: "Valorant", short: "Valorant", sub: "Challengers / Game Changers", tabs: [["events", "valorant/events", "Events"], ["results", "valorant/results", "Results"], ["players", "valorant/players", "Top Players"]] },
-    wow: { name: "World of Warcraft", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
+    wow: { name: "WoW Retail", short: "WoW", sub: "Mythic raid race", tabs: [["us", "wow/us", "US Rankings"], ["eu", "wow/eu", "EU Rankings"]] }
   };
   /* v4.5 path pages (e.g. team/cs2/<id>/): the route comes from <meta name="fragnet-route"> until a hash is set.
      Hash links on those pages resolve through <base> to the front page, so navigation stays the plain hash SPA. */
@@ -180,7 +180,7 @@
   function newsItems() { return (D.news && D.news.items) || []; }
   /* news mix: on a game's pages that game's headlines first, elsewhere a round-robin across games (newest first within each) */
   function newsMix(n) {
-    var top = (curHash().replace(/^#/, "").split("/")[0] || "home"), pref = top === "cs2" ? "CS" : top === "valorant" ? "VAL" : top === "wow" ? "WOW" : "";
+    var top = (curHash().replace(/^#/, "").split("/")[0] || "home"), pref = top === "cs2" ? "CS" : top === "valorant" ? "VAL" : (top === "wow" || top === "wow-forever") ? "WOW" : "";
     var g = {}, order = ["CS", "VAL", "WOW", "ESPORTS"];
     newsItems().forEach(function (i) { var t = String(i.tag || "ESPORTS").toUpperCase(); (g[t] = g[t] || []).push(i); if (order.indexOf(t) < 0) order.push(t); });
     Object.keys(g).forEach(function (t) {   // within a game, rotate sources
@@ -1460,8 +1460,7 @@
       + '<div class="feat-wf-title">World of Warcraft: Forever</div>'
       + '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. Separate from Retail Mythic rankings below and not WoW Classic.</p>'
       + '<div class="feat-wf-links">'
-      + '<a class="feat-wf-btn" href="https://worldofwarcraft.blizzard.com/en-us/forever" target="_blank" rel="noopener">Official Forever page</a>'
-      + '<a class="feat-wf-btn alt" href="https://us.forums.blizzard.com/en/wow/t/2360696" target="_blank" rel="noopener">Beta development notes</a>'
+      + '<a class="feat-wf-btn" href="#wow-forever">WoW Forever page</a>'
       + '</div></aside>';
     return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + cards + homeSpot() + myMatches("home") + todayBoard(true) +
       std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
@@ -1469,7 +1468,7 @@
 
   function pageNotFound(parts) {   // audit2 A4: one real "Page not found" view for any unknown path
     setCrumbs([["Page not found"]]);
-    return std("Page not found", "404", '<div class="empty miss">There is no page at <b>/' + esc(parts.join("/")) + '</b>. Try the <a href="#home">front page</a>, <a href="#cs2">CS2</a>, <a href="#valorant">Valorant</a>, <a href="#wow">WoW</a> or <a href="#search/' + esc(encodeURIComponent(parts.join(" ").replace(/[-_]/g, " ").slice(0, 40))) + '">search</a>.</div>');
+    return std("Page not found", "404", '<div class="empty miss">There is no page at <b>/' + esc(parts.join("/")) + '</b>. Try the <a href="#home">front page</a>, <a href="#cs2">CS2</a>, <a href="#valorant">Valorant</a>, <a href="#wow">WoW Retail</a>, <a href="#wow-forever">WoW Forever</a> or <a href="#search/' + esc(encodeURIComponent(parts.join(" ").replace(/[-_]/g, " ").slice(0, 40))) + '">search</a>.</div>');
   }
   function vCS2(parts) {
     var sub = parts[0];
@@ -1627,6 +1626,27 @@
       '<h2 class="subhead">' + esc(sub.toUpperCase()) + " Mythic Rankings <small>top " + rows.length + "</small></h2>" + body;
   }
 
+  function wowForeverNews() {
+    return newsItems().filter(function (n) {
+      if (String(n.tag || "").toUpperCase() !== "WOW") return false;
+      return /\bforever\b/i.test(String(n.title || "") + " " + String(n.url || ""));
+    });
+  }
+  function vWowForever() {
+    setCrumbs([["WoW Forever"]]);
+    var intro = '<div class="infobox">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. This page is separate from Retail Mythic rankings and is not WoW Classic.</div>'
+      + '<div class="feat-wf-links">'
+      + ext("https://worldofwarcraft.blizzard.com/en-us/forever", "Official Forever page", "feat-wf-btn") + " "
+      + ext("https://us.forums.blizzard.com/en/wow/t/2360696", "Beta development notes", "feat-wf-btn alt")
+      + "</div>";
+    var stand = '<h2 class="subhead">Standings</h2><div class="empty wf-stand">Standings are not available yet. There is no public live-data source for WoW Forever guild or raid standings here. When one is published, it will appear on this page.</div>'
+      + '<div class="note">Retail Mythic raid rankings stay on the <a href="#wow">WoW Retail</a> page.</div>';
+    var items = wowForeverNews();
+    var news = '<h2 class="subhead">Headlines</h2>' + (items.length ? '<div class="listbox">' + items.map(function (n) {
+      return '<div class="item"><span class="tag ' + esc(slug(n.tag)) + '">' + esc(n.tag) + '</span><span class="when">' + (n.date ? fmt(n.date, "short") : "") + "</span>" + ext(n.url, n.title, "ttl") + '<span class="src">' + esc(n.source) + "</span></div>";
+    }).join("") + "</div>" : '<div class="empty">No WoW Forever headlines in the current news feed.</div>');
+    return std("World of Warcraft: Forever", "separate from Retail", intro) + stand + news;
+  }
   function vNews(parts) {
     var sub = parts[0], page = pageOf(parts);
     var items = newsItems().map(function (n, i) { n._i = i; return n; });
@@ -1983,10 +2003,11 @@
         sc.tabs.map(function (t) { return '<li><a href="#' + t[1] + '" data-sel="' + g + ":" + t[0] + '">' + esc(t[2]) + "</a></li>"; }).join("") + "</ul></details>";
     });
     var cs = games[0], val = games[1], wow = games[2];
+    var wof = '<div class="gn-item" data-gn="wow-forever"><a href="#wow-forever">WoW Forever</a></div>';
     var news = '<div class="gn-item" data-gn="news"><a href="#news">News</a></div>';
     var forum = '<div class="gn-item" data-gn="forums"><a href="#forums">Forums</a></div>';
     var about = '<div class="gn-item" data-gn="about"><a href="#about">About</a></div>';
-    $("#gamenav").innerHTML = cs + val + wow + '<div class="gn-sep"></div>' + news + forum + about;
+    $("#gamenav").innerHTML = cs + val + wow + wof + '<div class="gn-sep"></div>' + news + forum + about;
   }
   function renderStatus() {
     if (!$("#data-status")) return;
@@ -2057,7 +2078,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", "wow-forever": "World of Warcraft: Forever", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
   function route() {
     var r = parseHash(), html;
     if (r.top === "team" && r.parts[0] === "cs2" && r.parts[1] && !/^[0-9a-f-]{36}$/i.test(r.parts[1])) {   // audit B10: readable slug-id8 team URLs
@@ -2073,6 +2094,7 @@
         case "cs2": html = vCS2(r.parts); break;
         case "valorant": html = vValorant(r.parts); break;
         case "wow": html = vWow(r.parts); break;
+        case "wow-forever": html = vWowForever(); break;
         case "news": html = vNews(r.parts); break;
         case "forums": html = vForums(); break;
         case "roundup": html = vRoundup(r.parts); break;
