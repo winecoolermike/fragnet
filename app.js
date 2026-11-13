@@ -868,7 +868,7 @@
       '<h2 class="subhead">Map win rates this season <small>maps tracked here; n&lt;2 greyed</small></h2>' + mapTbl +
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
-      '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') +
+      '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') + relatedMatchCS(m) +
       '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). No predictions. Times in Pacific Time.</div>';
   }
   function rankLine(id) {
@@ -928,7 +928,7 @@
       (maps.length > 1 || maps.length && pick.length ? '<h2 class="subhead">Maps</h2>' + mapsTable(maps, m.t1.name, m.t2.name, "cs") : "") +
       (boards || '<div class="empty">' + (m.nostats ? "FACEIT published no match stats for this match (e.g. forfeit or technical result)." : "Scoreboard not available for this match yet (Esports Scoreboard adds stats for the newest matches on each refresh).") + "</div>") +
       '<h2 class="subhead">Form before this match <small>last 5, newest right</small></h2>' + form +
-      '<h2 class="subhead">Meetings this season</h2>' + meetingsHtml(prior, "cs") +
+      '<h2 class="subhead">Meetings this season</h2>' + meetingsHtml(prior, "cs") + relatedMatchCS(m) +
       '<div class="note">Scoreboard from the official FACEIT Data API; stats as published by FACEIT. Times in Pacific Time.</div>';
   }
   function vMatchVal(id) {
@@ -967,6 +967,64 @@
       .sort(function (a, b) { return String(a.t || "").localeCompare(String(b.t || "")); });
     return '<h2 class="subhead">Recent Results</h2>' + csResultsTable(fin, { what: "finished matches for this team" }) +
       '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(up) + csMatchNote();
+  }
+  /* Nov 13: "Related" boxes on team, player and match pages so a visit never dead-ends (existing data only) */
+  function csAll(kind) {   // "fin" = finished, "up" = upcoming/live; data.json + lazy teams.js, de-duplicated
+    var seen = {}, x = teamsX() || {}, src = kind === "up" ? ((D.cs && D.cs.live) || []).concat((D.cs && D.cs.upcoming) || [], x.upcoming || []) : ((D.cs && D.cs.matches) || []).concat(x.matches || []);
+    return src.filter(function (m) { if (!m || !m.id || seen[m.id] || !m.t1 || !m.t2) return false; seen[m.id] = 1; return kind === "up" || m.winner === 1 || m.winner === 2; })
+      .sort(function (a, b) { return kind === "up" ? String(a.t || "").localeCompare(String(b.t || "")) : String(b.t || "").localeCompare(String(a.t || "")); });
+  }
+  function nextMatchHtml(id) {
+    var nx = csAll("up").filter(function (m) { return involves(m, id); })[0];
+    if (!nx) return '<span class="dim">none scheduled in the data yet</span>';
+    var opp = nx.t1.id === id ? nx.t2 : nx.t1, h = csMatchHash(nx);
+    return "vs " + csSide(opp) + ' <span class="dim">&middot; ' + (nx.t ? fmt(nx.t, "short") : "TBD") + "</span>" + (h ? " &middot; " + ilink(h, "match preview") : "");
+  }
+  function relatedTeamCS(id, d) {
+    var seen = {}, opps = [];
+    csAll("fin").forEach(function (m) {
+      if (!involves(m, id) || opps.length >= 5) return;
+      var me = m.t1.id === id ? 1 : 2, o = me === 1 ? m.t2 : m.t1;
+      if (seen[o.id]) return; seen[o.id] = 1;
+      opps.push(csSide(o) + ' <span class="form" title="' + (m.winner === me ? "won" : "lost") + ' the last meeting"><span class="fq ' + (m.winner === me ? "w" : "l") + '">' + (m.winner === me ? "W" : "L") + "</span></span>");
+    });
+    var rows = [["Next match", nextMatchHtml(id)], ["Recent opponents", opps.length ? opps.join(" &middot; ") : '<span class="dim">no finished matches yet</span>']];
+    if (d) {
+      var ts = d.teams || [], i = -1;
+      ts.forEach(function (t, k) { if (csTeamId(t) === id) i = k; });
+      var near = i < 0 ? [] : ts.slice(Math.max(0, i - 2), i + 3).filter(function (t) { return csTeamId(t) !== id; });
+      rows.push(["Division", ilink("cs2/" + divId(d), d.region + " " + d.division + " standings") + " &middot; " + ilink("cs2/results", "all results") + " &middot; " + ilink("cs2/players", "top fraggers")]);
+      if (near.length) rows.push(["Near in the table", near.map(function (t) { return '<span class="dim">#' + esc(t.rank) + "</span> " + csTeamLink(t); }).join(" &middot; ")]);
+    }
+    return '<h2 class="subhead">Related</h2>' + kv(rows);
+  }
+  function relatedPlayerCS(name, spot, p) {
+    var rows = [];
+    if (spot) {
+      var tid = csTeamId(spot.t), x = teamsX(), r = spot.t.roster || (x && x.rosters && x.rosters[tid] ? (x.rosters[tid].r || []).map(function (a) { return { nick: a[0], sub: !!a[2] }; }) : []);
+      var mates = r.filter(function (m) { return fold(m.nick) !== fold(name); }).map(function (m) { return ilink(playerHash(m.nick), m.nick) + (m.sub ? ' <span class="dim">(sub)</span>' : ""); });
+      rows.push(["Teammates", mates.length ? mates.join(" &middot; ") : '<span class="dim">no other players on the roster in the data</span>']);
+      rows.push(["Team", csTeamLink(spot.t) + (tid ? " &middot; next match " + nextMatchHtml(tid) : "")]);
+      rows.push(["Division", ilink("cs2/" + divId(spot.d), spot.d.region + " " + spot.d.division + " standings") + " &middot; " + ilink("cs2/players", "top fraggers")]);
+    } else if (p) {
+      rows.push(["Division", ilink("cs2/" + divId(p), p.region + " " + p.division + " standings") + " &middot; " + ilink("cs2/players", "top fraggers")]);
+    }
+    return rows.length ? '<h2 class="subhead">Related</h2>' + kv(rows) : "";
+  }
+  function relatedMatchCS(m) {
+    var key = m.region + "|" + m.division, mine = function (x) { return x.region + "|" + x.division === key && x.id !== m.id; };
+    var fin = csAll("fin").filter(mine).slice(0, 5), up = csAll("up").filter(mine).slice(0, 3);
+    function line(x, done) {
+      var h = csMatchHash(x);
+      return '<div class="spot-line"><span class="dim">' + (x.t ? fmt(x.t, done ? "md" : "short") : "TBD") + "</span> " + csSide(x.t1) + " " +
+        (h ? ilink(h, done ? num(x.s1) + ":" + num(x.s2) : "vs") : done ? num(x.s1) + ":" + num(x.s2) : "vs") + " " + csSide(x.t2) + "</div>";
+    }
+    var dl = ilink("cs2/" + divOf(m), m.region + " " + m.division + " standings");
+    return '<h2 class="subhead">More in ' + esc(m.region + " " + m.division) + "</h2>" +
+      (fin.length ? '<div class="rel-sub">Latest results</div>' + fin.map(function (x) { return line(x, true); }).join("") : "") +
+      (up.length ? '<div class="rel-sub">Coming up</div>' + up.map(function (x) { return line(x, false); }).join("") : "") +
+      (fin.length || up.length ? "" : '<div class="empty">No other matches in this division in the data yet.</div>') +
+      '<div class="note">' + dl + " &middot; " + csSide(m.t1) + " &middot; " + csSide(m.t2) + " &middot; " + ilink("cs2/results", "all results") + "</div>";
   }
   function playerMatchesHtml(nick) {
     var n = String(nick || "").toLowerCase(), rows = [];
@@ -1731,7 +1789,7 @@
     var tl = tiles([["Rank in " + d.region + " " + d.division, "#" + esc(t.rank), num(t.rank) <= 3 ? "hi" : ""], ["Record", '<span class="w">' + num(t.w) + '</span>-<span class="l">' + num(t.l) + "</span>" + (num(t.t) ? "-" + num(t.t) : "")], ["Points", num(t.pts)],
       sk ? ["Streak", '<span class="' + (sk[0] === "W" ? "w" : sk[0] === "L" ? "l" : "") + '">' + sk + "</span>"] : ["Rounds", esc(t.rounds || "-")]]);
     setCrumbs([["CS2", "cs2"], [d.region + " " + d.division, "cs2/" + divId(d)], [t.name]]);
-    return std(esc(t.name), "CS2 &middot; ESEA League team " + (csTeamId(t) ? star("cs:" + csTeamId(t), t.name, true) : ""), tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) +
+    return std(esc(t.name), "CS2 &middot; ESEA League team " + (csTeamId(t) ? star("cs:" + csTeamId(t), t.name, true) : ""), tl + info) + '<h2 class="subhead">Roster</h2>' + roster + teamMatchesHtml(t.id || csTeamId(t)) + relatedTeamCS(t.id || csTeamId(t), d) +
       '<div class="note">' + ext(teamFaceitUrl(t), "Team page on FACEIT") + " &middot; " + ext(d.link, "Standings on FACEIT") + "</div>";
   }
 
@@ -1761,7 +1819,7 @@
     var link = (p && p.url) || "https://www.faceit.com/en/players/" + encodeURIComponent(name);
     var tl = p ? tiles([["K/D", num(p.kd).toFixed(2), "hi"], ["ADR", num(p.adr).toFixed(1)], ["HS%", Math.round(num(p.hs)) + "%"], p.drank ? ["Div. rank", "#" + num(p.drank)] : ["Rounds", num(p.rounds)]]) : "";
     setCrumbs([["CS2", "cs2"], spot ? [spot.d.region + " " + spot.d.division, "cs2/" + divId(spot.d)] : ["Top Players", "cs2/players"], spot ? [spot.t.name, teamHash(spot.t) || null] : null, [name]]);
-    return std(esc(name), "CS2 &middot; ESEA League player", tl + info) + '<h2 class="subhead">Season Stats</h2>' + st + playerMatchesHtml(name) +
+    return std(esc(name), "CS2 &middot; ESEA League player", tl + info) + '<h2 class="subhead">Season Stats</h2>' + st + playerMatchesHtml(name) + relatedPlayerCS(name, spot, p) +
       '<div class="note">' + ext(link, "Profile on FACEIT") + ' &middot; <a href="#cs2/players">Top fraggers</a></div>';
   }
 

@@ -276,7 +276,8 @@ class Site:
                        ("Form", self.form_html(f)), ("Country", e(t.get("country"))), ("FACEIT", ext(pr.team_url(t), "Team page on FACEIT"))])
             body = (std(e(name), "CS2 &middot; ESEA League team", info)
                     + '<h2 class="subhead">Roster</h2>' + (table(['<th class="first">Player</th>', "<th>Country</th>", "<th>Role</th>", '<th class="n">K/D</th>'], rrows) or '<div class="empty">No roster in the public data.</div>')
-                    + '<h2 class="subhead">Recent Results</h2>' + self.cs_results(ms) + '<h2 class="subhead">Upcoming Matches</h2>' + self.cs_upcoming(ups))
+                    + '<h2 class="subhead">Recent Results</h2>' + self.cs_results(ms) + '<h2 class="subhead">Upcoming Matches</h2>' + self.cs_upcoming(ups)
+                    + self.related_team(tid, dv))
             rec = f"{int(num(t.get('w')))}-{int(num(t.get('l')))}"
             desc = f"{name}: #{t.get('rank')} in ESEA {dn} ({rec}, {int(num(t.get('pts')))} pts)" + (f", form {' '.join(f)}" if f else "") + ". Roster, results and upcoming matches on Esports Scoreboard."
             ogk = "cs-team-" + tid
@@ -315,7 +316,17 @@ class Site:
                   "sameAs": [p.get("url") or "https://www.faceit.com/en/players/" + nick]}
             if tnm:
                 ld["memberOf"] = {"@type": "SportsTeam", "name": tnm, "sport": "Counter-Strike 2"}
-            self.add("player/cs2/" + nick, f"{nick} :: CS2 ESEA player", desc, std(e(nick), "CS2 &middot; ESEA League player", info),
+            rel = []
+            if tid and tid in self.team_rank:
+                tt, tdv = self.team_rank[tid]
+                ros = tt.get("roster") or [{"nick": a[0], "sub": bool(a[2]) if len(a) > 2 else False} for a in ((self.tx.get("rosters") or {}).get(tid) or {}).get("r") or []]
+                mates = [self.plink(r.get("nick")) + (' <span class="dim">(sub)</span>' if r.get("sub") else "") for r in ros if str(r.get("nick") or "").lower() != k]
+                rel = [("Teammates", " &middot; ".join(mates) or '<span class="dim">no other players on the roster in the data</span>'),
+                       ("Team next match", self.next_match(tid)),
+                       ("Division", ilink("cs2/" + self.div_id(tdv), f'{tdv.get("region")} {tdv.get("division")} standings') + " &middot; " + ilink("cs2/players", "top fraggers"))]
+            elif p.get("region") and p.get("division"):
+                rel = [("Division", ilink("cs2/" + slug(f'{p.get("region")}-{p.get("division")}'), f'{p.get("region")} {p.get("division")} standings') + " &middot; " + ilink("cs2/players", "top fraggers"))]
+            self.add("player/cs2/" + nick, f"{nick} :: CS2 ESEA player", desc, std(e(nick), "CS2 &middot; ESEA League player", info) + ('<h2 class="subhead">Related</h2>' + kv(rel) if rel else ""),
                      og=ogk, kind="player", ld=ld, crumbs=[("CS2", "cs2"), ("Top Players", "cs2/players")])
         # matches
         for m in self.fin:
@@ -333,7 +344,7 @@ class Site:
                        ("Finished", e(pt(m.get("t")))), ("Result", f'{self.cs_side(t1)} <b>{sc}</b> {self.cs_side(t2)}'),
                        ("Map veto", ("Picked: <b>" + e(", ".join(m.get("pick") or [])) + "</b>") if m.get("pick") else '<span class="dim">not published for this match</span>'),
                        ("FACEIT", ext(pr.room_url(m), "Match room on FACEIT"))])
-            body = std(f'{e(t1.get("name"))} vs {e(t2.get("name"))}', "CS2 &middot; ESEA match", info) + (mp or '<div class="empty">No scoreboard in the tracked data for this match.</div>')
+            body = std(f'{e(t1.get("name"))} vs {e(t2.get("name"))}', "CS2 &middot; ESEA match", info) + (mp or '<div class="empty">No scoreboard in the tracked data for this match.</div>') + self.related_match(m)
             date = pt(m.get("t"), "%b %-d, %Y")
             desc = f"{t1.get('name')} {sc} {t2.get('name')} - ESEA {dn}, round {int(num(m.get('round')))}" + (f", {date}" if date else "") + (f". Maps: {', '.join(x.get('map') for x in maps)}." if maps else ".")
             ogk = "cs-match-" + m["id"]
@@ -347,6 +358,43 @@ class Site:
                   "url": self.site + "match/cs2/" + m["id"] + "/"}
             self.add("match/cs2/" + m["id"], f"{t1.get('name')} vs {t2.get('name')} :: ESEA match", desc, body, og=ogk, kind="match", ld=ld,
                      lastmod=m.get("t"), crumbs=[("CS2", "cs2"), (dn, "cs2/" + slug(dn)), ("Results", "cs2/results")])
+
+    # Nov 13: "Related" boxes (static snapshot twin of app.js relatedTeamCS / relatedPlayerCS / relatedMatchCS)
+    def next_match(self, tid):
+        nx = (self.up_team.get(tid) or [None])[0]
+        if not nx:
+            return '<span class="dim">none scheduled in the data yet</span>'
+        opp = nx["t2"] if (nx.get("t1") or {}).get("id") == tid else nx["t1"]
+        return f'vs {self.cs_side(opp)} <span class="dim">&middot; {e(pt(nx.get("t"), "%b %-d, %H:%M") or "TBD")} PT</span>'
+
+    def related_team(self, tid, dv):
+        seen, opps = set(), []
+        for m in self.by_team.get(tid, []):
+            me = 1 if (m.get("t1") or {}).get("id") == tid else 2
+            o = m["t2"] if me == 1 else m["t1"]
+            if o.get("id") in seen or len(opps) >= 5:
+                continue
+            seen.add(o.get("id"))
+            wl = "W" if m.get("winner") == me else "L"
+            opps.append(f'{self.cs_side(o)} <span class="form"><span class="fq {wl.lower()}">{wl}</span></span>')
+        ts = dv.get("teams") or []
+        i = next((k for k, t in enumerate(ts) if t.get("id") == tid), -1)
+        near = [t for t in (ts[max(0, i - 2):i + 3] if i >= 0 else []) if t.get("id") != tid]
+        dn = f'{dv.get("region")} {dv.get("division")}'
+        return '<h2 class="subhead">Related</h2>' + kv([
+            ("Next match", self.next_match(tid)),
+            ("Recent opponents", " &middot; ".join(opps) or '<span class="dim">no finished matches yet</span>'),
+            ("Division", ilink("cs2/" + self.div_id(dv), dn + " standings") + " &middot; " + ilink("cs2/results", "all results") + " &middot; " + ilink("cs2/players", "top fraggers")),
+            ("Near in the table", " &middot; ".join(f'<span class="dim">#{e(t.get("rank"))}</span> {self.cs_side(t)}' for t in near))])
+
+    def related_match(self, m):
+        key = (m.get("region"), m.get("division"))
+        fin = [x for x in self.fin if (x.get("region"), x.get("division")) == key and x["id"] != m["id"]][:5]
+        dn = f"{m.get('region')} {m.get('division')}"
+        lines = "".join(f'<div class="spot-line"><span class="dim">{e(pt(x.get("t"), "%b %-d"))}</span> {self.cs_side(x.get("t1"))} '
+                        f'{ilink("match/cs2/" + x["id"], str(int(num(x.get("s1")))) + ":" + str(int(num(x.get("s2")))))} {self.cs_side(x.get("t2"))}</div>' for x in fin)
+        return (f'<h2 class="subhead">More in {e(dn)}</h2>' + (lines or '<div class="empty">No other matches in this division in the data yet.</div>')
+                + f'<div class="note">{ilink("cs2/" + slug(dn), dn + " standings")} &middot; {self.cs_side(m.get("t1"))} &middot; {self.cs_side(m.get("t2"))}</div>')
 
     def plink(self, nick):
         nick = str(nick or "")

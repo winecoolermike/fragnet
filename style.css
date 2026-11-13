@@ -852,3 +852,5 @@ td.score a.xl:hover{color:var(--link)}
 @media (max-width:1100px){.tbl.cs-board td:nth-child(3){white-space:normal;max-width:150px}}
 /* R8 scoreboard team totals row */
 .tbl.sb tr.sb-tot td { border-top: 1px solid rgba(128,128,128,.5); font-weight: bold; }
+/* Nov 13: Related boxes on team / player / match pages */
+.rel-sub{font:bold 10px var(--ui);letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5B6470);padding:6px 2px 2px}
