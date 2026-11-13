@@ -856,6 +856,7 @@
     if (CFG.rank && !rankX() && RK_STATE !== "fail") { loadRank(); return '<h2 class="subhead">Win probability <small>experimental</small></h2><div class="empty loading">Loading&hellip;</div>'; }
     var o = predOf(m); if (!o) return "";
     var a = m.t1 || {}, b = m.t2 || {}, pr = o.p, pd = o.pd, head = '<h2 class="subhead">Win probability <small>experimental model</small></h2>';
+    if (!pr && pd.paused && (pd.held || []).indexOf(m.region + " " + m.division) >= 0) return head + '<div class="empty">Paused: win probability is switched off while we check the model against more of this season\'s ' + esc(m.region + " " + m.division) + " results. No estimate is shown.</div>";
     if (!pr && (pd.held || []).indexOf(m.region + " " + m.division) >= 0) return head + '<div class="empty">Paused: the model has not beaten a 50/50 coin flip on earlier ' + esc(m.region + " " + m.division) + " matches yet, so no estimate is shown.</div>";
     if (!pr) return head + '<div class="empty">No estimate for this match in the latest model run.</div>';
     var pa = Math.round(100 * pr.p1), pb = 100 - pa, cl = { high: "High", medium: "Medium", low: "Low" }[pr.conf] || "Low";

@@ -374,10 +374,14 @@ def predictions(data, teams, res):
             divkey[m["id"]] = f"{m['region']} {m['division']}"
     bt = {f"{r} {d}": backtest(res, r, d) for r in PRED_REGIONS for d in PRED_DIVISIONS}
     held = []
-    if os.environ.get("ESB_PRED_REQUIRE_SKILL", "").strip() == "1":   # optional quality gate: hide estimates while the backtest is no better than 50/50
+    paused = os.environ.get("ESB_PRED_PAUSED", "1").strip() != "0"   # Nov 13, 2026: paused by default (Jeff); only "0" shows estimates
+    if paused:
+        held = sorted(bt)
+        out = {}
+    elif os.environ.get("ESB_PRED_REQUIRE_SKILL", "1").strip() == "1":   # quality gate (default on): hide estimates while the backtest is no better than 50/50   # optional quality gate: hide estimates while the backtest is no better than 50/50
         held = [k for k, v in bt.items() if not v.get("n") or (v.get("brier") or 1) >= 0.25]
         out = {mid: v for mid, v in out.items() if divkey.get(mid) not in held}
-    return {"held": held, "regions": PRED_REGIONS, "divisions": PRED_DIVISIONS, "model": PRED_MODEL, "disclaimer": PRED_DISCLAIMER,
+    return {"held": held, "paused": paused, "regions": PRED_REGIONS, "divisions": PRED_DIVISIONS, "model": PRED_MODEL, "disclaimer": PRED_DISCLAIMER,
             "backtest": {k: {kk: v.get(kk) for kk in ("n", "brier", "brier_coinflip", "skill_vs_coinflip", "accuracy", "first", "last")} for k, v in bt.items()},
             "matches": out}
 

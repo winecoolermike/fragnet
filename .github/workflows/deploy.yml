@@ -135,8 +135,10 @@ jobs:
         continue-on-error: true
         env:
           ESB_PRED_REGIONS: NA   # US first; "NA,EU" would add EU Main later
-          # optional repository variable: 1 = hide estimates while the walk-forward backtest is no better than a coin flip
-          ESB_PRED_REQUIRE_SKILL: ${{ vars.ESB_PRED_REQUIRE_SKILL }}
+          # Nov 13, 2026: win probability stays PAUSED (the preview shows the "Paused" note); "0" here would switch it on
+          ESB_PRED_PAUSED: "1"
+          # quality gate if ever unpaused: hide estimates while the walk-forward backtest is no better than a coin flip
+          ESB_PRED_REQUIRE_SKILL: "1"
         run: python ranking.py dist --archive rankings
 
       - name: Per-region lazy team files (teams-na.js, teams-eu.js)
