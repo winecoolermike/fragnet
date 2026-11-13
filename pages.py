@@ -370,6 +370,41 @@ class Site:
                   "url": self.site + "match/cs2/" + m["id"] + "/"}
             self.add("match/cs2/" + m["id"], f"{t1.get('name')} vs {t2.get('name')} :: ESEA match", desc, body, og=ogk, kind="match", ld=ld,
                      lastmod=m.get("t"), crumbs=[("CS2", "cs2"), (dn, "cs2/" + slug(dn)), ("Results", "cs2/results")])
+        # Upcoming NA Main / Intermediate / Advanced: static preview page with the auto-written blurb.
+        # No OG images (keeps the share-image step short). EU upcoming is left to the hash preview.
+        wu = load(os.path.join(self.dist, "writeups.json")) or {}
+        have = {p["route"] for p in self.pages}
+        for m in self.up:
+            if m.get("region") != "NA" or m.get("division") not in ("Main", "Intermediate", "Advanced"):
+                continue
+            mid = str(m.get("id") or "")
+            if not SAFE_SEG.match(mid) or ("match/cs2/" + mid) in have:
+                continue
+            t1, t2 = m.get("t1") or {}, m.get("t2") or {}
+            if not t1.get("name") or not t2.get("name"):
+                continue
+            dn = f'{m.get("region")} {m.get("division")}'
+            rec = wu.get(mid) or {}
+            text = rec.get("text") if isinstance(rec, dict) else rec
+            writeup = (('<h2 class="subhead">Match preview <small>auto-written from season stats</small></h2>'
+                        f'<div class="writeup">{e(text)}</div>') if text else "")
+            when = e(pt(m.get("t"))) or "TBD"
+            info = kv([("When", when + " PT"),
+                       ("Division", ilink("cs2/" + slug(dn), dn) + (f' &middot; conference {e(m.get("conf"))}' if m.get("conf") else "") + (f' &middot; round {int(num(m.get("round")))}' if m.get("round") else "")),
+                       ("Format", "best of " + str(int(num(m.get("bo") or 1)))),
+                       ("FACEIT", ext(pr.room_url(m), "Match room on FACEIT"))])
+            body = std(f'{e(t1.get("name"))} vs {e(t2.get("name"))}', "CS2 &middot; match preview", info) + writeup + self.related_match(m)
+            date = pt(m.get("t"), "%b %-d, %Y")
+            desc = f"{t1.get('name')} vs {t2.get('name')} - upcoming ESEA {dn}" + (f", {date}" if date else "") + "."
+            ld = {"@context": "https://schema.org", "@type": "SportsEvent", "name": f"{t1.get('name')} vs {t2.get('name')}", "sport": "Counter-Strike 2",
+                  "description": desc, "startDate": m.get("t"), "eventStatus": "https://schema.org/EventScheduled",
+                  "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+                  "location": {"@type": "VirtualLocation", "url": pr.room_url(m) or self.site + "match/cs2/" + mid + "/"},
+                  "superEvent": {"@type": "SportsEvent", "name": f"ESEA League {dn}"},
+                  "competitor": [{"@type": "SportsTeam", "name": t1.get("name")}, {"@type": "SportsTeam", "name": t2.get("name")}],
+                  "url": self.site + "match/cs2/" + mid + "/"}
+            self.add("match/cs2/" + mid, f"{t1.get('name')} vs {t2.get('name')} :: ESEA match preview", desc, body, kind="match", ld=ld,
+                     lastmod=m.get("t"), crumbs=[("CS2", "cs2"), (dn, "cs2/" + slug(dn)), ("Matches Today", "cs2/today")])
 
     # Nov 13: "Related" boxes (static snapshot twin of app.js relatedTeamCS / relatedPlayerCS / relatedMatchCS)
     def next_match(self, tid):

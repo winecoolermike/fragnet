@@ -539,6 +539,27 @@
     s.src = "rank.js"; s.onload = done; s.onerror = done;
     document.body.appendChild(s);
   }
+  var WU_STATE = "";
+  function writeupsX() { return window.ESB_WRITEUPS || null; }
+  function loadWriteups() {
+    if (WU_STATE || !CFG.writeups) return;
+    WU_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { WU_STATE = writeupsX() ? "ok" : "fail"; var h = curHash(); if (/^#match\/cs2\//.test(h)) { KEEP_SCROLL = true; route(); } }
+    s.src = "writeups.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
+  }
+  function writeupHtml(m) {
+    if (!m || !m.id || m.region !== "NA") return "";
+    var all = writeupsX(), rec = all && all[m.id], text = rec && (typeof rec === "string" ? rec : rec.text);
+    if (text) return '<h2 class="subhead">Match preview <small>auto-written from season stats</small></h2><div class="writeup">' + esc(text) + "</div>";
+    if (m.winner) return "";
+    if (CFG.writeups && !all && WU_STATE !== "fail") {
+      loadWriteups();
+      return '<h2 class="subhead">Match preview <small>auto-written from season stats</small></h2><div class="empty loading">Loading&hellip;</div>';
+    }
+    return "";
+  }
   var RKIDX = null;
   function teamRank(id) {
     var x = rankX(); if (!x) { loadRank(); return null; }
@@ -905,7 +926,7 @@
     var info = kv([["When", m.t ? fmt(m.t) + " " + relSpan(live ? "live" : "up", m.t, "cs") : "TBD"], ["Division", esc(m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + (m.round ? " &middot; round " + num(m.round) : "")],
       ["Format", "best of " + num(m.bo || 1)], ["Standing now", rankPre(a) + esc(a.name) + " &middot; " + rankPre(b) + esc(b.name)], ["Match room", ru ? ext(ru, live ? "Follow live on FACEIT" : "Match room on FACEIT") : ""]]);
     setCrumbs([["CS2", "cs2"], ["Matches Today", "cs2/today"], [a.name + " vs " + b.name]]);
-    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) + predHtml(m) +
+    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) + writeupHtml(m) + predHtml(m) +
       '<h2 class="subhead">Map win rates this season <small>maps tracked here; n&lt;2 greyed</small></h2>' + mapTbl +
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +

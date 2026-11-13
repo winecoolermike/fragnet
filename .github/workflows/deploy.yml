@@ -141,6 +141,10 @@ jobs:
           ESB_PRED_REQUIRE_SKILL: "1"
         run: python ranking.py dist --archive rankings
 
+      - name: Auto-written NA match previews (template, no paid API)
+        continue-on-error: true
+        run: python writeups.py dist
+
       - name: Per-region lazy team files (teams-na.js, teams-eu.js)
         continue-on-error: true   # the app falls back to the whole teams.js
         run: python split_teams.py dist

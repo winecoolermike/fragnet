@@ -912,3 +912,7 @@ a.wp-chip:hover{text-decoration:underline}
 #na-picks .std-header h1,#na-picks .std-header h2{font-size:13px}
 [data-theme=night] .wp-chip, [data-theme=night] a.wp-chip, [data-theme=night] a.wp-chip:visited{color:#9cc7ee}
 [data-theme=night] .tbl td.fav,[data-theme=night] .tbl td.fav a{color:#9cc7ee}
+
+/* auto-written NA match preview (build-time templates from season stats) */
+.writeup{margin:0 0 8px;padding:8px 10px;border:1px solid var(--tline);border-top:none;background:#FFFCF2;font:13px/1.5 var(--list);color:#000}
+[data-theme=night] .writeup{background:#252A32;color:var(--text);border-color:var(--tline)}

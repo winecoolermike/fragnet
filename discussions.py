@@ -112,6 +112,8 @@ def main(argv=None):
         cfg["extra"] = True
     if os.path.exists(os.path.join(a.dist, "spot.js")):
         cfg["spot"] = True
+    if os.path.exists(os.path.join(a.dist, "writeups.js")):
+        cfg["writeups"] = True
     inject(os.path.join(a.dist, "index.html"), cfg)
     print(f"[discussions] config: comments {'on' if 'giscus' in cfg else 'off'}, discord {'on' if 'discord' in cfg else 'off'}")
     return 0
