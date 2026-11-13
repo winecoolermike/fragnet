@@ -48,8 +48,18 @@ def ts(s):
 
 
 def finished(data, teams):
+    """Every finished match: this run's data.json + teams.json, then the committed full-season history (history.py,
+    Nov 13, 2026) so the Elo covers the whole season, not only the newest ~100 matches per conference."""
     seen, out = set(), []
-    for m in ((data.get("cs") or {}).get("matches") or []) + ((teams or {}).get("matches") or []):
+    hist = []
+    if os.environ.get("ESB_HISTORY", "1").strip() != "0":
+        try:
+            import history
+            h = history.load_current(data)
+            hist = history.to_matches(h) if h else []
+        except Exception as e:   # never break the ranking over the archive
+            print("ranking: match history skipped:", e)
+    for m in ((data.get("cs") or {}).get("matches") or []) + ((teams or {}).get("matches") or []) + hist:
         if m and m.get("id") not in seen and m.get("winner") in (1, 2) and ts(m.get("t")) and m.get("t1") and m.get("t2"):
             seen.add(m["id"]); out.append(m)
     return sorted(out, key=lambda m: m["t"])

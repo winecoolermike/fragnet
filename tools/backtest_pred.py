@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Walk-forward backtest of the experimental ESB win probability (ranking.py v6.5) on ESEA NA Main.
 
-    python tools/backtest_pred.py data.json teams.json [more data.json / teams.json snapshots ...]
+    python tools/backtest_pred.py data.json teams.json [more snapshots ...] [data/esea-s59-matches.json]
 
 Merges every snapshot given (older committed copies + the live files), keeps each finished match once,
 then predicts every match in time order from earlier matches only. Prints Brier score and log loss vs a
@@ -13,13 +13,14 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import ranking as rk  # noqa: E402
+import history  # noqa: E402
 
 
 def load_all(paths):
     seen, out = set(), []
     for p in paths:
         j = json.load(open(p, encoding="utf-8"))
-        ms = (j.get("cs") or {}).get("matches") if "cs" in j else j.get("matches")
+        ms = history.to_matches(j) if "rows" in j else (j.get("cs") or {}).get("matches") if "cs" in j else j.get("matches")
         for m in ms or []:
             if m and m.get("id") not in seen and m.get("winner") in (1, 2) and rk.ts(m.get("t")) and m.get("t1") and m.get("t2"):
                 seen.add(m["id"]); out.append(m)

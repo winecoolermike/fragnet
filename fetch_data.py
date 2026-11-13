@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from urllib.parse import quote, urlparse
 from zoneinfo import ZoneInfo
 
+import history
 import feedparser
 import requests
 from bs4 import BeautifulSoup
@@ -876,7 +877,8 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     out["_extra"]["matches"] = sorted((m for k in fin for m in fin[k] if m["id"] not in kept), key=lambda m: m.get("t") or "", reverse=True)
     out["_extra"]["upcoming"] = sorted((m for k in upc for m in upc[k] if m["id"] not in kept), key=lambda m: m.get("t") or "")
     out["live"] = live
-    out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist,
+    hinfo = update_history(out, fin, matches, conf_champs)
+    out["matches_meta"] = {"fetched_at": now_iso(), "stale": False, "requests": nreq, "list_requests": nlist, "history": hinfo,
                            "stats_requests": nstats, "stats_reused": nreuse, "stats_retried": nretry, "stats_backfilled": nfixed,
                            "with_maps": sum(1 for m in matches if m.get("maps")), "live": len(live)}
     out["sources"].append(status(lname, lurl, True, len(matches) + len(upcoming), page=season_page,
@@ -887,6 +889,74 @@ def fetch_matches(out, prev, conf_champs, season_page, same_season):
     out["sources"].append(status(sname, surl, with_maps > 0, with_maps, page=season_page, reason=sreason,
                                  note=f"{nstats} fetched, {nreuse} reused from last run" + (f", {nmiss} without published stats" if nmiss else "") + (f", {nretry} re-asked ({nfixed} backfilled)" if nretry else "")
                                       + (f"; errors: {'; '.join(serr[:3])}" if serr and with_maps else "")))
+
+
+# Nov 13, 2026: full-season match history (history.py). Pages older finished matches of every conference in, a few
+# requests per run (the live lists above only return the newest 100 per conference), and merges each run's results.
+BACKFILL_MAX_REQ = int(os.environ.get("ESB_BACKFILL_MAX_REQ", 40))   # per run; the whole Season 59 backfill is ~1-2 runs
+
+
+def list_item_match(it, region, div, conf):
+    t1, t2 = side((it.get("teams") or {}).get("faction1")), side((it.get("teams") or {}).get("faction2"))
+    if not t1 or not t2 or it.get("status") != "FINISHED":
+        return None
+    res = it.get("results") or {}
+    sc = res.get("score") or {}
+    return {"id": it["match_id"], "region": region, "division": div, "conf": conf, "round": as_int(it.get("round")), "bo": as_int(it.get("best_of"), 1),
+            "t1": t1, "t2": t2, "t": epoch_iso(it.get("finished_at")) or epoch_iso(it.get("started_at")) or epoch_iso(it.get("scheduled_at")),
+            "s1": as_int(sc.get("faction1")), "s2": as_int(sc.get("faction2")),
+            "winner": 1 if res.get("winner") == "faction1" else 2 if res.get("winner") == "faction2" else 0}
+
+
+def backfill_history(h, conf_champs, budget):
+    """Page through every conference's finished matches (offset 100, 200, ...) until a short page; resumable."""
+    used, added, errs = 0, 0, []
+    for region, div, conf, cid in conf_champs:
+        st = h["backfill"].setdefault(cid, {"offset": 100, "done": False, "label": f"{region} {div} {conf}".strip()})
+        while not st["done"] and used < budget:
+            used += 1
+            try:
+                d = data_api(f"/championships/{quote(cid, safe='')}/matches", type="past", offset=st["offset"], limit=100)
+            except DataApiError as e:
+                errs.append(f"{st['label']}: {e}")
+                if "429" in str(e) or "401" in str(e) or "403" in str(e):
+                    return used, added, errs
+                break
+            except Exception as e:
+                errs.append(f"{st['label']}: {short_err(e)}")
+                break
+            items = (d or {}).get("items") or []
+            added += history.merge(h, [x for x in (list_item_match(it, region, div, conf) for it in items) if x])
+            st["offset"] += len(items)
+            if len(items) < 100:
+                st["done"] = True
+    return used, added, errs
+
+
+def update_history(out, fin, matches, conf_champs):
+    try:
+        season = out.get("season") or {}
+        path = history.path_for(season)
+        if not path:
+            return None
+        h = history.load(season, path)
+        new_file = not h["rows"]
+        n_new = history.merge(h, matches)                                  # with per-map scores first
+        n_new += history.merge(h, [m for k in fin for m in fin[k]])        # every finished match listed this run
+        for _, _, _, cid in conf_champs:                                   # offset 0 is already read by the live lists
+            h["backfill"].setdefault(cid, {"offset": 100, "done": False})
+        before = json.dumps(h["backfill"], sort_keys=True)
+        used, n_bf, errs = backfill_history(h, conf_champs, BACKFILL_MAX_REQ) if FACEIT_API_KEY else (0, 0, ["no key"])
+        moved = json.dumps(h["backfill"], sort_keys=True) != before
+        wrote = history.save(h, path, force=new_file or moved) if (n_new or n_bf or moved or new_file) else False
+        pending = sum(1 for v in h["backfill"].values() if not v.get("done"))
+        print(f"[history] {len(h['rows'])} matches in {os.path.relpath(path, HERE)}: +{n_new} this run, +{n_bf} backfilled with {used} request(s); "
+              f"{pending} conference(s) still backfilling; file {'written' if wrote else 'unchanged (next save within ' + str(history.SAVE_EVERY_H) + ' h)'}"
+              + (f"; errors: {'; '.join(errs[:3])}" if errs else ""))
+        return {"rows": len(h["rows"]), "added": n_new, "backfilled": n_bf, "requests": used, "pending": pending, "written": wrote}
+    except Exception as e:   # never break the data refresh over the archive
+        print("[history] skipped:", short_err(e))
+        return None
 
 
 # ---------------------------------------------------------------- VLR.gg

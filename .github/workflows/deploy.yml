@@ -147,13 +147,15 @@ jobs:
         continue-on-error: true
         run: python spotlight.py dist --archive roundups
 
-      - name: Archive finished roundup weeks (append-only commit)
+      # also the full-season match history (data/esea-s<N>-matches.json, history.py): fetch_data.py rewrites it
+      # at most every 6 h (or while the backfill moves), so this adds a few small commits a day
+      - name: Archive finished roundup weeks and season match history (append-only commit)
         if: github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
-          for d in roundups rankings; do [ -d $d ] && ls $d/*.json >/dev/null 2>&1 && git add $d/*.json; done
-          git diff --cached --quiet && { echo "no new roundup weeks"; exit 0; }
-          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "archive finished weeks (roundups, rankings) [skip ci]"
+          for d in roundups rankings data; do [ -d $d ] && ls $d/*.json >/dev/null 2>&1 && git add $d/*.json; done
+          git diff --cached --quiet && { echo "no new roundup weeks or match history"; exit 0; }
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "archive finished weeks and season match history (roundups, rankings, data) [skip ci]"
           for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0; sleep 5; done
           exit 1
 
