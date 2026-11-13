@@ -1224,7 +1224,7 @@
     var out = '<div class="potw">' + tabs;
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Player of the Week" + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" : '<div class="empty">No ' + esc(cur) + " player has 2 maps with FACEIT scoreboards this week yet.</div>") + "</div>";
     if (!t && earlySeason()) return out + EARLY_NOTE + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
-    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="note">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
+    out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" : '<div class="note">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
     return out + '<div class="note">Picks compare players and teams within one division. Upset rule and rating: <a href="#cs2/methodology">methodology</a>.</div></div>';
   }
   function vRoundup(parts) {
@@ -2091,26 +2091,6 @@
     if (!g || !g.repo_id || !g.category_id || location.protocol !== "https:") return "";
     return '<h2 class="subhead" id="comments-h">Comments</h2><div class="comments" data-term="' + esc(term) + '"><div class="empty">Comments load when you scroll here (GitHub Discussions; posting needs a free GitHub account).</div></div>';
   }
-  /* v5.3 "Share my card": the path page for this route carries the 1200x630 season card as og:image */
-  function shareBox(route) {
-    if (!/^https?:$/.test(location.protocol)) return "";
-    return '<div class="share-card"><button type="button" class="gbtn share-btn" data-route="' + esc(route) + '">Share my card</button> <span class="share-msg" role="status"></span></div>';
-  }
-  function shareCard(btn) {
-    var route = btn.getAttribute("data-route"), msg = btn.parentNode.querySelector(".share-msg");
-    var page = new URL(route.split("/").map(function (x) { try { x = decodeURIComponent(x); } catch (e) {} return encodeURIComponent(x); }).join("/") + "/", document.baseURI).href;
-    msg.textContent = "Preparing\u2026";
-    fetch(page).then(function (r) { if (!r.ok) throw new Error("no page"); return r.text(); }).then(function (t) {
-      var img = (t.match(/<meta property="og:image" content="([^"]+)"/) || [])[1], canon = (t.match(/<link rel="canonical" href="([^"]+)"/) || [])[1] || page;
-      if (!img) { msg.textContent = "No season card for this page yet."; return; }
-      img = img.replace(/&amp;/g, "&");
-      var title = document.title;
-      if (navigator.share) { navigator.share({ title: title, url: canon }).catch(function () {}); }
-      else if (navigator.clipboard) { navigator.clipboard.writeText(canon).catch(function () {}); }
-      msg.innerHTML = 'Link ready: <a href="' + esc(canon) + '">' + esc(canon.replace(/^https?:\/\//, "")) + '</a> (previews as your card) &middot; <a href="' + esc(img) + '" target="_blank" rel="noopener">Open card image &#8599;</a>';
-    }).catch(function () { msg.textContent = "Card not available here."; });
-  }
-  document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".share-btn"); if (b) shareCard(b); });
   document.addEventListener("change", function (ev) { var s = ev.target; if (s && s.matches && s.matches(".f-select select")) { var o = FILTERS.filter(function (x) { return x[0] === s.value; })[0]; if (o) { lsSet("esb-today-filter", s.value); location.hash = s.getAttribute("data-base") + s.value; } } });
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest(".pick-tab"); if (!b) return; PICK_DIV = b.getAttribute("data-div"); lsSet("esb-pick-div", PICK_DIV); KEEP_SCROLL = true; route(); });
   /* v5.4 team-owned extras: extra.js is the reviewed teams-extra.json, validated at deploy (teams_extra.py) */
@@ -2338,7 +2318,7 @@
       var th = tmp.querySelector(".std-header h1"), gm = { player: 1, team: 1, guild: 1, match: 1 };
       html = crumbHtml(CRUMB || [[gm[r.top] && th ? th.textContent : TITLES[r.top] || (th ? th.textContent : "Page")]]) + html;
     }
-    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" && r.parts[0] === "cs2" ? rankLine(r.parts[1]) : "") + (r.top === "player" && r.parts[0] === "cs2" ? ratingLine(r.parts[1]) : "") + (r.top === "team" ? teamExtraBox(r.parts) : "") + (r.top === "team" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
+    if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" && r.parts[0] === "cs2" ? rankLine(r.parts[1]) : "") + (r.top === "player" && r.parts[0] === "cs2" ? ratingLine(r.parts[1]) : "") + (r.top === "team" ? teamExtraBox(r.parts) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
     document.documentElement.classList.toggle("on-home", r.top === "home");
     document.body.classList.toggle("on-home", r.top === "home");

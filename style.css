@@ -588,8 +588,8 @@ ul.gn-sub li a{display:block;padding:2px 0;font:bold 11px var(--ui)}
   color-scheme:light;
 }
 body{background:var(--page);color:var(--text)}
-#container{width:1240px;border-left-color:var(--rail);border-right-color:var(--rail);box-shadow:none}
-@media (max-width:1260px){#container{border-left-width:0;border-right-width:0}}
+#container{width:1600px;max-width:100%;border-left-color:var(--rail);border-right-color:var(--rail);box-shadow:none}
+@media (max-width:1620px){#container{border-left-width:0;border-right-width:0}}
 @media (min-width:901px){#mesh{grid-template-columns:184px minmax(0,1fr) 200px}}
 .std-header h1,.std-header h2{font-family:var(--head);letter-spacing:.04em}
 .tk-track{animation:none!important;position:static}
@@ -777,10 +777,6 @@ td.score a.xl:hover{color:var(--link)}
 .spot-line{padding:4px 6px;border-bottom:1px dotted var(--line,#c9d3da);line-height:1.5}
 .spot-intro{font-size:12px}
 .tbl.spot-fr td.team{white-space:normal}
-/* v5.3 share card */
-.share-card{margin:8px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.share-card .gbtn{display:inline-flex;padding:4px 12px;cursor:pointer}
-.share-msg{font-size:12px;word-break:break-all}
 /* v5.4 team extras + recruiting */
 .team-extra{display:flex;gap:10px;align-items:flex-start}
 .team-logo{width:64px;height:64px;object-fit:contain;flex:none;background:#fff;border:1px solid #9FB6C6}
@@ -887,3 +883,11 @@ td.score a.xl:hover{color:var(--link)}
 .prem-div th,.prem-zone th{white-space:nowrap;width:1%}
 .prem-links{margin:4px 0 6px 18px;font:12px var(--ui)}.prem-links li{margin:3px 0}
 @media (max-width:600px){.prem-div th,.prem-zone th{white-space:normal;width:38%}}
+
+/* phone results: show full team names (wrap, no ellipsis) */
+@media (max-width:600px){
+  .tbl.res td.tm,.tbl.res td.team,.tbl.res td.n,.tbl.res td.win,.tbl.res td.lose{
+    white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.25;max-width:none;vertical-align:middle
+  }
+  .tbl.res td.score,.tbl.res td.dim{white-space:nowrap;overflow:visible;text-overflow:clip}
+}
