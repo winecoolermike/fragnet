@@ -32,7 +32,8 @@ OPTIONAL = ["teams.json", "teams.js",   # lazy team rosters / match lines / play
             "val.json", "val.js",       # lazy Valorant players + rosters (v3.8)
             "giscus-classic.css", "giscus-night.css",
             "manifest.webmanifest", "sw.js", "icon-192.png", "icon-512.png",   # R10 installable app
-            "_headers", "_redirects"]   # Cloudflare Pages: cache headers + www -> apex
+            "_headers", "_redirects",   # Cloudflare Pages: cache headers + www -> apex
+            "_routes.json"]             # Pages Functions only on /api/t (time-on-site beacon, functions/)
 FONT_PATTERNS = ["*.woff2", "LICENSE*", "README.txt"]
 BANNED_TERMS_FILE = os.path.join(HERE, ".banned-terms")   # optional, untracked: one term per line
 FORBIDDEN = ["shots", "tests", "v1-backup", "v2-backup", ".venv", "fetch_data.py", "build_dist.py",

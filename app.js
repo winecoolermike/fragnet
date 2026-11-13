@@ -2389,6 +2389,24 @@
     lsSet("esb-today-tab", b.getAttribute("data-tab"));
     KEEP_SCROLL = true; route();
   });
+  /* Nov 13: free, cookieless time-on-site beacon. Counts only the seconds a page is actually visible, per route;
+     sent with navigator.sendBeacon to the Pages Function api/t when the route changes, the tab is hidden or the page
+     closes. No cookies, no storage, no ids. Off on file://, http (local copies) and automated browsers. */
+  var TOS = { r: "", t0: 0, acc: 0, v: 1 };
+  function tosRoute() { return String(curHash() || "#home").replace(/^#/, "").split("?")[0].slice(0, 120) || "home"; }
+  function tosOn() { return location.protocol === "https:" && !!navigator.sendBeacon && !navigator.webdriver; }
+  function tosStart() { TOS.r = tosRoute(); TOS.acc = 0; TOS.v = 1; TOS.t0 = document.visibilityState === "visible" ? Date.now() : 0; }
+  function tosPause() { if (TOS.t0) { TOS.acc += Date.now() - TOS.t0; TOS.t0 = 0; } }
+  function tosSend() {
+    tosPause();
+    var s = Math.round(TOS.acc / 1000); TOS.acc = 0;
+    if (s < 1 || !TOS.r || !tosOn()) return;
+    try { navigator.sendBeacon("api/t", new Blob([JSON.stringify({ p: TOS.r, s: Math.min(s, 1800), v: TOS.v, d: (window.innerWidth || 1024) < 700 ? "m" : "d" })], { type: "text/plain" })); TOS.v = 0; } catch (e) {}
+  }
+  tosStart();
+  window.addEventListener("hashchange", function () { tosSend(); tosStart(); });
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") tosSend(); else if (!TOS.t0) TOS.t0 = Date.now(); });
+  window.addEventListener("pagehide", tosSend);
   // Nov 13 SEO pass: the WebSite SearchAction points at /?q=term; open it as the normal #search route
   (function () { try { var q = new URLSearchParams(location.search).get("q"); if (q && !location.hash) history.replaceState(null, "", location.pathname + "#search/" + encodeURIComponent(q.trim().slice(0, MAX_Q))); } catch (e) {} })();
   today(); setInterval(function () { today(); try { refreshRel(); } catch (e) {} }, 30000);
