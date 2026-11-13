@@ -662,7 +662,8 @@
     return '<div class="infobox method"><h3>ESB Team Ranking</h3><p>' + esc(ft || "Loading…") + '</p><p>Map scores come from FACEIT; a Bo1 without map stats counts as one map from the series score; a series without map stats counts as one game without a margin bonus. NA and EU teams never meet, so their relative order comes only from the division starting values. Arrows compare with the ranking replayed up to the start of this week (Monday 00:00 PT); finished weeks are archived in the repo (rankings/).</p>' +
       "<h3>ESB Rating 1.0</h3><p>" + esc(fp) + "</p><p>KPR = kills per round, DPR = deaths per round, ADR = average damage per round, HS% = headshot kill percentage, all as published by FACEIT. Win rate is not included: FACEIT gives team records, not per-player ones. A per-map rating on match scoreboards uses the same formula with that map&rsquo;s rounds. This is an Esports Scoreboard formula, not an official FACEIT or ESEA rating.</p>" +
       "<h3>Per-division comparisons</h3><p>There are no division multipliers. Because every rating is measured against its own division, Top 20s, season awards and weekly picks are per division (NA/EU &times; Advanced, Main, Intermediate). The combined ESEA Top 20 is just for fun and lists Advanced players only. Opponent-strength weighting (adjusting ratings for the quality of the teams faced) is planned for midseason.</p>" +
-      "<h3>Player and Team of the Week (per division)</h3><p>Player of the Week: highest rounds-weighted per-map rating in the division over the week (Monday-Sunday PT), at least 2 maps with FACEIT scoreboards. Team of the Week: largest ranking-points gain in the division over the week with at least 2 matches that week, among ranked teams. Season awards per division: MVP = #1 of the division Top 20, best team = highest-ranked team, breakout = largest gain over the division starting value.</p></div>";
+      "<h3>Player and Team of the Week (per division)</h3><p>Player of the Week: highest rounds-weighted per-map rating in the division over the week (Monday-Sunday PT), at least 2 maps with FACEIT scoreboards. Team of the Week: largest ranking-points gain in the division over the week with at least 2 matches that week, among ranked teams. Season awards per division: MVP = #1 of the division Top 20, best team = highest-ranked team, breakout = largest gain over the division starting value.</p>" +
+      "<h3>Upset of the week</h3><p>" + esc((spotX() && spotX().upset_rule) || "An upset is a team outside the top 5 beating a top-5 team, using the division table built from results tracked here before that match (3 points per win, ties share a rank). Both teams must have played at least 3 matches; forfeits and 13:0 results without FACEIT match stats never count.") + "</p></div>";
   }
   var CS_SORTS = [["esbr", "Rating"], ["kd", "K/D"], ["adr", "ADR"], ["hs", "HS%"], ["kills", "Kills"], ["rounds", "Rounds"], ["matches", "Matches"]];
   function csBoard(parts) {
@@ -1176,22 +1177,29 @@
     document.body.appendChild(s);
   }
   function spotHtml(b) {
-    var out = "", ups = b.upsets || [], fr = b.fraggers || [], st = b.streaks || [], w = b.wow || {};
+    var out = "", cur = V6DIVS.indexOf(PICK_DIV) >= 0 ? PICK_DIV : "NA Advanced", reg = cur.split(" ")[0];
+    var upsAll = b.upsets || [], frAll = b.fraggers || [], stAll = b.streaks || [], w = b.wow || {};
+    function inReg(divOrRegion) { return String(divOrRegion || "").indexOf(reg) === 0; }
+    var ups = upsAll.filter(function (u) { return inReg(u.region); });
+    var fr = frAll.filter(function (f) { return inReg(f.div); });
+    var st = stAll.filter(function (x) { return inReg(x.div) || inReg(x.region); });
     function tl(t) { return /^[0-9a-f-]{36}$/.test(String(t.id)) ? ilink("team/cs2/" + t.id, t.name) : esc(t.name); }
-    out += (ups.length ? '<h2 class="subhead">Upset of the week</h2>' + ups.slice(0, 3).map(function (u) {
+    var other = reg === "NA" ? "EU" : "NA";
+    out += '<h2 class="subhead">Upset of the week <span class="dim">(' + esc(reg) + ")</span></h2>" + (ups.length ? ups.slice(0, 3).map(function (u) {
       return '<div class="spot-line">' + tl(u.winner) + " (#" + u.winner.rank + ") beat " + tl(u.loser) + " (#" + u.loser.rank + ") " + ilink(csMatchHash(u), u.score) + ' <span class="dim">' + esc(u.region + " " + u.division) + "</span></div>";
-    }).join("") : "");
-    out += '<h2 class="subhead">Top fragger by division</h2>' + (fr.length ? '<div class="rankbox"><table class="tbl spot-fr"><thead><tr><th class="first">Division</th><th>Player</th><th class="n">Kills</th><th class="n">Maps</th></tr></thead><tbody>' + fr.map(function (f) {
+    }).join("") : '<div class="empty">No ' + esc(reg) + " upsets this week yet." + (upsAll.length ? ' Use the ' + other + " tab above for " + other + " results." : "") + "</div>");
+    out += '<h2 class="subhead">Top fragger by division <span class="dim">(' + esc(reg) + ")</span></h2>" + (fr.length ? '<div class="rankbox"><table class="tbl spot-fr"><thead><tr><th class="first">Division</th><th>Player</th><th class="n">Kills</th><th class="n">Maps</th></tr></thead><tbody>' + fr.map(function (f) {
       return "<tr><td>" + esc(f.div) + '</td><td class="team">' + ilink(playerHash(f.nick), f.nick) + ' <span class="dim">' + esc(f.team) + '</span></td><td class="n">' + (f.match ? ilink(csMatchHash({ id: f.match }), String(f.kills)) : num(f.kills)) + '</td><td class="n">' + num(f.maps) + "</td></tr>";
-    }).join("") + "</tbody></table></div>" : '<div class="empty">No FACEIT scoreboards in this period.</div>');
-    out += (st.length ? '<h2 class="subhead">Hottest streak</h2>' + st.slice(0, 3).map(function (x) {
+    }).join("") + "</tbody></table></div>" : '<div class="empty">No FACEIT scoreboards in ' + esc(reg) + " this period.</div>");
+    out += '<h2 class="subhead">Hottest streak <span class="dim">(' + esc(reg) + ")</span></h2>" + (st.length ? st.slice(0, 3).map(function (x) {
       return '<div class="spot-line">' + tl(x) + ": " + x.n + ' wins in a row <span class="dim">' + esc(x.div) + "</span></div>";
-    }).join("") : "");
-    out += '<h2 class="subhead">WoW Mythic kills</h2>' + ((w.guilds || []).length ? w.guilds.map(function (g) {
-      var reg = g.region === "eu" ? "eu" : "us";
-      return '<div class="spot-line">' + ilink(guildHash(reg, g), g.guild) + " (" + reg.toUpperCase() + "): " + g.kills + " kill" + (g.kills === 1 ? "" : "s") + " &middot; " + esc((g.bosses || []).join(", ")) + " " + ext(g.url, "Raider.IO") + "</div>";
-    }).join("") : '<div class="empty">No Mythic kills by tracked guilds in this period.</div>');
-    if (!ups.length || !st.length) out += '<div class="note">More spotlights (' + [!ups.length && "upset of the week", !st.length && "hottest 3+ win streak"].filter(Boolean).join(", ") + ") appear here once the week&rsquo;s results produce one.</div>";
+    }).join("") : '<div class="empty">No ' + esc(reg) + " 3+ win streak this week yet." + (stAll.length ? ' Use the ' + other + " tab above for " + other + " results." : "") + "</div>");
+    if ((w.guilds || []).length) {
+      out += '<h2 class="subhead">WoW Mythic kills</h2>' + w.guilds.map(function (g) {
+        var rgn = g.region === "eu" ? "eu" : "us";
+        return '<div class="spot-line">' + ilink(guildHash(rgn, g), g.guild) + " (" + rgn.toUpperCase() + "): " + g.kills + " kill" + (g.kills === 1 ? "" : "s") + " &middot; " + esc((g.bosses || []).join(", ")) + " " + ext(g.url, "Raider.IO") + "</div>";
+      }).join("");
+    }
     return out;
   }
   function homeSpot() {
@@ -1199,7 +1207,8 @@
     var sp = spotX();
     if (!sp) { loadSpot(); return SP_STATE === "fail" ? "" : std("This Week", "", '<div class="empty loading-sp">Loading this week&hellip;</div>', "home-spot"); }
     var b = sp.last7 || {};
-    return std("This Week", '<a href="#roundup">weekly roundups &raquo;</a>', '<div class="infobox spot-intro">Last 7 days: ' + num(b.cs_matches) + " CS2 results tracked, " + num((b.wow || {}).kills) + " WoW Mythic boss kills. " + esc(sp.upset_rule) + "</div>" + picksHtml((sp.weeks || []).filter(function (w) { return w.current; })[0], true) + spotHtml(b), "home-spot");
+    var intro = '<div class="infobox spot-intro">Last 7 days: ' + num(b.cs_matches) + " CS2 results tracked" + (num((b.wow || {}).kills) ? ", " + num((b.wow || {}).kills) + " WoW Mythic boss kills" : "") + ".</div>";
+    return std("This Week", '<a href="#roundup">weekly roundups &raquo;</a>', intro + picksHtml((sp.weeks || []).filter(function (w) { return w.current; })[0], true) + spotHtml(b), "home-spot");
   }
   /* v6.2 Player / Team of the Week (computed in spotlight.py via ranking.py; archived with the roundup week) */
   var PICK_DIV = lsGet("esb-pick-div", "NA Advanced");
@@ -1216,7 +1225,7 @@
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Player of the Week" + (home ? ' <small>(' + esc(w.label) + (w.current ? ", so far" : "") + ")</small>" : "") + "</h2>" + (p ? '<div class="spot-line"><b>' + ilink(playerHash(p.nick), p.nick) + "</b> (" + (/^[0-9a-f-]{36}$/.test(String(p.team_id)) ? ilink("team/cs2/" + p.team_id, p.team) : esc(p.team)) + ") &middot; rating <b>" + Number(p.rating).toFixed(2) + "</b> over " + num(p.maps) + " maps, " + num(p.k) + "-" + num(p.d) + " K-D</div>" : '<div class="empty">No ' + esc(cur) + " player has 2 maps with FACEIT scoreboards this week yet.</div>") + "</div>";
     if (!t && earlySeason()) return out + EARLY_NOTE + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
     out += '<div class="pick"><h2 class="subhead">' + esc(cur) + " Team of the Week</h2>" + (t ? '<div class="spot-line"><b>' + ilink("team/cs2/" + t.id, t.name) + "</b> &middot; <b>+" + Number(t.gain).toFixed(1) + "</b> ranking points from " + num(t.played) + " matches, now " + Math.round(t.pts) + "</div>" + shareBox("roundup/" + w.id + "/totw-" + ds) : '<div class="note">No ranked ' + esc(cur) + " team has played 2 matches this week yet.</div>") + "</div>";
-    return out + '<div class="note">Picks compare players and teams within one division: <a href="#cs2/methodology">methodology</a>.</div></div>';
+    return out + '<div class="note">Picks compare players and teams within one division. Upset rule and rating: <a href="#cs2/methodology">methodology</a>.</div></div>';
   }
   function vRoundup(parts) {
     setCrumbs(parts[0] ? [["Weekly Roundups", "roundup"], [parts[0].toUpperCase()]] : [["Weekly Roundups"]]);
@@ -1265,6 +1274,105 @@
   function isoFromKey(k) { var a = k.split("-"); return a[0] + "-" + pad(+a[1] + 1) + "-" + pad(+a[2]); }
   function keyDate(k) { var a = k.split("-"); return new Date(Date.UTC(+a[0], +a[1], +a[2], 12)); }
   function shiftKey(k, n) { var d = keyDate(k); d.setUTCDate(d.getUTCDate() + n); return d.getUTCFullYear() + "-" + d.getUTCMonth() + "-" + d.getUTCDate(); }
+  function isNaCsRow(r) { return r && r.g === "cs" && passFilter(r, "na"); }
+  function liveLabel(rows) {
+    var live = (rows || []).filter(function (r) { return r.g === "cs" && r.st === "live"; }), na = 0, eu = 0, ot = 0, bits = [];
+    live.forEach(function (r) { if (r.m.region === "NA") na++; else if (r.m.region === "EU") eu++; else ot++; });
+    if (na) bits.push(na + " LIVE in NA");
+    if (eu) bits.push(eu + " LIVE in EU");
+    if (ot) bits.push(ot + " LIVE");
+    return bits.join(" \u00b7 ");
+  }
+  function todayCountLabel(rows) {
+    var cs = (rows || []).filter(function (r) { return r.g === "cs"; }), na = 0, eu = 0, ot = 0, bits = [];
+    if (!cs.length) return "";
+    cs.forEach(function (r) { if (r.m.region === "NA") na++; else if (r.m.region === "EU") eu++; else ot++; });
+    function nMatches(n, label) { return n + " " + label + " match" + (n === 1 ? "" : "es") + " today"; }
+    if (na && !eu && !ot) return nMatches(na, "NA");
+    if (eu && !na && !ot) return nMatches(eu, "EU");
+    if (na) bits.push(na + " NA");
+    if (eu) bits.push(eu + " EU");
+    if (ot) bits.push(String(ot));
+    return bits.join(" \u00b7 ") + " today";
+  }
+  function lastNightNaRows() {
+    var y = shiftKey(dayKey(new Date()), -1), rows = [];
+    csFinished().forEach(function (m) {
+      var r = { g: "cs", st: "done", m: m };
+      if (m.t && dayKey(new Date(m.t)) === y && isNaCsRow(r)) rows.push(r);
+    });
+    return rows;
+  }
+  function naTodayRows() { return todayRows().filter(isNaCsRow); }
+  function pickNaPreview(today) {
+    var live = today.filter(function (r) { return r.st === "live"; });
+    var up = today.filter(function (r) { return r.st === "up"; });
+    var done = today.filter(function (r) { return r.st === "done"; });
+    var rows = live.concat(up.slice(0, Math.max(0, 5 - live.length)));
+    var rem = 5 - rows.length;
+    if (rem > 0 && done.length) rows = rows.concat(done.slice(-rem));
+    return rows;
+  }
+  function naTable(rows) {
+    return '<div class="rankbox"><table class="tbl res compact"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>' +
+      rows.map(function (r) {
+        var m = r.m, w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2;
+        var mid = r.st === "live" ? '<span class="live-b">LIVE</span>' : r.st === "up" ? "vs" : ('<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>");
+        var ru = roomUrl(m), h = csMatchHash(m);
+        var midHtml = r.st === "done" ? scoreLink(h, mid, ru, "match page") : (h ? '<a href="#' + esc(h) + '">' + mid + "</a>" : mid);
+        return '<tr class="g-cs st-' + r.st + '"><td class="dim">' + (m.t ? hhmm(m.t) : "") + "</td>" +
+          '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + "</td>" +
+          '<td class="score">' + midHtml + "</td>" +
+          '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + "</td>" +
+          '<td class="hide-sm dim">' + esc((m.region || "") + " " + (m.division || "")) + "</td></tr>";
+      }).join("") + "</tbody></table></div>";
+  }
+  function euTodayNote() {
+    var all = todayRows().filter(function (r) { return r.g === "cs" && r.m.region === "EU"; });
+    var live = all.filter(function (r) { return r.st === "live"; }).length;
+    if (live) return live + " LIVE in EU";
+    if (all.length) return all.length + " EU match" + (all.length === 1 ? "" : "es") + " today";
+    return "";
+  }
+  function naHomeBoard() {
+    var today = naTodayRows(), p = ptParts(new Date()), eu = euTodayNote();
+    var euLine = eu ? '<div class="note">' + eu + ' &middot; <a href="#cs2/today/f-eu">EU matches today &raquo;</a></div>' : "";
+    if (today.length) {
+      var rows = pickNaPreview(today);
+      return std("NA Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d,
+        '<a href="#cs2/today">see all today &raquo;</a>', naTable(rows) + euLine, "today-board");
+    }
+    var yrows = lastNightNaRows().slice(0, 5), yk = shiftKey(dayKey(new Date()), -1), yd = keyDate(yk);
+    var when = DAYS[yd.getUTCDay()].slice(0, 3) + " " + MON[yd.getUTCMonth()] + " " + yd.getUTCDate();
+    var note = '<div class="note">No NA matches scheduled yet today' + (eu ? " &middot; " + eu : "") +
+      '. <a href="#cs2/today">Today&rsquo;s matches &raquo;</a> &middot; <a href="#cs2/results">all NA results &raquo;</a></div>';
+    if (!yrows.length) return std("Latest NA Results", when, note, "today-board");
+    return std("Latest NA Results", when + " &middot; last night", naTable(yrows) + note, "today-board");
+  }
+  function renderSideNa() {
+    var box = $("#side-na"), body = $("#side-na-list"), hdr = $("#side-na-h"), more = $("#side-na-more");
+    if (!box || !body || !D) return;
+    var today = naTodayRows(), mode = today.length > 0, rows = mode ? pickNaPreview(today) : lastNightNaRows().slice(0, 5);
+    if (hdr) hdr.textContent = mode ? "NA Today" : "Latest NA";
+    if (!rows.length) {
+      var eu = euTodayNote();
+      body.innerHTML = '<li class="note">No NA matches yet today.' + (eu ? " " + eu + "." : "") + "</li>";
+    } else {
+      body.innerHTML = rows.map(function (r) {
+        var m = r.m, w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2;
+        var mid = r.st === "live" ? "LIVE" : r.st === "up" ? "vs" : (num(m.s1) + ":" + num(m.s2));
+        var h = csMatchHash(m);
+        var n1 = (m.t1 && m.t1.name) || "TBD", n2 = (m.t2 && m.t2.name) || "TBD";
+        var score = h ? '<a href="#' + esc(h) + '">' + esc(mid) + "</a>" : esc(mid);
+        var cls = r.st === "done" ? "" : " dim";
+        return '<li class="na-side-item"><span class="na-sides"><a href="' + (h ? "#" + esc(h) : "#cs2/results") + '">' + esc(n1) + "</a>" +
+          ' <b class="na-sc' + (w1 ? " w" : "") + (w2 ? " l" : "") + cls + '">' + score + "</b> " +
+          '<a href="' + (h ? "#" + esc(h) : "#cs2/results") + '">' + esc(n2) + "</a></span>" +
+          '<span class="cnt">' + esc((r.st === "live" ? "LIVE " : (m.t ? hhmm(m.t) + " " : "")) + (m.division || "")) + "</span></li>";
+      }).join("");
+    }
+    if (more) { more.setAttribute("href", mode ? "#cs2/today" : "#cs2/results"); more.setAttribute("data-h", mode ? "#cs2/today" : "#cs2/results"); more.textContent = mode ? "TODAY" : "MORE"; }
+  }
   function dayCounts() {
     var c = {}, mine = {};
     function add(iso, r) { if (!iso) return; var d = new Date(iso); if (isNaN(d)) return; var k = dayKey(d); c[k] = (c[k] || 0) + 1; if (r && rowMine(r)) mine[k] = 1; }
@@ -1389,7 +1497,19 @@
     var upd = (D.cs && D.cs.matches_meta && D.cs.matches_meta.fetched_at) || D.fetched_at;
     var meta = upd ? "updated " + fmt(upd, "short") : "";
     if (preview) meta = all.length ? '<a href="#cs2/today">see all ' + all.length + " &raquo;</a>" : "";
-    if (!rows.length) return std(esc(title), meta, tabsHtml + '<div class="empty today-empty">' + (tab === "all" ? "No matches scheduled today." : tab === "mine" ? "None of your starred teams play today." : "No " + { live: "live", up: "upcoming", done: "finished" }[tab] + " matches today.") + "</div>", "today-board");
+    if (!rows.length) {
+      var empty;
+      if (tab === "mine") empty = "None of your starred teams play today.";
+      else if (tab !== "all") empty = "No " + { live: "live", up: "upcoming", done: "finished" }[tab] + " matches today.";
+      else if (flt === "na") {
+        var euE = euTodayNote(), yrows = lastNightNaRows().slice(0, 5);
+        empty = "No NA matches scheduled yet today." + (euE ? " " + euE + "." : "");
+        var ytbl = yrows.length ? '<h2 class="subhead">Last night in NA</h2>' + naTable(yrows) + '<div class="note"><a href="#cs2/results">all NA results &raquo;</a>' + (euE ? ' &middot; <a href="#cs2/today/f-eu">EU matches today &raquo;</a>' : "") + "</div>" : (euE ? '<div class="note"><a href="#cs2/today/f-eu">EU matches today &raquo;</a></div>' : "");
+        return std(esc(title), meta, tabsHtml + '<div class="empty today-empty">' + empty + "</div>" + ytbl, "today-board");
+      } else if (flt === "eu") empty = "No EU matches scheduled today.";
+      else empty = "No matches scheduled today.";
+      return std(esc(title), meta, tabsHtml + '<div class="empty today-empty">' + empty + "</div>", "today-board");
+    }
     var liveN = rows.filter(function (x) { return x.st === "live"; }).length;
     var liveAge = liveN && upd ? '<div class="live-age"><span class="live-b">LIVE</span> status as of ' + fmt(upd, "short") + " (" + relSpan("done", upd, "as") + ") &middot; scores here refresh about every 30 minutes; for the live score use the LIVE button (FACEIT / vlr.gg match room &#8599;).</div>" : "";
     var body = tabsHtml + liveAge + '<div class="rankbox"><table class="tbl res today"><colgroup><col class="c-when"><col class="c-team"><col class="c-score"><col class="c-team"><col class="c-div hide-sm"><col class="c-map hide-sm"></colgroup><thead><tr>' +
@@ -1522,9 +1642,9 @@
       return '<section class="gcard g-' + game + '" aria-label="' + esc(g.name) + '"><a class="gc-head" href="#' + game + '"><span class="gc-name">' + esc(g.name) + '</span><span class="gc-sub">' + esc(g.sub) + ' &raquo;</span></a>' +
         '<div class="gc-teaser">' + (teaser || '<span class="dim">No data yet.</span>') + '</div><div class="gc-btns">' + btns.map(function (b) { return '<a class="gbtn" href="#' + b[1] + '">' + esc(b[0]) + "</a>"; }).join("") + "</div></section>";
     }
-    var csN = tr.filter(function (r) { return r.g === "cs"; }).length, csLive = tr.filter(function (r) { return r.g === "cs" && r.st === "live"; }).length;
+    var csN = tr.filter(function (r) { return r.g === "cs"; }).length, liveTxt = liveLabel(tr);
     var d0 = csDivs().filter(function (d) { return d.teams && d.teams.length; })[0];
-    var csT = [csN ? cnt(csN, "match") + " today" : s ? esc(s.name) : "", csLive ? '<span class="live-b">' + csLive + " LIVE</span>" : "", d0 ? esc(d0.region + " " + d0.division) + " leader <b>" + esc(d0.teams[0].name) + "</b>" : ""].filter(Boolean).join(" &middot; ");
+    var csT = [todayCountLabel(tr) || (csN ? cnt(csN, "match") + " today" : s ? esc(s.name) : ""), liveTxt ? '<span class="live-b">' + liveTxt + "</span>" : "", d0 ? esc(d0.region + " " + d0.division) + " leader <b>" + esc(d0.teams[0].name) + "</b>" : ""].filter(Boolean).join(" &middot; ");
     var vN = tr.filter(function (r) { return r.g === "val"; }).length, tp = ((D.valorant || {}).top_players || [])[0], evs = valEvents();
     var vT = [vN ? cnt(vN, "match") + " today" : "", evs.length ? cnt(evs.length, "event") + " tracked" : "", tp ? "top player <b>" + esc(tp.name) + "</b> (" + num(tp.rating).toFixed(2) + ")" : ""].filter(Boolean).join(" &middot; ");
     var rk = (D.wow && D.wow.rankings) || {}, us = (rk.us || [])[0], eu = (rk.eu || [])[0];
@@ -1533,21 +1653,16 @@
       card("cs2", csT, [["Standings", csHome()], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
       card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
       card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
-    var news = newsItems().slice(0, 5);
-    var newsHtml = news.length ? '<div class="newsbox">' + news.map(function (n) {
-      return '<div class="item">' + ext(n.url, n.title) + '<span class="src">(' + esc(n.source) + ")</span></div>";
-    }).join("") + '<div class="item more"><a href="#news">More news &raquo;</a></div></div>' : '<div class="empty">No headlines right now.</div>';
-    var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. Pick a game to start. All times Pacific.</div>';
-    /* Featured: World of Warcraft: Forever (official Blizzard product; not Classic). No invented live stats. */
-    var wf = '<aside class="feat-wf" aria-label="Featured: WoW Forever">'
+    var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. All times Pacific.</div>';
+    /* Featured: World of Warcraft: Forever (official Blizzard product; not Classic). Compact row so NA scores stay on the first screen. */
+    var wf = '<aside class="feat-wf compact" aria-label="Featured: WoW Forever">'
       + '<div class="feat-wf-kicker">Featured</div>'
       + '<div class="feat-wf-title">World of Warcraft: Forever</div>'
-      + '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. Separate from Retail Mythic rankings below and not WoW Classic.</p>'
+      + '<p class="feat-wf-body">Reimagined Azeroth, separate from Retail Mythic rankings and not WoW Classic.</p>'
       + '<div class="feat-wf-links">'
       + '<a class="feat-wf-btn" href="#wow-forever">WoW Forever page</a>'
       + '</div></aside>';
-    return std("Esports Scoreboard Front Page", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + cards + homeSpot() + myMatches("home") + todayBoard(true) +
-      std("Latest Esports News", '<a href="#news">more news &raquo;</a>', newsHtml, "home-news");
+    return std("Esports Scoreboard", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + naHomeBoard() + cards + homeSpot() + myMatches("home");
   }
 
   function pageNotFound(parts) {   // audit2 A4: one real "Page not found" view for any unknown path
@@ -2145,7 +2260,9 @@
     li.hidden = false;
   }
   function renderSideForum() {
-    $("#side-forum").innerHTML = '<li class="note">Forums are coming soon.</li>';
+    var ul = $("#side-forum"), box = ul && (ul.closest ? ul.closest(".sidebox") : ul.parentNode);
+    if (ul) ul.innerHTML = "";
+    if (box) box.hidden = true;
   }
 
 
@@ -2223,6 +2340,9 @@
     }
     if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" && r.parts[0] === "cs2" ? rankLine(r.parts[1]) : "") + (r.top === "player" && r.parts[0] === "cs2" ? ratingLine(r.parts[1]) : "") + (r.top === "team" ? teamExtraBox(r.parts) : "") + (r.top === "team" ? shareBox(r.top + "/" + r.parts.join("/")) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
+    document.documentElement.classList.toggle("on-home", r.top === "home");
+    document.body.classList.toggle("on-home", r.top === "home");
+    try { renderSideNa(); } catch (e) {}
     try { mountComments(); } catch (e) {}
     try { noteRecent(r); } catch (e) {}
     var gs = $('[data-sel="cs2:standings"]'); if (gs) gs.setAttribute("href", "#" + csHome());
@@ -2235,7 +2355,7 @@
     var spec = cr.length ? cr.reverse().join(" :: ") : h1 ? h1.textContent : TITLES[r.top] || "";
     spec = spec.replace(/\s*::\s*Esports Scoreboard$/, "");
     document.title = r.top === "home" ? "Esports Scoreboard :: Esports League Tracker" : (spec ? spec + " :: " : "") + "Esports Scoreboard";
-    try { var nl = todayRows().filter(function (x) { return x.st === "live"; }).length; if (nl) document.title = "(" + nl + " live) " + document.title; } catch (e) {}
+    try { var lb = liveLabel(todayRows()); if (lb) document.title = "(" + lb.replace(/LIVE/g, "live") + ") " + document.title; } catch (e) {}
     var navTop = r.top === "search" ? "" : (r.top === "player" || r.top === "match" || r.top === "team") && r.parts[0] !== "val" ? "cs2" : r.top === "team" || r.top === "player" || r.top === "match" ? "valorant" : r.top === "guild" ? "wow" : r.top;
     $$("[data-nav]").forEach(function (a) { var on = a.dataset.nav === navTop; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     $$("[data-gn]").forEach(function (a) { a.classList.toggle("on", a.dataset.gn === navTop); });
@@ -2330,7 +2450,7 @@
     initTheme();
     $("#foot-fetched").textContent = "updated " + fmt(D.fetched_at);
     var ql = $("#ql-rio"); if (ql && D.wow && D.wow.raid) ql.href = rioPage(D.wow.raid, "world");
-    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderTicker, renderDiscordFoot, renderPinned, renderBar, offlineNote].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
+    [renderGameNav, renderStatus, renderSideNews, renderSideForum, renderSideNa, renderTicker, renderDiscordFoot, renderPinned, renderBar, offlineNote].forEach(function (fn) { try { fn(); } catch (e) { if (window.console) console.warn("Esports Scoreboard: sidebar render failed", e); } });
     window.addEventListener("hashchange", function () {
       clearTimeout(tmr); route(); renderSideForum(); try { renderSideNews(); } catch (e) {}
       // optional visitor counter (only present when the build sets GOATCOUNTER_CODE): section only, no ids
@@ -2433,7 +2553,7 @@
             window.removeEventListener("hashchange", upgrade);
             getFull().then(function (full) {
               D = full; buildIndex();
-              [renderGameNav, renderStatus, renderSideNews, renderTicker, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) {} });
+              [renderGameNav, renderStatus, renderSideNews, renderSideNa, renderTicker, renderPinned, renderBar].forEach(function (fn) { try { fn(); } catch (e) {} });
               KEEP_SCROLL = true; route();
             }, function () { D.partial = false; KEEP_SCROLL = true; route(); });
           };

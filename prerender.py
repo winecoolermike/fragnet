@@ -3,8 +3,9 @@
 
     python prerender.py dist/index.html dist/data.json
 
-Writes a plain-HTML snapshot (three game cards with live teasers and outbound section
-buttons, the latest 5 ESEA results, 5 headlines; North America first) into #view / #side-news / #hdr-upd and a live summary into the
+Writes a plain-HTML snapshot (compact intro, compact WoW Forever row, three game cards
+with live teasers and outbound section buttons, the latest NA ESEA results; North America first)
+into #view / #side-news / #side-na-list / #hdr-upd and a live summary into the
 description + og/twitter description, so no-JS visitors, search engines and link
 previews see real data. app.js replaces it on boot (it renders #view / #side-news
 wholesale) and removes the data-prerender marker.
@@ -19,7 +20,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 from zoneinfo import ZoneInfo
 
@@ -85,16 +86,15 @@ def render(d):
     """v4.0 calm home: three game cards, the latest 5 ESEA results, 5 headlines (North America first)."""
     cs, val, wow = d.get("cs") or {}, d.get("valorant") or {}, d.get("wow") or {}
     upd = pt(d.get("fetched_at"))
-    parts = [std("Esports Scoreboard Front Page", "updated " + e(upd),
+    parts = [std("Esports Scoreboard", "updated " + e(upd),
                  '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. '
                  "This is a static snapshot; with JavaScript enabled you get every division, team and player page, match scoreboards and search. All times Pacific.</div>")]
-    # Featured WoW Forever (official Blizzard product; not Classic). Outbound links only; no invented stats.
+    # Featured WoW Forever (official Blizzard product; not Classic). Compact row; outbound links only; no invented stats.
     parts.append(
-        '<aside class="feat-wf" aria-label="Featured: WoW Forever">'
+        '<aside class="feat-wf compact" aria-label="Featured: WoW Forever">'
         '<div class="feat-wf-kicker">Featured</div>'
         '<div class="feat-wf-title">World of Warcraft: Forever</div>'
-        '<p class="feat-wf-body">Blizzard&rsquo;s reimagined Azeroth &mdash; an ever-expanding adventure where the journey is the destination. '
-        'Separate from Retail Mythic rankings below and not WoW Classic.</p>'
+        '<p class="feat-wf-body">Reimagined Azeroth, separate from Retail Mythic rankings and not WoW Classic.</p>'
         '<div class="feat-wf-links">'
         '<a class="feat-wf-btn" href="wow-forever/">WoW Forever page</a>'
         + "</div></aside>"
@@ -116,7 +116,7 @@ def render(d):
         e(raid.get("name")) if raid.get("name") else "",
         (f'US #1 <b>{e(us.get("guild"))}</b> {e(us.get("progress"))}' if us else ""),
         (f'EU #1 <b>{e(eu.get("guild"))}</b> {e(eu.get("progress"))}' if eu else "")] if x)
-    parts.append('<div class="gcards">'
+    gcards = ('<div class="gcards">'
                  + card("cs2", "Counter-Strike 2", "ESEA League", cs_t,
                         [((d0.get("region") + " " + d0.get("division") + " standings") if d0 else "Standings", (d0 or {}).get("link") or ESEA_PAGE), ("ESEA League on FACEIT", ESEA_PAGE)])
                  + card("valorant", "Valorant", "Challengers / Game Changers", val_t,
@@ -124,30 +124,92 @@ def render(d):
                  + card("wow", "WoW Retail", "Mythic raid race", wow_t,
                         [("US Rankings", rio_page(raid, "us")), ("EU Rankings", rio_page(raid, "eu"))])
                  + "</div>")
-    # latest ESEA results (short)
-    all_fin = sorted([m for m in cs.get("matches") or [] if m.get("t")], key=lambda m: m["t"], reverse=True)
-    fin = [m for m in all_fin if m.get("region") == "NA"][:5] or all_fin[:5]
-    rr = []
-    for m in fin:
+    # Latest NA results: today's NA slate when present, otherwise last night / latest NA finals.
+    now_pt = datetime.now(PT)
+    today = now_pt.date()
+    yday = today - timedelta(days=1)
+
+    def m_date(m):
+        try:
+            return datetime.fromisoformat(str(m.get("t")).replace("Z", "+00:00")).astimezone(PT).date()
+        except (TypeError, ValueError):
+            return None
+
+    def is_na(m):
+        return (m.get("region") or "") == "NA"
+
+    live = [m for m in (cs.get("live") or []) if is_na(m) and m_date(m) == today]
+    upcoming = [m for m in (cs.get("upcoming") or []) if is_na(m) and m_date(m) == today]
+    finished_all = sorted([m for m in (cs.get("matches") or []) if m.get("t") and is_na(m)], key=lambda m: m["t"], reverse=True)
+    finished_today = [m for m in finished_all if m_date(m) == today]
+    today_n = len(live) + len(upcoming) + len(finished_today)
+    if today_n:
+        # live, then upcoming, then latest finished, cap 5
+        chosen, rem = list(live), 5 - len(live)
+        if rem > 0:
+            chosen += upcoming[:rem]
+            rem = 5 - len(chosen)
+        if rem > 0:
+            chosen += finished_today[:rem]
+        res_title, res_meta = "NA Matches Today", "NA"
+    else:
+        chosen = [m for m in finished_all if m_date(m) == yday][:5] or finished_all[:5]
+        res_title, res_meta = "Latest NA Results", "NA"
+
+    def res_row(m, is_live=False, is_up=False):
         w = m.get("winner")
-        rr.append(f'<tr><td class="dim hide-sm">{e(pt(m["t"], "%b %-d"))}</td>'
-                  f'<td class="n {"win" if w == 1 else "lose"}">{ext(team_url(m.get("t1") or {}), (m.get("t1") or {}).get("name"))}</td>'
-                  f'<td class="score">{ext(room_url(m), str(m.get("s1")) + ":" + str(m.get("s2")))}</td>'
-                  f'<td class="{"win" if w == 2 else "lose"}">{ext(team_url(m.get("t2") or {}), (m.get("t2") or {}).get("name"))}</td>'
-                  f'<td class="hide-sm">{e((m.get("region") or "") + " " + (m.get("division") or ""))}</td></tr>')
-    parts.append(std("Latest ESEA Results", "NA",
-                     '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first hide-sm">Date</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
-                     + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">Match results coming soon.</div>'))
-    # news
+        t1, t2 = m.get("t1") or {}, m.get("t2") or {}
+        if is_live:
+            score, c1, c2 = "LIVE", "", ""
+        elif is_up:
+            score, c1, c2 = "vs", "", ""
+        else:
+            score = str(m.get("s1")) + ":" + str(m.get("s2"))
+            c1, c2 = ("win" if w == 1 else "lose"), ("win" if w == 2 else "lose")
+        when = e(pt(m.get("t"), "%-I:%M %p" if today_n else "%b %-d"))
+        mid = ext(room_url(m), score) if (room_url(m) and not is_up) else e(score)
+        return (f'<tr><td class="dim">{when}</td>'
+                f'<td class="n {c1}">{ext(team_url(t1), t1.get("name"))}</td>'
+                f'<td class="score">{mid}</td>'
+                f'<td class="{c2}">{ext(team_url(t2), t2.get("name"))}</td>'
+                f'<td class="hide-sm">{e((m.get("region") or "") + " " + (m.get("division") or ""))}</td></tr>')
+
+    rr = []
+    if today_n:
+        for m in live:
+            rr.append(res_row(m, is_live=True))
+        for m in [x for x in chosen if x in upcoming]:
+            rr.append(res_row(m, is_up=True))
+        for m in [x for x in chosen if x in finished_today]:
+            rr.append(res_row(m))
+    else:
+        for m in chosen:
+            rr.append(res_row(m))
+
+    parts.append(std(res_title, res_meta,
+                     '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
+                     + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">No NA matches scheduled yet today.</div>'))
+    parts.append(gcards)
+
+    # side news (right rail only; no duplicate block in the main column)
     news = sorted((d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)
-    parts.append(std("Latest Esports News", "",
-                     '<div class="newsbox">' + "".join(f'<div class="item">{ext(n.get("url"), n.get("title"))}<span class="src">({e(n.get("source"))})</span></div>' for n in news[:5]) + "</div>"
-                     if news else '<div class="empty">No headlines.</div>', "home-news"))
     side = "".join(f'<li>{ext(n.get("url"), n.get("title"))}<span class="cnt">{e(pt(n.get("date"), "%b %-d"))}</span></li>' for n in news[:8])
+    # compact left-rail NA list
+    side_na_items = []
+    for m in (chosen[:5] if chosen else []):
+        t1, t2 = m.get("t1") or {}, m.get("t2") or {}
+        is_l, is_u = m in live, m in upcoming
+        score = "LIVE" if is_l else ("vs" if is_u else f'{m.get("s1")}:{m.get("s2")}')
+        when = pt(m.get("t"), "%-I:%M %p") if m.get("t") else ""
+        side_na_items.append(
+            f'<li class="na-side-item"><span class="na-sides">{ext(team_url(t1), t1.get("name"))} <b class="na-sc">{e(score)}</b> {ext(team_url(t2), t2.get("name"))}</span>'
+            f'<span class="cnt">{e((when + " " if when else "") + (m.get("division") or ""))}</span></li>'
+        )
+    side_na = "".join(side_na_items) or '<li class="note">No NA matches yet today.</li>'
     leaders = [f'{dv.get("region")} {dv.get("division")}: {dv["teams"][0].get("name")}' for dv in divs if dv.get("division") == "Advanced"][:3]
     desc = ("Esports Scoreboard - ESEA League CS2 standings and results" + (f" (leaders {', '.join(leaders)})" if leaders else "")
             + ", Valorant tier-2 results, WoW Mythic raid race and esports news." + (f" Updated {upd}." if upd else ""))
-    return "".join(parts), side, upd, desc
+    return "".join(parts), side, side_na, upd, desc
 
 
 class _Check(HTMLParser):
@@ -178,14 +240,15 @@ def well_formed(fragment):
 
 
 def inject(page, data):
-    view, side, upd, desc = render(data)
-    if not (well_formed(view) and well_formed(side)):
+    view, side, side_na, upd, desc = render(data)
+    if not (well_formed(view) and well_formed(side) and well_formed(side_na)):
         raise ValueError("rendered snapshot is not well-formed HTML")
     _e = view.find("</h1>")   # audit2 A7: one h1 in the no-JS front page too (later box titles become h2, same look)
     if _e >= 0:
         view = view[:_e + 5] + re.sub(r"<(/?)h1\b", r"<\1h2", view[_e + 5:])
     reps = [('<div id="view" aria-live="polite"></div>', f'<div id="view" aria-live="polite" {MARK}>{view}</div>'),
             ('<ul class="side-menu counts" id="side-news"></ul>', f'<ul class="side-menu counts" id="side-news">{side}</ul>'),
+            ('<ul class="side-menu counts" id="side-na-list"></ul>', f'<ul class="side-menu counts" id="side-na-list">{side_na}</ul>'),
             ('<div class="sb-upd" id="hdr-upd">data: loading&hellip;</div>', f'<div class="sb-upd" id="hdr-upd">updated {e(upd)}</div>')]
     for a, b in reps:
         if page.count(a) != 1:
@@ -213,8 +276,10 @@ def check_page(page):
     else:
         if not well_formed(m.group(1)):
             probs.append("prerendered #view is not well-formed")
-        if m.group(1).count('class="std-header"') < 3 or m.group(1).count('class="gcard ') != 3:
-            probs.append("prerendered #view is missing sections (3 boxes + 3 game cards expected)")
+        if m.group(1).count('class="std-header"') < 2 or m.group(1).count('class="gcard ') != 3:
+            probs.append("prerendered #view is missing sections (2 boxes + 3 game cards expected)")
+        if 'feat-wf' not in m.group(1):
+            probs.append("prerendered #view is missing the WoW Forever feature")
         if re.search(r'href="#', m.group(1)):
             probs.append("prerendered #view contains #route links (need JavaScript)")
     return probs

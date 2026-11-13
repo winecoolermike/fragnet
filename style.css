@@ -52,7 +52,7 @@ ul.menu{list-style:none;margin:0;padding:0}
   text-shadow:2px 2px 0 #0E5DA0,3px 3px 0 #000}
 .logo-net{color:var(--cream)}
 .logo-sub{display:block;margin-top:4px;padding-left:3px;font:bold 11px var(--ui);letter-spacing:3px;text-transform:uppercase;color:var(--util-bullet)}
-.searchbox{width:250px;height:76px;padding:9px 12px 0;background:linear-gradient(180deg,#2c2d2e,#161616);border-left:1px solid #000;box-shadow:inset 1px 0 0 #3d3f40}
+.searchbox{width:300px;height:76px;padding:9px 12px 0;background:linear-gradient(180deg,#2c2d2e,#161616);border-left:1px solid #000;box-shadow:inset 1px 0 0 #3d3f40}
 .sb-label{font:bold 9px Verdana,"FragNet Sans",sans-serif;color:#AAE2FF;letter-spacing:1px;margin-bottom:3px}
 .sb-row{display:flex;gap:4px}
 .searchbox input{flex:1;min-width:0;background:#575757;border:1px solid #222;color:#ECECE4;font:12px var(--ui);padding:3px 6px;height:22px}
@@ -313,8 +313,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 /* ---------- responsive: stack panes ---------- */
 @media (max-width:1120px){#container{border-left-width:0;border-right-width:0}}
 @media (max-width:900px){
-  #mesh{grid-template-columns:1fr;grid-template-areas:"middle" "right" "left"}
-  #pane-left,#pane-right{border:none;border-top:1px solid #000}
+  #mesh{grid-template-columns:1fr;grid-template-areas:"middle" "right"}
+  #pane-left{display:none}
+  #pane-right{border:none;border-top:1px solid #000}
   .fp-cols{grid-template-columns:1fr}
 }
 @media (max-width:600px){
@@ -441,10 +442,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
   .searchbox input{height:34px;font-size:16px;padding:4px 8px}
   .searchbox button{height:34px;padding:0 14px;font-size:12px}
   .sb-upd{position:absolute;top:12px;right:12px;max-width:44%;margin:0;color:#b7b7b7;text-align:right}
-  #secnav .menu{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 4px}
-  #secnav .menu::-webkit-scrollbar{display:none}
+  #secnav .menu{flex-wrap:wrap;overflow-x:visible;padding:0 4px 2px;row-gap:0}
   #secnav .menu li{flex:none}
-  #secnav .menu a{line-height:40px;padding:0 8px;margin:0;font-size:13.5px;border-bottom:3px solid transparent}
+  #secnav .menu a{line-height:28px;padding:0 7px;margin:0;font-size:12.5px;border-bottom:3px solid transparent}
   #secnav .menu a.on{border-bottom-color:var(--orange)}
   #secnav .bullet{display:none}
   #secnav .lg{display:none} #secnav .sh{display:inline}
@@ -506,6 +506,25 @@ a:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,
 .feat-wf-btn:hover{background:#DAEEFF;border-color:#2F6DB8}
 .feat-wf-btn.alt{background:transparent;border-style:dashed}
 @media (max-width:600px){.feat-wf-btn{min-height:42px;font-size:13px;flex:1 1 auto}}
+.feat-wf.compact{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin:6px 0;padding:6px 10px}
+.feat-wf.compact .feat-wf-kicker{margin:0}
+.feat-wf.compact .feat-wf-title{margin:0;font-size:14px;line-height:1.2}
+.feat-wf.compact .feat-wf-body{margin:0;flex:1 1 200px;font-size:11.5px;line-height:1.35}
+.feat-wf.compact .feat-wf-links{margin:0}
+@media (max-width:600px){
+  .feat-wf.compact .feat-wf-btn{min-height:32px;flex:0 0 auto;font-size:12px}
+  .feat-wf.compact .feat-wf-body{flex:1 1 100%}
+}
+/* home: left rail is the compact NA scoreboard, not a third game menu */
+.on-home #gamenav{display:none}
+body:not(.on-home) #side-na{display:none}
+.na-side-item{display:flex;flex-direction:column;align-items:stretch;gap:1px;padding:5px 8px 5px 10px;line-height:1.3}
+.na-side-item .na-sides{min-width:0;overflow-wrap:anywhere}
+.na-side-item .na-sc{font-weight:bold;padding:0 3px}
+.na-side-item .cnt{align-self:flex-start;margin-top:1px}
+#side-na .side-menu{font-size:11.5px}
+.foot-ql{color:#c8c8c8}
+.foot-ql a{color:#e6e6e6;text-decoration:underline}
 /* WoW Forever standings empty state */
 .wf-stand{margin:8px 0;padding:10px 12px;border:1px solid #9BB4C9;border-left:4px solid #3D6F94;background:#F4F8FC;color:#243240;font-style:normal}
 .gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 8px}
