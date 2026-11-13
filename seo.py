@@ -117,7 +117,7 @@ def api_and_llms(s, dist, site, pred=None, path_map=None):
 
     head = (f"# {NAME}\n\n> {NAME} ({site}) is an independent, fan-made tracker for amateur and semi-pro esports: ESEA League "
             f"Counter-Strike 2 standings, results, rosters and player stats ({season}, North America first, then Europe), Valorant "
-            f"Challengers / Game Changers results, and the World of Warcraft Retail Mythic raid race, with a "
+            f"Challengers / Game Changers results, a Valorant Premier explainer, and the World of Warcraft Retail Mythic raid race, with a "
             f"separate WoW Forever page. Data refreshes about every 30 minutes from public sources (FACEIT, vlr.gg, Raider.IO). "
             f"Data refreshed {_pt(fetched)}.\n\n"
             "Not affiliated with FACEIT, ESEA, Valve, Riot Games or Blizzard. Win probabilities on ESEA NA Main match previews are an "
@@ -129,7 +129,7 @@ def api_and_llms(s, dist, site, pred=None, path_map=None):
             f"- [Counter-Strike 2 :: ESEA League]({site}cs2/): standings for {len(divs)} divisions\n"
             + "".join(f"- [{x['region']} {x['division']} standings]({x['page']}): {len(x['teams'])} teams\n" for x in divs)
             + f"- [CS2 results]({site}cs2/results/)\n- [CS2 top players]({site}cs2/players/)\n- [ESB Team Ranking (NA)]({site}cs2/ranking/)\n"
-            f"- [Ranking and rating methodology]({site}cs2/methodology/)\n- [Valorant]({site}valorant/)\n"
+            f"- [Ranking and rating methodology]({site}cs2/methodology/)\n- [Valorant]({site}valorant/)\n- [Valorant Premier explainer]({site}valorant/premier/): divisions, zones, where standings live\n"
             f"- [WoW Retail Mythic raid race]({site}wow/)\n- [WoW Forever]({site}wow-forever/)\n- [News]({site}news/)\n\n"
             f"## Optional\n\n- [About]({site}about/)\n")
     full = [head, "\n## CS2 standings (top 10 per division)\n"]

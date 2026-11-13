@@ -865,3 +865,6 @@ td.score a.xl:hover{color:var(--link)}
 [data-theme=night] .wp{background:#1F242B;border-color:#3a4048}[data-theme=night] .wp-names b{color:#9cc7ee}
 [data-theme=night] .wp-bar{border-color:#59636f;background:#2a3038}[data-theme=night] .wp-a{background:#5d8fbb}[data-theme=night] .wp-b{background:#59636f}
 [data-theme=night] .wp-disc b{color:#e0a28f}
+.prem-div th,.prem-zone th{white-space:nowrap;width:1%}
+.prem-links{margin:4px 0 6px 18px;font:12px var(--ui)}.prem-links li{margin:3px 0}
+@media (max-width:600px){.prem-div th,.prem-zone th{white-space:normal;width:38%}}
