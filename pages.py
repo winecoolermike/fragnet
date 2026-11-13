@@ -26,6 +26,7 @@ import time
 from datetime import datetime, timezone
 
 import prerender as pr
+import seo
 
 # public base URL of the site (canonical, og:url, sitemap, robots, share images). One switch for a custom domain:
 # set SITE_URL (env or repository variable) to e.g. https://esportsscoreboard.com/ ; links inside pages are relative.
@@ -100,6 +101,8 @@ def table(head, rows, cls="tbl"):
 
 
 PLAYER_CARD_MIN_ROUNDS = 50
+SECTION_NAMES = {"cs2": "CS2", "valorant": "Valorant", "wow": "WoW Retail", "wow-forever": "WoW Forever", "news": "News",
+                 "roundup": "Weekly Roundups", "forums": "Forums", "about": "About", "search": "Search", "recruiting": "Recruiting"}
 
 
 class Site:
@@ -209,8 +212,9 @@ class Site:
         return table(['<th class="first hide-sm">Date</th>', '<th class="n">Team 1</th>', '<th class="c">Score</th>', "<th>Team 2</th>", '<th class="hide-sm">Event</th>'], rows, "tbl res") \
             or '<div class="empty">No results in the tracked data.</div>'
 
-    def add(self, route, title, desc, body, og=None, ld=None, kind="section"):
-        self.pages.append({"route": route, "title": title, "desc": desc[:300], "body": body, "og": og, "ld": ld, "kind": kind})
+    def add(self, route, title, desc, body, og=None, ld=None, kind="section", lastmod=None, crumbs=None):
+        self.pages.append({"route": route, "title": title, "desc": desc[:300], "body": body, "og": og, "ld": ld, "kind": kind,
+                           "lastmod": lastmod, "crumbs": crumbs})
 
     # ------------------------------------------------------------- CS2
     def build_cs(self):
@@ -277,9 +281,16 @@ class Site:
             desc = f"{name}: #{t.get('rank')} in ESEA {dn} ({rec}, {int(num(t.get('pts')))} pts)" + (f", form {' '.join(f)}" if f else "") + ". Roster, results and upcoming matches on Esports Scoreboard."
             ogk = "cs-team-" + tid
             self.og_jobs[ogk] = (name, f"ESEA {dn} · CS2", [("RANK", "#" + str(t.get("rank"))), ("RECORD", rec), ("FORM", " ".join(f) or "-")], (217, 80, 0))
-            self.add("team/cs2/" + tid, f"{name} :: ESEA {dn} CS2 team", desc, body, og=ogk, kind="team",
-                     ld={"@context": "https://schema.org", "@type": "SportsTeam", "name": name, "sport": "Counter-Strike 2",
-                         "memberOf": {"@type": "SportsOrganization", "name": f"ESEA League {dn}"}, "url": self.site + "team/cs2/" + tid + "/"})
+            ld = {"@context": "https://schema.org", "@type": "SportsTeam", "name": name, "sport": "Counter-Strike 2",
+                  "memberOf": {"@type": "SportsOrganization", "name": f"ESEA League {dn}"}, "url": self.site + "team/cs2/" + tid + "/"}
+            if pr.team_url(t):
+                ld["sameAs"] = [pr.team_url(t)]
+            ath = [{"@type": "Person", "name": str(r.get("nick"))} for r in ros or [] if r.get("nick") and not r.get("sub")]
+            if ath:
+                ld["athlete"] = ath[:10]
+            self.add("team/cs2/" + tid, f"{name} :: ESEA {dn} CS2 team", desc, body, og=ogk, kind="team", ld=ld,
+                     lastmod=max([m.get("t") or "" for m in ms] or [""]) or None,
+                     crumbs=[("CS2", "cs2"), (dn, "cs2/" + self.div_id(dv))])
         # players with at least one match
         for k, p in self.players.items():
             nick = str(p.get("nick") or "")
@@ -300,9 +311,12 @@ class Site:
                 self.og_jobs[ogk] = (nick, (f"{p.get('team')} · " if p.get("team") else "") + f"ESEA {p.get('region')} {p.get('division')} · season card"[:70],
                                      [("K/D", f'{num(p.get("kd")):.2f}'), ("ADR", f'{num(p.get("adr")):.1f}'),
                                       ("DIV RANK" if p.get("drank") else "ROUNDS", f'#{int(num(p.get("drank")))}/{int(num(p.get("dpool")))}' if p.get("drank") else str(int(num(p.get("rounds")))))], (217, 80, 0))
+            ld = {"@context": "https://schema.org", "@type": "Person", "name": nick, "url": self.site + "player/cs2/" + nick + "/",
+                  "sameAs": [p.get("url") or "https://www.faceit.com/en/players/" + nick]}
+            if tnm:
+                ld["memberOf"] = {"@type": "SportsTeam", "name": tnm, "sport": "Counter-Strike 2"}
             self.add("player/cs2/" + nick, f"{nick} :: CS2 ESEA player", desc, std(e(nick), "CS2 &middot; ESEA League player", info),
-                     og=ogk, kind="player",
-                     ld={"@context": "https://schema.org", "@type": "Person", "name": nick, "url": self.site + "player/cs2/" + nick + "/"})
+                     og=ogk, kind="player", ld=ld, crumbs=[("CS2", "cs2"), ("Top Players", "cs2/players")])
         # matches
         for m in self.fin:
             t1, t2 = m.get("t1") or {}, m.get("t2") or {}
@@ -324,11 +338,15 @@ class Site:
             desc = f"{t1.get('name')} {sc} {t2.get('name')} - ESEA {dn}, round {int(num(m.get('round')))}" + (f", {date}" if date else "") + (f". Maps: {', '.join(x.get('map') for x in maps)}." if maps else ".")
             ogk = "cs-match-" + m["id"]
             self.og_jobs[ogk] = (f"{t1.get('name')} vs {t2.get('name')}", f"ESEA {dn} · round {int(num(m.get('round')))}", [("SCORE", sc), ("MAPS", ", ".join(x.get("map") for x in maps)[:22] or "-"), ("DATE", date or "-")], (217, 80, 0))
-            self.add("match/cs2/" + m["id"], f"{t1.get('name')} vs {t2.get('name')} :: ESEA match", desc, body, og=ogk, kind="match",
-                     ld={"@context": "https://schema.org", "@type": "SportsEvent", "name": f"{t1.get('name')} vs {t2.get('name')}", "sport": "Counter-Strike 2",
-                         "startDate": m.get("t"), "eventStatus": "https://schema.org/EventScheduled",
-                         "competitor": [{"@type": "SportsTeam", "name": t1.get("name")}, {"@type": "SportsTeam", "name": t2.get("name")}],
-                         "url": self.site + "match/cs2/" + m["id"] + "/"})
+            ld = {"@context": "https://schema.org", "@type": "SportsEvent", "name": f"{t1.get('name')} vs {t2.get('name')}", "sport": "Counter-Strike 2",
+                  "description": desc, "startDate": m.get("t"), "eventStatus": "https://schema.org/EventScheduled",
+                  "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+                  "location": {"@type": "VirtualLocation", "url": pr.room_url(m) or self.site + "match/cs2/" + m["id"] + "/"},
+                  "superEvent": {"@type": "SportsEvent", "name": f"ESEA League {dn}"},
+                  "competitor": [{"@type": "SportsTeam", "name": t1.get("name")}, {"@type": "SportsTeam", "name": t2.get("name")}],
+                  "url": self.site + "match/cs2/" + m["id"] + "/"}
+            self.add("match/cs2/" + m["id"], f"{t1.get('name')} vs {t2.get('name')} :: ESEA match", desc, body, og=ogk, kind="match", ld=ld,
+                     lastmod=m.get("t"), crumbs=[("CS2", "cs2"), (dn, "cs2/" + slug(dn)), ("Results", "cs2/results")])
 
     def plink(self, nick):
         nick = str(nick or "")
@@ -412,7 +430,9 @@ class Site:
             self.og_jobs[ogk] = (f"{m.get('team1')} vs {m.get('team2')}", str(m.get("event") or "Valorant")[:60], [("SCORE", sc), ("MAPS", ", ".join(x.get("map") for x in maps)[:22] or "-"), ("DATE", date or "-")], (200, 40, 40))
             self.add("match/val/" + i, f"{m.get('team1')} vs {m.get('team2')}" + (f", {pt(m.get('ts'), '%b %-d')}" if m.get("ts") else "") + " :: Valorant match", f"{m.get('team1')} {sc} {m.get('team2')} - {m.get('event')}" + (f", {date}" if date else "") + ".", body, og=ogk, kind="match",
                      ld={"@context": "https://schema.org", "@type": "SportsEvent", "name": f"{m.get('team1')} vs {m.get('team2')}", "sport": "Valorant", "startDate": m.get("ts"),
-                         "competitor": [{"@type": "SportsTeam", "name": m.get("team1")}, {"@type": "SportsTeam", "name": m.get("team2")}], "url": self.site + "match/val/" + i + "/"})
+                         "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode", "location": {"@type": "VirtualLocation", "url": m.get("url") or self.site + "match/val/" + i + "/"},
+                         "competitor": [{"@type": "SportsTeam", "name": m.get("team1")}, {"@type": "SportsTeam", "name": m.get("team2")}], "url": self.site + "match/val/" + i + "/"},
+                     lastmod=m.get("ts"), crumbs=[("Valorant", "valorant"), ("Results", "valorant/results")])
 
     def vplink(self, name):
         return ilink("player/val/" + str(name), name) if SAFE_SEG.match(str(name or "")) else e(name)
@@ -590,15 +610,31 @@ class Site:
                          std(f"{e(k)} Team of the Week", e(w["label"]), f'<div class="infobox">{tl(t)}: +{t["gain"]:.1f} ranking points from {t["played"]} matches. <a href="roundup/{w["id"]}/">Week roundup</a></div>'), og=key)
 
     # ------------------------------------------------------------- output
+    def breadcrumbs(self, p):
+        """schema.org BreadcrumbList: Home > section (> division) > this page (Nov 13 SEO pass)."""
+        segs = p["route"].split("/")
+        if p.get("crumbs"):
+            mids = list(p["crumbs"])
+        elif segs[0] in ("team", "player", "match") and len(segs) > 1:
+            g = "cs2" if segs[1] == "cs2" else "valorant"
+            mids = [(SECTION_NAMES[g], g)]
+        elif len(segs) > 1 and segs[0] in SECTION_NAMES:
+            mids = [(SECTION_NAMES[segs[0]], segs[0])]
+        else:
+            mids = []
+        items = [("Home", "")] + [(n, PATH_MAP.get(r, r)) for n, r in mids] + [(p["title"].split(" :: ")[0], p.get("path") or p["route"])]
+        return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "name": str(n), "item": self.site + (r + "/" if r else "")} for i, (n, r) in enumerate(items)]}
+
     def head_tags(self, p, rel, og_url):
         path = p.get("path") or p["route"]
         url = self.site + (path + "/" if path else "")
         tags = [f'<base href="{rel}">', f'<link rel="canonical" href="{e(url)}">', f'<meta name="fragnet-route" content="{e(p["route"])}">']
         if og_url:
             tags += [f'<meta property="og:image" content="{e(og_url)}">', '<meta property="og:image:width" content="1200">', '<meta property="og:image:height" content="630">',
-                     f'<meta property="og:image:alt" content="{e(p["title"])}">']
-        if p.get("ld"):
-            tags.append('<script type="application/ld+json">' + json.dumps(p["ld"], ensure_ascii=False).replace("<", "\\u003c") + "</script>")
+                     f'<meta property="og:image:alt" content="{e(p["title"])}">', f'<meta name="twitter:image" content="{e(og_url)}">']
+        for ld in ([p["ld"]] if p.get("ld") else []) + [self.breadcrumbs(p)]:
+            tags.append('<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace("<", "\\u003c") + "</script>")
         return tags, url
 
     def render_page(self, tpl, p, og_url):
@@ -757,7 +793,8 @@ def build(dist, site, og_cache, do_og=True):
     home = re.sub(r'(<meta property="og:url" content=")[^"]*(">)', lambda m: m.group(1) + e(site) + m.group(2), tpl, count=1)
     home = home.replace("</head>", f'<link rel="canonical" href="{e(site)}">\n'
                        + (f'<meta property="og:image" content="{e(og_url["site"])}">\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">\n' if og_url.get("site") else "")
-                       + '<script type="application/ld+json">' + json.dumps({"@context": "https://schema.org", "@type": "WebSite", "name": "Esports Scoreboard", "url": site}).replace("<", "\\u003c") + "</script>\n</head>", 1)
+                       + (f'<meta name="twitter:image" content="{e(og_url["site"])}">\n' if og_url.get("site") else "")
+                       + seo.ld_tags(seo.home_ld(site)) + "</head>", 1)
     if og_url.get("site"):
         home = home.replace('<meta name="twitter:card" content="summary">', '<meta name="twitter:card" content="summary_large_image">', 1)
     with open(tpl_path + ".tmp", "w", encoding="utf-8") as fh:
@@ -811,11 +848,7 @@ def build(dist, site, og_cache, do_og=True):
             fh.write(f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Moved :: Esports Scoreboard</title><meta name="robots" content="noindex"><meta name="esb-redirect">'
                      f'<link rel="canonical" href="{e(site + new + "/")}"><meta http-equiv="refresh" content="0; url={e(rel + new + "/")}">'
                      f'<script>location.replace({json.dumps(rel + new + "/")} + location.hash)</script></head><body><a href="{e(rel + new + "/")}">This page moved</a></body></html>')
-    with open(os.path.join(dist, "sitemap.xml"), "w", encoding="utf-8") as fh:
-        fh.write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-                 + "".join(f"<url><loc>{e(u)}</loc><lastmod>{day}</lastmod></url>\n" for u in urls) + "</urlset>\n")
-    with open(os.path.join(dist, "robots.txt"), "w", encoding="utf-8") as fh:
-        fh.write(f"User-agent: *\nAllow: /\nSitemap: {site}sitemap.xml\n")
+    seo.write_all(s, dist, site, s.pages, og_url)   # sitemap (per-page lastmod), robots, llms.txt, /api/, og.png, IndexNow key
     kinds = {}
     for p in s.pages:
         kinds[p["kind"]] = kinds.get(p["kind"], 0) + 1

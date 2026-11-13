@@ -101,7 +101,7 @@ def verify():
     terms = banned_terms()
     for rel in files:
         parts = rel.split("/")
-        if any(fnmatch.fnmatch(p, pat) for p in parts for pat in FORBIDDEN) and not re.match(r"^(og/[a-z0-9._-]+|icon-(192|512))\.png$", rel, re.I):
+        if any(fnmatch.fnmatch(p, pat) for p in parts for pat in FORBIDDEN) and not re.match(r"^(og/[a-z0-9._-]+|icon-(192|512)|og)\.png$", rel, re.I):
             problems.append(f"forbidden file in dist: {rel}")   # share images (v4.5) live in og/ only
         if terms and rel.endswith((".html", ".css", ".js", ".json", ".txt", ".svg")):
             with open(os.path.join(DIST, rel), encoding="utf-8", errors="replace") as fh:

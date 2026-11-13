@@ -2296,6 +2296,8 @@
     lsSet("esb-today-tab", b.getAttribute("data-tab"));
     KEEP_SCROLL = true; route();
   });
+  // Nov 13 SEO pass: the WebSite SearchAction points at /?q=term; open it as the normal #search route
+  (function () { try { var q = new URLSearchParams(location.search).get("q"); if (q && !location.hash) history.replaceState(null, "", location.pathname + "#search/" + encodeURIComponent(q.trim().slice(0, MAX_Q))); } catch (e) {} })();
   today(); setInterval(function () { today(); try { refreshRel(); } catch (e) {} }, 30000);
   if (location.protocol === "file:" || !window.fetch) loadDataJs();
   else {
