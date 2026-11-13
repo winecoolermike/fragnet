@@ -846,8 +846,8 @@
     });
     return rec;
   }
-  /* v6.5 (Nov 13) experimental win probability for ESEA NA Main previews (rank.js "pred", from ranking.py map Elo). US first:
-     only the regions listed in pred.regions show it; everything else keeps the plain "no predictions" preview. */
+  /* v6.5 experimental win probability for ESEA NA Main / Intermediate / Advanced previews (rank.js "pred").
+     Only the regions listed in pred.regions show it; everything else keeps the plain "no predictions" preview. */
   function predOf(m) {
     var x = rankX(), pd = x && x.pred;
     if (!pd || (pd.regions || []).indexOf(m.region) < 0 || (pd.divisions || []).indexOf(m.division) < 0) return null;
@@ -857,8 +857,6 @@
     if (CFG.rank && !rankX() && RK_STATE !== "fail") { loadRank(); return '<h2 class="subhead">Win probability <small>experimental</small></h2><div class="empty loading">Loading&hellip;</div>'; }
     var o = predOf(m); if (!o) return "";
     var a = m.t1 || {}, b = m.t2 || {}, pr = o.p, pd = o.pd, head = '<h2 class="subhead">Win probability <small>experimental model</small></h2>';
-    if (!pr && pd.paused && (pd.held || []).indexOf(m.region + " " + m.division) >= 0) return head + '<div class="empty">Paused: win probability is switched off while we check the model against more of this season\'s ' + esc(m.region + " " + m.division) + " results. No estimate is shown.</div>";
-    if (!pr && (pd.held || []).indexOf(m.region + " " + m.division) >= 0) return head + '<div class="empty">Paused: the model has not beaten a 50/50 coin flip on earlier ' + esc(m.region + " " + m.division) + " matches yet, so no estimate is shown.</div>";
     if (!pr) return head + '<div class="empty">No estimate for this match in the latest model run.</div>';
     var pa = Math.round(100 * pr.p1), pb = 100 - pa, cl = { high: "High", medium: "Medium", low: "Low" }[pr.conf] || "Low";
     var bt = (pd.backtest || {})[m.region + " " + m.division] || {};
@@ -870,7 +868,7 @@
       kv([["Data confidence", '<span class="wp-conf ' + esc(pr.conf) + '">' + cl + "</span> " + '<span class="dim">(' + esc(a.name) + " " + num(pr.n1) + " rated maps, " + esc(b.name) + " " + num(pr.n2) + " in the tracked results; High needs 6+ each)</span>"],
         ["Model", esc(pd.model || "") + (num(pr.bo) === 3 ? ' <span class="dim">Per-map chance ' + Math.round(100 * pr.map_p1) + "% for " + esc(a.name) + ".</span>" : "")],
         ["Backtest so far", btTxt + ' &middot; <a href="#cs2/methodology">ranking method</a>']]) +
-      '<div class="note wp-disc"><b>' + esc(pd.disclaimer || "Experimental model estimate\u2014not a guarantee or betting advice.") + "</b> No predicted score or map veto.</div>";
+      '<div class="note wp-disc"><b>' + esc(pd.disclaimer || "Experimental estimate based on season results.") + "</b> No predicted score or map veto.</div>";
   }
   function vPreviewCS(m) {
     var fin = csAllFinished(), a = m.t1 || {}, b = m.t2 || {}, ra = mapRecord(fin, a.id), rb = mapRecord(fin, b.id);
@@ -896,7 +894,7 @@
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
       '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') + relatedMatchCS(m) +
-      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). ' + (function () { var o = predOf(m); if (o && o.p) return "The win probability above is an experimental estimate. "; if (o && o.pd && o.pd.paused) return ""; return "No predictions. "; })() + "Times in Pacific Time.</div>";
+      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). ' + (function () { var o = predOf(m); if (o && o.p) return "Experimental estimate based on season results. "; return "No predictions. "; })() + "Times in Pacific Time.</div>";
   }
   function rankLine(id) {
     if (!CFG.rank) return "";
@@ -1313,18 +1311,31 @@
     if (rem > 0 && done.length) rows = rows.concat(done.slice(-rem));
     return rows;
   }
+  function csMapName(m) {
+    var names = [], maps = (m && m.maps) || [], i;
+    for (i = 0; i < maps.length; i++) if (maps[i] && maps[i].map && names.indexOf(maps[i].map) < 0) names.push(maps[i].map);
+    if (names.length === 1) return names[0];
+    if (names.length > 1) return names.join(", ");
+    if (m && m.pick && m.pick[0]) return m.pick[0];
+    return "";
+  }
+  function csDivMap(m) {
+    var d = (m && m.division) || "", map = csMapName(m);
+    return map ? (d ? d + " \u00b7 " + map : map) : d;
+  }
   function naTable(rows) {
-    return '<div class="rankbox"><table class="tbl res compact"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>' +
+    return '<div class="res-hint">Score is rounds won, first to 13.</div><div class="rankbox"><table class="tbl res compact"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>' +
       rows.map(function (r) {
         var m = r.m, w1 = r.st === "done" && m.winner === 1, w2 = r.st === "done" && m.winner === 2;
         var mid = r.st === "live" ? '<span class="live-b">LIVE</span>' : r.st === "up" ? "vs" : ('<span class="' + (w1 ? "w" : "") + '">' + num(m.s1) + '</span>:<span class="' + (w2 ? "w" : "") + '">' + num(m.s2) + "</span>");
         var ru = roomUrl(m), h = csMatchHash(m);
         var midHtml = r.st === "done" ? scoreLink(h, mid, ru, "match page") : (h ? '<a href="#' + esc(h) + '">' + mid + "</a>" : mid);
-        return '<tr class="g-cs st-' + r.st + '"><td class="dim">' + (m.t ? hhmm(m.t) : "") + "</td>" +
+        var meta = csDivMap(m);
+        return '<tr class="g-cs st-' + r.st + '"><td class="dim">' + (m.t ? hhmm(m.t) : "") + (meta ? '<div class="res-divmap">' + esc(meta) + "</div>" : "") + "</td>" +
           '<td class="n tm ' + (r.st === "done" ? (w1 ? "win" : "lose") : "") + '">' + csSide(m.t1) + "</td>" +
           '<td class="score">' + midHtml + "</td>" +
           '<td class="tm ' + (r.st === "done" ? (w2 ? "win" : "lose") : "") + '">' + csSide(m.t2) + "</td>" +
-          '<td class="hide-sm dim">' + esc((m.region || "") + " " + (m.division || "")) + "</td></tr>";
+          '<td class="hide-sm dim">' + esc(meta || ((m.region || "") + " " + (m.division || ""))) + "</td></tr>";
       }).join("") + "</tbody></table></div>";
   }
   function euTodayNote() {
@@ -1339,21 +1350,21 @@
     var euLine = eu ? '<div class="note">' + eu + ' &middot; <a href="#cs2/today/f-eu">EU matches today &raquo;</a></div>' : "";
     if (today.length) {
       var rows = pickNaPreview(today);
-      return std("NA Matches Today :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d,
+      return std("CS2 Matches Today \u00b7 ESEA NA :: " + DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d,
         '<a href="#cs2/today">see all today &raquo;</a>', naTable(rows) + euLine, "today-board");
     }
     var yrows = lastNightNaRows().slice(0, 5), yk = shiftKey(dayKey(new Date()), -1), yd = keyDate(yk);
     var when = DAYS[yd.getUTCDay()].slice(0, 3) + " " + MON[yd.getUTCMonth()] + " " + yd.getUTCDate();
     var note = '<div class="note">No NA matches scheduled yet today' + (eu ? " &middot; " + eu : "") +
       '. <a href="#cs2/today">Today&rsquo;s matches &raquo;</a> &middot; <a href="#cs2/results">all NA results &raquo;</a></div>';
-    if (!yrows.length) return std("Latest NA Results", when, note, "today-board");
-    return std("Latest NA Results", when + " &middot; last night", naTable(yrows) + note, "today-board");
+    if (!yrows.length) return std("Latest CS2 Results \u00b7 ESEA NA", when, note, "today-board");
+    return std("Latest CS2 Results \u00b7 ESEA NA", when + " &middot; last night", naTable(yrows) + note, "today-board");
   }
   function renderSideNa() {
     var box = $("#side-na"), body = $("#side-na-list"), hdr = $("#side-na-h"), more = $("#side-na-more");
     if (!box || !body || !D) return;
     var today = naTodayRows(), mode = today.length > 0, rows = mode ? pickNaPreview(today) : lastNightNaRows().slice(0, 5);
-    if (hdr) hdr.textContent = mode ? "NA Today" : "Latest NA";
+    if (hdr) hdr.textContent = mode ? "CS2 Today" : "Latest CS2";
     if (!rows.length) {
       var eu = euTodayNote();
       body.innerHTML = '<li class="note">No NA matches yet today.' + (eu ? " " + eu + "." : "") + "</li>";
@@ -1365,10 +1376,11 @@
         var n1 = (m.t1 && m.t1.name) || "TBD", n2 = (m.t2 && m.t2.name) || "TBD";
         var score = h ? '<a href="#' + esc(h) + '">' + esc(mid) + "</a>" : esc(mid);
         var cls = r.st === "done" ? "" : " dim";
+        var meta = csDivMap(m);
         return '<li class="na-side-item"><span class="na-sides"><a href="' + (h ? "#" + esc(h) : "#cs2/results") + '">' + esc(n1) + "</a>" +
           ' <b class="na-sc' + (w1 ? " w" : "") + (w2 ? " l" : "") + cls + '">' + score + "</b> " +
           '<a href="' + (h ? "#" + esc(h) : "#cs2/results") + '">' + esc(n2) + "</a></span>" +
-          '<span class="cnt">' + esc((r.st === "live" ? "LIVE " : (m.t ? hhmm(m.t) + " " : "")) + (m.division || "")) + "</span></li>";
+          '<span class="cnt">' + esc((r.st === "live" ? "LIVE " : (m.t ? hhmm(m.t) + " " : "")) + meta) + "</span></li>";
       }).join("");
     }
     if (more) { more.setAttribute("href", mode ? "#cs2/today" : "#cs2/results"); more.setAttribute("data-h", mode ? "#cs2/today" : "#cs2/results"); more.textContent = mode ? "TODAY" : "MORE"; }
@@ -1649,8 +1661,9 @@
     var vT = [vN ? cnt(vN, "match") + " today" : "", evs.length ? cnt(evs.length, "event") + " tracked" : "", tp ? "top player <b>" + esc(tp.name) + "</b> (" + num(tp.rating).toFixed(2) + ")" : ""].filter(Boolean).join(" &middot; ");
     var rk = (D.wow && D.wow.rankings) || {}, us = (rk.us || [])[0], eu = (rk.eu || [])[0];
     var wT = [raid ? esc(raid.name) : "", us ? "US #1 <b>" + esc(us.guild) + "</b> " + esc(us.progress) : "", eu ? "EU #1 <b>" + esc(eu.guild) + "</b> " + esc(eu.progress) : ""].filter(Boolean).join(" &middot; ");
-    var cards = '<div class="gcards">' +
+    var cards = '<div class="gcards home-gcards">' +
       card("cs2", csT, [["Standings", csHome()], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
+      naHomeBoard() +
       card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
       card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. All times Pacific.</div>';
@@ -1662,7 +1675,7 @@
       + '<div class="feat-wf-links">'
       + '<a class="feat-wf-btn" href="#wow-forever">WoW Forever page</a>'
       + '</div></aside>';
-    return std("Esports Scoreboard", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + naHomeBoard() + cards + homeSpot() + myMatches("home");
+    return std("Esports Scoreboard", "updated " + fmt(D.fetched_at, "short"), intro) + discordBox("home") + wf + cards + homeSpot() + myMatches("home");
   }
 
   function pageNotFound(parts) {   // audit2 A4: one real "Page not found" view for any unknown path

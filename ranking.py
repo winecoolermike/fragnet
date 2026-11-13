@@ -290,11 +290,11 @@ def build(data, teams, now=None):
 
 # ---------------------------------------------------------------- v6.5 experimental win probability (Nov 13, 2026)
 # Reuses the map Elo above: per map p = 1/(1+10^((Rb-Ra)/400)); a best-of-3 becomes p^2 (3 - 2p). No predicted score or veto.
-# US first: only NA Main is published (ESB_PRED_REGIONS="NA,EU" would add EU Main later). Confidence is about the DATA
+# US first: NA Main, Intermediate and Advanced (ESB_PRED_REGIONS="NA,EU" would add EU later). Confidence is about the DATA
 # (rated maps both teams have in the tracked results), not about the pick.
 PRED_REGIONS = [r.strip().upper() for r in os.environ.get("ESB_PRED_REGIONS", "NA").split(",") if r.strip()]
-PRED_DIVISIONS = ["Main"]
-PRED_DISCLAIMER = "Experimental model estimate\u2014not a guarantee or betting advice."
+PRED_DIVISIONS = ["Main", "Intermediate", "Advanced"]
+PRED_DISCLAIMER = "Experimental estimate based on season results."
 PRED_MODEL = ("ESB map Elo (same numbers as the ESB Team Ranking): chance per map = 1/(1+10^((opponent - team)/400)); "
               "best of 3 = p^2 x (3 - 2p). Built only from tracked ESEA results this season.")
 
@@ -376,7 +376,7 @@ def predictions(data, teams, res):
             divkey[m["id"]] = f"{m['region']} {m['division']}"
     bt = {f"{r} {d}": backtest(res, r, d) for r in PRED_REGIONS for d in PRED_DIVISIONS}
     held = []
-    paused = os.environ.get("ESB_PRED_PAUSED", "1").strip() != "0"   # Nov 13, 2026: paused by default (Jeff); only "0" shows estimates
+    paused = os.environ.get("ESB_PRED_PAUSED", "0").strip() != "0"   # default on; set ESB_PRED_PAUSED=1 to hide estimates
     if paused:
         held = sorted(bt)
         out = {}
@@ -438,7 +438,7 @@ def main(argv=None):
     w = archive(rk, arch) if arch else None
     pd = rk.get("pred") or {}
     print(f"[ranking] {len(rk['teams'])} ranked teams, {len(rk['ratings'])} rated players, top20 {len(rk['top20'])}" + (f"; archived {w}" if w else "")
-          + f"; win-probability previews {len(pd.get('matches') or {})} ({', '.join(pd.get('regions') or [])} Main)"
+          + f"; win-probability previews {len(pd.get('matches') or {})} ({', '.join(pd.get('regions') or [])} {', '.join(pd.get('divisions') or [])})"
           + "".join(f"; backtest {k}: Brier {v.get('brier')} vs 0.25 over {v.get('n')} matches" for k, v in (pd.get("backtest") or {}).items()))
     return 0
 

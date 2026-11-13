@@ -82,6 +82,25 @@ def na_first(divs):
     return sorted(divs or [], key=lambda dv: 0 if dv.get("region") == "NA" else 1)
 
 
+def cs_map_name(m):
+    names, maps = [], m.get("maps") or []
+    for mp in maps:
+        name = (mp or {}).get("map")
+        if name and name not in names:
+            names.append(name)
+    if len(names) == 1:
+        return names[0]
+    if len(names) > 1:
+        return ", ".join(names)
+    pick = m.get("pick") or []
+    return pick[0] if pick else ""
+
+
+def cs_div_map(m):
+    d, mp = m.get("division") or "", cs_map_name(m)
+    return f"{d} · {mp}" if d and mp else (mp or d)
+
+
 def render(d):
     """v4.0 calm home: three game cards, the latest 5 ESEA results, 5 headlines (North America first)."""
     cs, val, wow = d.get("cs") or {}, d.get("valorant") or {}, d.get("wow") or {}
@@ -116,15 +135,13 @@ def render(d):
         e(raid.get("name")) if raid.get("name") else "",
         (f'US #1 <b>{e(us.get("guild"))}</b> {e(us.get("progress"))}' if us else ""),
         (f'EU #1 <b>{e(eu.get("guild"))}</b> {e(eu.get("progress"))}' if eu else "")] if x)
-    gcards = ('<div class="gcards">'
-                 + card("cs2", "Counter-Strike 2", "ESEA League", cs_t,
+    cs2_card = card("cs2", "Counter-Strike 2", "ESEA League", cs_t,
                         [((d0.get("region") + " " + d0.get("division") + " standings") if d0 else "Standings", (d0 or {}).get("link") or ESEA_PAGE), ("ESEA League on FACEIT", ESEA_PAGE)])
-                 + card("valorant", "Valorant", "Challengers / Game Changers", val_t,
+    val_card = card("valorant", "Valorant", "Challengers / Game Changers", val_t,
                         [("NA event on vlr.gg" if na_ev else "Events on vlr.gg", (na_ev or {}).get("url") or "https://www.vlr.gg/events"), ("Results on vlr.gg", "https://www.vlr.gg/matches/results")])
-                 + card("wow", "WoW Retail", "Mythic raid race", wow_t,
+    wow_card = card("wow", "WoW Retail", "Mythic raid race", wow_t,
                         [("US Rankings", rio_page(raid, "us")), ("EU Rankings", rio_page(raid, "eu"))])
-                 + "</div>")
-    # Latest NA results: today's NA slate when present, otherwise last night / latest NA finals.
+    # Latest CS2 / ESEA NA results: today's NA slate when present, otherwise last night / latest NA finals.
     now_pt = datetime.now(PT)
     today = now_pt.date()
     yday = today - timedelta(days=1)
@@ -151,10 +168,10 @@ def render(d):
             rem = 5 - len(chosen)
         if rem > 0:
             chosen += finished_today[:rem]
-        res_title, res_meta = "NA Matches Today", "NA"
+        res_title, res_meta = "CS2 Matches Today · ESEA NA", "NA"
     else:
         chosen = [m for m in finished_all if m_date(m) == yday][:5] or finished_all[:5]
-        res_title, res_meta = "Latest NA Results", "NA"
+        res_title, res_meta = "Latest CS2 Results · ESEA NA", "last night"
 
     def res_row(m, is_live=False, is_up=False):
         w = m.get("winner")
@@ -166,13 +183,15 @@ def render(d):
         else:
             score = str(m.get("s1")) + ":" + str(m.get("s2"))
             c1, c2 = ("win" if w == 1 else "lose"), ("win" if w == 2 else "lose")
-        when = e(pt(m.get("t"), "%-I:%M %p" if today_n else "%b %-d"))
+        when = e(pt(m.get("t"), "%-I:%M %p"))
         mid = ext(room_url(m), score) if (room_url(m) and not is_up) else e(score)
-        return (f'<tr><td class="dim">{when}</td>'
+        meta = cs_div_map(m)
+        meta_html = f'<div class="res-divmap">{e(meta)}</div>' if meta else ""
+        return (f'<tr><td class="dim">{when}{meta_html}</td>'
                 f'<td class="n {c1}">{ext(team_url(t1), t1.get("name"))}</td>'
                 f'<td class="score">{mid}</td>'
                 f'<td class="{c2}">{ext(team_url(t2), t2.get("name"))}</td>'
-                f'<td class="hide-sm">{e((m.get("region") or "") + " " + (m.get("division") or ""))}</td></tr>')
+                f'<td class="hide-sm">{e(meta)}</td></tr>')
 
     rr = []
     if today_n:
@@ -186,10 +205,12 @@ def render(d):
         for m in chosen:
             rr.append(res_row(m))
 
-    parts.append(std(res_title, res_meta,
-                     '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
-                     + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">No NA matches scheduled yet today.</div>'))
-    parts.append(gcards)
+    res_box = std(res_title, res_meta,
+                 '<div class="res-hint">Score is rounds won, first to 13.</div>'
+                 + ('<div class="rankbox"><table class="tbl res"><thead><tr><th class="first">Time</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
+                 + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">No NA matches scheduled yet today.</div>'),
+                 "today-board")
+    parts.append('<div class="gcards home-gcards">' + cs2_card + res_box + val_card + wow_card + "</div>")
 
     # side news (right rail only; no duplicate block in the main column)
     news = sorted((d.get("news") or {}).get("items") or [], key=lambda n: n.get("date") or "", reverse=True)
@@ -203,7 +224,7 @@ def render(d):
         when = pt(m.get("t"), "%-I:%M %p") if m.get("t") else ""
         side_na_items.append(
             f'<li class="na-side-item"><span class="na-sides">{ext(team_url(t1), t1.get("name"))} <b class="na-sc">{e(score)}</b> {ext(team_url(t2), t2.get("name"))}</span>'
-            f'<span class="cnt">{e((when + " " if when else "") + (m.get("division") or ""))}</span></li>'
+            f'<span class="cnt">{e((when + " " if when else "") + cs_div_map(m))}</span></li>'
         )
     side_na = "".join(side_na_items) or '<li class="note">No NA matches yet today.</li>'
     leaders = [f'{dv.get("region")} {dv.get("division")}: {dv["teams"][0].get("name")}' for dv in divs if dv.get("division") == "Advanced"][:3]

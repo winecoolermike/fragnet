@@ -528,6 +528,16 @@ body:not(.on-home) #side-na{display:none}
 /* WoW Forever standings empty state */
 .wf-stand{margin:8px 0;padding:10px 12px;border:1px solid #9BB4C9;border-left:4px solid #3D6F94;background:#F4F8FC;color:#243240;font-style:normal}
 .gcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 8px}
+@media (min-width:901px){
+  .home-gcards{grid-template-areas:"cs2 val wow" "res res res"}
+  .home-gcards > .g-cs2{grid-area:cs2}
+  .home-gcards > .g-valorant{grid-area:val}
+  .home-gcards > .g-wow{grid-area:wow}
+  .home-gcards > #today-board{grid-area:res;margin:6px 0 0}
+}
+.res-hint{font:10px var(--ui);color:var(--muted,#5B6470);padding:2px 6px 0;letter-spacing:.01em}
+.res-divmap{font-size:10px;line-height:1.2;margin-top:1px;white-space:normal;overflow-wrap:anywhere}
+@media (min-width:601px){.tbl.res .res-divmap{display:none}}
 .gcard{display:flex;flex-direction:column;background:#fff;border:1px solid #000;border-top:4px solid var(--orange);min-width:0}
 .gcard.g-valorant{border-top-color:#C62828}
 .gcard.g-wow{border-top-color:#0E5DA0}
