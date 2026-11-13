@@ -645,7 +645,7 @@
     ms.forEach(function (m) { var k = m.region + " " + m.division; (groups[k] = groups[k] || {})[m.round || 0] = (groups[k][m.round || 0] || []).concat([m]); });
     var mvp = po.mvp;
     return (mvp ? '<div class="infobox">Event MVP so far: <b>' + ilink(playerHash(mvp.nick), mvp.nick) + "</b> (" + esc(mvp.team) + ") &middot; rating " + Number(mvp.rating).toFixed(2) + " over " + num(mvp.maps) + " maps</div>" : "") +
-      Object.keys(groups).sort().map(function (g) {
+      Object.keys(groups).sort(function (a, b) { return (a.indexOf("NA") === 0 ? 0 : 1) - (b.indexOf("NA") === 0 ? 0 : 1) || a.localeCompare(b); }).map(function (g) {
         return '<h2 class="subhead">' + esc(g) + ' playoffs</h2><div class="bracket">' + Object.keys(groups[g]).sort(function (a, b) { return a - b; }).map(function (r) {
           return '<div class="bcol"><div class="bhead">Round ' + esc(r) + "</div>" + groups[g][r].map(function (m) {
             var w = m.winner;
@@ -895,7 +895,7 @@
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
       '<h2 class="subhead">Common opponents</h2>' + (common.length ? '<div class="spot-line">' + common.join(" &middot; ") + "</div>" : '<div class="empty">No common opponents yet this season.</div>') + relatedMatchCS(m) +
-      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). ' + (predOf(m) ? "The win probability above is an experimental estimate." : "No predictions.") + " Times in Pacific Time.</div>";
+      '<div class="note">Built only from this season&rsquo;s results tracked here (small samples early in the season). ' + (function () { var o = predOf(m); if (o && o.p) return "The win probability above is an experimental estimate. "; if (o && o.pd && o.pd.paused) return ""; return "No predictions. "; })() + "Times in Pacific Time.</div>";
   }
   function rankLine(id) {
     if (!CFG.rank) return "";
@@ -1117,7 +1117,7 @@
       IDX.push({ g: "Valorant players", label: p.name, where: (p.team_name ? p.team_name + " · " : "") + "rating " + num(p.rating).toFixed(2), hash: valPHash(p.name), key: "", ext: "", text: p.name + " " + (p.team_name || "") });
     });
     var rks = (D.wow && D.wow.rankings) || {};
-    Object.keys(rks).forEach(function (rg) {
+    wowRegs(rks).forEach(function (rg) {
       (rks[rg] || []).forEach(function (g, i) {
         var pg = Math.floor(i / PER_PAGE) + 1;
         IDX.push({ g: "WoW guilds", label: g.guild + " - " + g.realm, where: rg.toUpperCase() + " #" + g.rank + " " + g.progress, hash: guildHash(rg, g), key: "", ext: g.url, text: [g.guild, g.realm].join(" ") });
@@ -1328,10 +1328,10 @@
     ul.innerHTML = p.map(function (id) { var d = ds.filter(function (x) { return divId(x) === id; })[0]; return d ? '<li><a href="#cs2/' + esc(id) + '">' + esc(d.region + " " + d.division) + "</a></li>" : ""; }).join("");
     box.hidden = !p.length;
   }
-  var FILTERS = [["all", "All"], ["na", "NA interest"], ["eu", "EU"], ["adv", "Advanced"], ["bo1", "Bo1"], ["bo3", "Bo3"], ["mine", "My teams + pinned"]];
+  var FILTERS = [["na", "NA"], ["eu", "EU"], ["all", "All"], ["adv", "Advanced"], ["bo1", "Bo1"], ["bo3", "Bo3"], ["mine", "My teams + pinned"]];
   var TODAY_F = null, CCC = null;
   function teamCountry(id) { if (!CCC) { CCC = {}; csDivs().forEach(function (d) { (d.teams || []).forEach(function (t) { var k = csTeamId(t); if (k) CCC[k] = t.country; }); }); } return CCC[id] || ""; }
-  function todayFilter() { var f = TODAY_F || lsGet("esb-today-filter", "all"); return FILTERS.some(function (x) { return x[0] === f; }) ? f : "all"; }
+  function todayFilter() { var f = TODAY_F || lsGet("esb-today-filter", "na"); return FILTERS.some(function (x) { return x[0] === f; }) ? f : "na"; }
   function passFilter(r, f) {
     var m = r.m, cs = r.g === "cs";
     if (f === "all") return true;
@@ -1366,7 +1366,7 @@
   }
   function todayTab() { var t = lsGet("esb-today-tab", "all"); return TABS.some(function (x) { return x[0] === t; }) ? t : "all"; }
   function todayBoard(preview) {
-    var flt = preview ? "all" : todayFilter(), all = todayRows().filter(function (r) { return passFilter(r, flt); }), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
+    var flt = preview ? "na" : todayFilter(), all = todayRows().filter(function (r) { return passFilter(r, flt); }), p = ptParts(new Date()), N = 12, tab = preview ? "all" : todayTab(), counts = { all: all.length, live: 0, up: 0, done: 0, mine: 0 };
     all.forEach(function (r) { counts[r.st]++; if (rowMine(r)) counts.mine++; });
     var tabsHtml = preview ? "" : '<div class="segs segs2 st-tabs"><div class="seg" role="tablist" aria-label="Match status"><span class="seg-l">Show</span>' + TABS.map(function (x) {
       return '<a href="#cs2/today" role="tab" class="st-tab' + (x[0] === tab ? " on" : "") + '" aria-selected="' + (x[0] === tab) + '" data-tab="' + x[0] + '">' + x[1] + ' <span class="cnt">' + counts[x[0]] + "</span></a>";
@@ -1590,11 +1590,17 @@
       title = "Top Fraggers";
       body = csBoard(parts.slice(1));
     } else if (sub === "results") {
-      title = "Match Results :: EU + NA";
-      var allF = csFinished(), pg = pageOf(parts), npg = Math.max(1, Math.ceil(allF.length / PER_PAGE)); if (pg > npg) pg = npg;
-      body = csMatchNote() + pager(allF.length, pg, "cs2/results") + csResultsTable(slicePage(allF, pg), { showDiv: true }) + pager(allF.length, pg, "cs2/results") +
-        '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(csUpcoming().slice(0, PER_PAGE), { showDiv: true }) +
-        '<div class="note">Shows the newest finished matches of each tracked division plus the latest matches of every team in the standings; upcoming = next scheduled matches (times as listed on FACEIT).</div>';
+      var rtok = (parts[1] || "").toLowerCase(), rreg = rtok === "eu" ? "EU" : rtok === "all" ? "all" : "NA";
+      var rbase = "cs2/results" + (rreg === "NA" ? "" : "/" + (rreg === "all" ? "all" : "eu"));
+      segs = '<div class="segs">' + seg("Region", [["NA", "cs2/results", rreg === "NA"], ["EU", "cs2/results/eu", rreg === "EU"], ["All", "cs2/results/all", rreg === "all"]]) + "</div>";
+      setCrumbs([["CS2", "cs2"], ["Results", "cs2/results"], rreg === "all" ? ["NA + EU"] : [rreg]]);
+      title = rreg === "all" ? "Match Results :: NA + EU" : "Match Results :: " + rreg;
+      var allF = csFinished().filter(function (m) { return rreg === "all" || m.region === rreg; });
+      var allU = csUpcoming().filter(function (m) { return rreg === "all" || m.region === rreg; });
+      var pg = pageOf(parts), npg = Math.max(1, Math.ceil(allF.length / PER_PAGE)); if (pg > npg) pg = npg;
+      body = csMatchNote() + pager(allF.length, pg, rbase) + csResultsTable(slicePage(allF, pg), { showDiv: true }) + pager(allF.length, pg, rbase) +
+        '<h2 class="subhead">Upcoming Matches</h2>' + csUpcomingTable(allU.slice(0, PER_PAGE), { showDiv: true }) +
+        '<div class="note">Shows the newest finished matches' + (rreg === "all" ? " of each tracked division" : " in " + rreg) + " plus the latest matches of every team in the standings; upcoming = next scheduled matches (times as listed on FACEIT).</div>";
     } else {
       var d = divs[ids.indexOf(sub)];
       var multi = (d.conferences || []).length > 1;
@@ -1777,9 +1783,11 @@
     var body = !ql ? '<div class="empty">Type in the search box (top right) &mdash; teams, players, guilds, headlines &mdash; and press GO.</div>' + recentHtml() :
       !hits.length ? '<div class="empty' + (lazyBusy ? ' loading">Searching all players&hellip;' : '">No matches for &ldquo;' + esc(q) + "&rdquo;.") + "</div>" :
       Object.keys(groups).map(function (g) {
-        return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + groups[g].length + ')</div><ul class="sr-list">' + groups[g].slice(0, 40).map(function (h) {
+        var rows = groups[g];
+        if (/^CS2 /.test(g)) rows = rows.slice().sort(function (a, b) { var ra = /\bNA\b/.test(a.where || "") ? 0 : /\bEU\b/.test(a.where || "") ? 1 : 2, rb = /\bNA\b/.test(b.where || "") ? 0 : /\bEU\b/.test(b.where || "") ? 1 : 2; return ra - rb; });
+        return '<div class="sr-group"><div class="sr-h">' + esc(g) + " (" + rows.length + ')</div><ul class="sr-list">' + rows.slice(0, 40).map(function (h) {
           return '<li><a href="#' + esc(h.hash) + '"' + (h.key ? ' data-hl="' + esc(h.key) + '"' : "") + ">" + hl(h.label) + '</a><span class="where">' + esc(h.where) + (h.ext && safeUrl(h.ext) !== "#" ? " &middot; " + ext(h.ext, "source") : "") + "</span></li>";
-        }).join("") + (groups[g].length > 40 ? '<li class="empty">&hellip; ' + (groups[g].length - 40) + " more, refine your search</li>" : "") + "</ul></div>";
+        }).join("") + (rows.length > 40 ? '<li class="empty">&hellip; ' + (rows.length - 40) + " more, refine your search</li>" : "") + "</ul></div>";
       }).join("");
     return std("Search Results", ql ? hits.length + " match" + (hits.length === 1 ? "" : "es") + " for &ldquo;" + esc(q) + "&rdquo;" : "", '<div class="std-cap"></div>') + body;
   }
@@ -1796,7 +1804,7 @@
       if (anyM.length) return std(esc(nm), "CS2 &middot; ESEA League team", '<div class="empty">' + esc(nm) + " is not in the current ESEA standings Esports Scoreboard shows, so there is no standings line or roster here." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : "") + "</div>") + teamMatchesHtml(id) +
         '<div class="note">' + (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a></div>';
-      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings Esports Scoreboard shows (EU and NA Advanced, Main and Intermediate). No standings or roster data for it in the current data." +
+      return notFound(nm || "Team not tracked", (nm ? "<b>" + esc(nm) + "</b> is" : "This team is") + " not in the standings Esports Scoreboard shows (NA and EU Advanced, Main and Intermediate). No standings or roster data for it in the current data." +
         (known.length ? "<br>Ranked players from this team: " + known.map(function (p) { return ilink(playerHash(p.nick), p.nick); }).join(", ") + "." : ""),
         (UUID_RE.test(id) ? ext("https://www.faceit.com/en/teams/" + id, "Team page on FACEIT") + " &middot; " : "") + '<a href="#cs2">ESEA standings</a>');
     }

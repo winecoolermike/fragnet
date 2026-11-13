@@ -239,8 +239,18 @@ class Site:
         if ov:
             self.add("cs2", "Counter-Strike 2 :: ESEA League", f"ESEA {season} CS2 standings for {len(ov)} divisions in North America and Europe, with leaders, form, results and top players.",
                      std("Counter-Strike 2 :: ESEA League", e(season), table(['<th class="first">Division</th>', "<th>Leader</th>", '<th class="n">Teams</th>'], ov)))
-        self.add("cs2/results", "CS2 Match Results :: ESEA League", f"Latest ESEA League ({season}) match results in North America and Europe, with scores, maps and scoreboards.",
-                 std("Counter-Strike 2 :: Match Results", "EU + NA", self.cs_results(self.fin, 50)))
+        def res_tabs(cur):
+            items = [("NA", "cs2/results", cur == "NA"), ("EU", "cs2/results/eu", cur == "EU"), ("All", "cs2/results/all", cur == "all")]
+            return '<div class="segs"><div class="seg" role="group" aria-label="Region"><span class="seg-l">Region</span>' + "".join(
+                f'<a href="{e(route)}/"' + (' class="on" aria-current="true"' if on else "") + f">{e(label)}</a>" for label, route, on in items) + "</div></div>"
+        na_fin = [m for m in self.fin if m.get("region") == "NA"]
+        eu_fin = [m for m in self.fin if m.get("region") == "EU"]
+        self.add("cs2/results", "CS2 Match Results :: ESEA League NA", f"Latest ESEA League ({season}) match results in North America, with scores, maps and scoreboards. EU results are on the EU tab.",
+                 std("Counter-Strike 2 :: Match Results", "NA", res_tabs("NA") + self.cs_results(na_fin, 50)))
+        self.add("cs2/results/eu", "CS2 Match Results :: ESEA League EU", f"Latest ESEA League ({season}) match results in Europe, with scores, maps and scoreboards.",
+                 std("Counter-Strike 2 :: Match Results", "EU", res_tabs("EU") + self.cs_results(eu_fin, 50)))
+        self.add("cs2/results/all", "CS2 Match Results :: ESEA League NA + EU", f"Latest ESEA League ({season}) match results in North America and Europe, with scores, maps and scoreboards.",
+                 std("Counter-Strike 2 :: Match Results", "NA + EU", res_tabs("all") + self.cs_results(self.fin, 50)))
         # v4.6: every division, top 25 by ESB Rating (min. 20 rounds) from all players with stats; the live page sorts/filters/pages the rest
         minr = int(num((cs.get("top_players_meta") or {}).get("min_rounds") or 20))
         body, total = "", 0
@@ -867,7 +877,7 @@ def build(dist, site, og_cache, do_og=True):
         cs = d.get("cs") or {}
         hd = {k: d.get(k) for k in ("fetched_at", "generator", "display_tz", "status")}
         hd["cs"] = {"season": cs.get("season"), "live": cs.get("live") or [],
-                    "divisions": [dict({k: v for k, v in dv.items() if k != "teams"}, teams=(dv.get("teams") or [])[:3]) for dv in cs.get("divisions") or []],
+                    "divisions": [dict({k: v for k, v in dv.items() if k != "teams"}, teams=(dv.get("teams") or [])[:3]) for dv in sorted(cs.get("divisions") or [], key=lambda dv: 0 if dv.get("region") == "NA" else 1)],
                     "upcoming": [m for m in cs.get("upcoming") or [] if near(m, 30)], "matches": [m for m in cs.get("matches") or [] if near(m, 30)]}
         va = d.get("valorant") or {}
         hd["valorant"] = {k: v for k, v in va.items() if k not in ("events", "results", "top_players")}

@@ -125,7 +125,8 @@ def render(d):
                         [("US Rankings", rio_page(raid, "us")), ("EU Rankings", rio_page(raid, "eu"))])
                  + "</div>")
     # latest ESEA results (short)
-    fin = sorted([m for m in cs.get("matches") or [] if m.get("t")], key=lambda m: m["t"], reverse=True)[:5]
+    all_fin = sorted([m for m in cs.get("matches") or [] if m.get("t")], key=lambda m: m["t"], reverse=True)
+    fin = [m for m in all_fin if m.get("region") == "NA"][:5] or all_fin[:5]
     rr = []
     for m in fin:
         w = m.get("winner")
@@ -134,7 +135,7 @@ def render(d):
                   f'<td class="score">{ext(room_url(m), str(m.get("s1")) + ":" + str(m.get("s2")))}</td>'
                   f'<td class="{"win" if w == 2 else "lose"}">{ext(team_url(m.get("t2") or {}), (m.get("t2") or {}).get("name"))}</td>'
                   f'<td class="hide-sm">{e((m.get("region") or "") + " " + (m.get("division") or ""))}</td></tr>')
-    parts.append(std("Latest ESEA Results", "",
+    parts.append(std("Latest ESEA Results", "NA",
                      '<div class="rankbox"><table class="tbl res"><thead><tr><th class="first hide-sm">Date</th><th class="n">Team 1</th><th class="c">Score</th><th>Team 2</th><th class="hide-sm">Division</th></tr></thead><tbody>'
                      + "".join(rr) + "</tbody></table></div>" if rr else '<div class="empty">Match results coming soon.</div>'))
     # news

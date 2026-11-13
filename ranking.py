@@ -271,13 +271,15 @@ def build(data, teams, now=None):
                              "breakout": dict(br, gain=round(br["pts"] - PRIOR.get(br["division"], 1300.0), 1)) if br else None}
     # v6.4 playoffs: stages/matches marked as playoffs by fetch_data.py (none until FACEIT publishes them)
     cs = data.get("cs") or {}
-    po_divs = [d for d in cs.get("divisions") or [] if re.search(r"playoff", str(d.get("stage") or ""), re.I)]
+    def _na(d):
+        return 0 if (d.get("region") or "") == "NA" else 1
+    po_divs = [d for d in sorted(cs.get("divisions") or [], key=_na) if re.search(r"playoff", str(d.get("stage") or ""), re.I)]
     po_matches = [m for m in (cs.get("matches") or []) + (cs.get("upcoming") or []) if re.search(r"playoff", str(m.get("stage") or ""), re.I)]
     po_done = [m for m in res if re.search(r"playoff", str(m.get("stage") or ""), re.I)]
     mvp = player_of_week(po_done, avgs, datetime(2000, 1, 1, tzinfo=timezone.utc), now + timedelta(days=1), min_maps=3) if po_done else {}
     playoffs = {"divisions": [{"region": d.get("region"), "division": d.get("division"), "stage": d.get("stage"), "link": d.get("link")} for d in po_divs],
                 "matches": [{k: m.get(k) for k in ("id", "region", "division", "round", "t", "t1", "t2", "s1", "s2", "winner", "bo")} for m in po_matches], "mvp": mvp,
-                "links": [{"region": d.get("region"), "division": d.get("division"), "link": d.get("link")} for d in cs.get("divisions") or []]}
+                "links": [{"region": d.get("region"), "division": d.get("division"), "link": d.get("link")} for d in sorted(cs.get("divisions") or [], key=_na)]}
     return {"awards": awards, "playoffs": playoffs, "generated": now.isoformat(timespec="seconds"), "week_start": ws.isoformat(), "season": {"name": season.get("name"), "end": season.get("end"), "start": season.get("start")},
             "formula_team": FORMULA_TEAM, "formula_player": FORMULA_PLAYER, "prior": PRIOR, "divs": DIVS, "weights": W, "min_rounds": MIN_ROUNDS,
             "teams": cur, "avgs": {k: {kk: round(vv, 4) for kk, vv in v.items()} for k, v in avgs.items()},

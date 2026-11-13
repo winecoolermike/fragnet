@@ -90,7 +90,7 @@ def api_and_llms(s, dist, site, pred=None, path_map=None):
     results = [{"id": m["id"], "finished": m.get("t"), "region": m.get("region"), "division": m.get("division"), "round": m.get("round"),
                 "bo": m.get("bo"), "team1": side(m.get("t1")), "team2": side(m.get("t2")), "score": [m.get("s1"), m.get("s2")],
                 "winner": m.get("winner"), "maps": [x.get("map") for x in m.get("maps") or []], "page": site + "match/cs2/" + m["id"] + "/"}
-               for m in s.fin[:150]]
+               for m in na_first(s.fin)[:150]]
     upcoming = []
     for m in na_first(s.up)[:200]:
         row = {"id": m.get("id"), "scheduled": m.get("t"), "region": m.get("region"), "division": m.get("division"), "round": m.get("round"),

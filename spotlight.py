@@ -88,7 +88,7 @@ def fraggers(results, start, end):
                     if int(row[1] or 0) > p["best_k"]:
                         p["best_k"], p["best"] = int(row[1] or 0), m["id"]
     out = []
-    for d, ps in sorted(per.items()):
+    for d, ps in sorted(per.items(), key=lambda kv: (0 if str(kv[0]).startswith("NA") else 1, kv[0])):
         top = max(ps.values(), key=lambda p: (p["kills"], p["kills"] / max(1, p["deaths"])))
         out.append({"div": d, "nick": top["nick"], "team": top["team"], "team_id": top["team_id"], "kills": top["kills"], "deaths": top["deaths"], "maps": top["maps"], "match": top["best"]})
     return out

@@ -270,6 +270,8 @@ def fetch_faceit(prev):
     try:
         tree = get_json(url)["payload"]
         regions = tree["regions"]
+        order = {code: i for i, code in enumerate(WANT_REGIONS)}
+        regions = sorted(regions, key=lambda rg: order.get(rg.get("code"), 99))
         out["sources"].append(status("FACEIT ESEA season tree", url, True, len(regions), page=season_page))
     except Exception as e:
         season_fresh = out["season"]
@@ -362,6 +364,12 @@ def fetch_faceit(prev):
                 for c in confs:
                     if c.get("championship_id"):
                         stat_champs.append((rg["code"], dv["name"], c["championship_id"], f"{season_page}/stats{qs(c)}"))
+    def _div_key(d):
+        r = WANT_REGIONS.index(d["region"]) if d.get("region") in WANT_REGIONS else 99
+        v = WANT_DIVS.index(d["division"]) if d.get("division") in WANT_DIVS else 99
+        return (r, v)
+    out["divisions"].sort(key=_div_key)
+
     surl = f"{FACEIT_WEB}/api/team-leagues/v2/standings?entityType=stage&entityId=<stage>"
     spage = f"{season_page}/standings"
     if n_fresh and not stale_divs and not miss_divs:
