@@ -1,0 +1,317 @@
+{
+ "cs_matches": 584,
+ "cs_with_scoreboards": 187,
+ "current": false,
+ "end": "2026-11-16T08:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 56,
+   "div": "NA Advanced",
+   "kills": 67,
+   "maps": 3,
+   "match": "1-d5426aef-23ff-4016-8bce-d68bbd9dd30e",
+   "nick": "Mega",
+   "team": "Pug Palace",
+   "team_id": "97e10221-fc3c-4c3a-9499-d4a01bd69b6b"
+  },
+  {
+   "deaths": 29,
+   "div": "NA Intermediate",
+   "kills": 50,
+   "maps": 2,
+   "match": "1-2c724ef1-9bf1-47ac-835a-b6a096b36da0",
+   "nick": "EditerQWAS",
+   "team": "Sodium",
+   "team_id": "d0f67d54-c36d-4129-a995-8e83969d2099"
+  },
+  {
+   "deaths": 34,
+   "div": "NA Main",
+   "kills": 51,
+   "maps": 2,
+   "match": "1-bc4c211a-7548-4624-b001-f90fb88a45ef",
+   "nick": "Noccturnal",
+   "team": "Sedated",
+   "team_id": "a1c98555-07ac-44c2-b051-d231b2e6f8e3"
+  },
+  {
+   "deaths": 65,
+   "div": "EU Advanced",
+   "kills": 67,
+   "maps": 4,
+   "match": "1-7173adaa-fbb1-45b0-aeb9-d241a12c3c58",
+   "nick": "maun",
+   "team": "TSA Green",
+   "team_id": "a9a2a7e0-5b29-4ba3-af56-e8056bb9ca23"
+  },
+  {
+   "deaths": 44,
+   "div": "EU Intermediate",
+   "kills": 60,
+   "maps": 2,
+   "match": "1-f19531a6-ca26-4b20-8e39-ee4c26a22439",
+   "nick": "mexoozje",
+   "team": "SEVENTEEN",
+   "team_id": "f01c52a5-9d6d-48f0-9876-d0a02e0ab0be"
+  },
+  {
+   "deaths": 63,
+   "div": "EU Main",
+   "kills": 84,
+   "maps": 3,
+   "match": "1-e33b7f9e-f665-4dcf-94a3-c2211cb61d2e",
+   "nick": "PALM1",
+   "team": "Coinstep United",
+   "team_id": "31e5585b-e2b0-46d4-a86f-b52b2375cd3d"
+  }
+ ],
+ "id": "2026-w46",
+ "label": "Nov 9 - Nov 15, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-05dd2cbe-bc79-411e-9344-84efff5ab067",
+   "d": 25,
+   "div": "EU Advanced",
+   "k": 43,
+   "maps": 2,
+   "nick": "h21f",
+   "rating": 1.44,
+   "rounds": 42,
+   "team": "B8 Academy",
+   "team_id": "f3b3ace1-84f1-448c-bc88-e222e3d3f085"
+  },
+  "EU Intermediate": {
+   "best": "1-9df19575-d615-463f-b3ed-d18e851ad86d",
+   "d": 19,
+   "div": "EU Intermediate",
+   "k": 37,
+   "maps": 2,
+   "nick": "Patix-",
+   "rating": 1.44,
+   "rounds": 34,
+   "team": "DevL33T",
+   "team_id": "6ceee39e-9aaf-43ef-92e2-0b6446b92143"
+  },
+  "EU Main": {
+   "best": "1-90dd4ae2-ebf7-4a3d-9d3d-512672a07521",
+   "d": 20,
+   "div": "EU Main",
+   "k": 41,
+   "maps": 2,
+   "nick": "Hoijaede",
+   "rating": 1.55,
+   "rounds": 37,
+   "team": "Sera Esports DK",
+   "team_id": "047a143c-e4d4-4d55-b6e9-733ecb1ec503"
+  },
+  "NA Advanced": {
+   "best": "1-b6cc4963-d366-445b-95ce-76cdf0cdfb5a",
+   "d": 16,
+   "div": "NA Advanced",
+   "k": 41,
+   "maps": 2,
+   "nick": "intrraa",
+   "rating": 1.63,
+   "rounds": 35,
+   "team": "Overtake Sector",
+   "team_id": "7bd0482d-c2e4-4347-bb66-d3b958754486"
+  },
+  "NA Intermediate": {
+   "best": "1-6f6f060a-ce31-4427-8131-269118e941ce",
+   "d": 21,
+   "div": "NA Intermediate",
+   "k": 43,
+   "maps": 2,
+   "nick": "1wiz",
+   "rating": 1.49,
+   "rounds": 38,
+   "team": "barry pickers",
+   "team_id": "d4bde47d-a7b2-4aff-a659-9cb177c23388"
+  },
+  "NA Main": {
+   "best": "1-88f2e3a3-ba54-480a-a445-15b27e1c9111",
+   "d": 28,
+   "div": "NA Main",
+   "k": 49,
+   "maps": 2,
+   "nick": "thanny",
+   "rating": 1.45,
+   "rounds": 42,
+   "team": "Kinetic",
+   "team_id": "df523561-29d9-40a1-9c3c-6cee69d726a2"
+  }
+ },
+ "start": "2026-11-09T08:00:00+00:00",
+ "streaks": [
+  {
+   "div": "NA Advanced",
+   "id": "2e54c309-0627-46c0-ab1a-77650a2b9a90",
+   "last": "1-9a532d3e-ae10-48c9-bdda-73c2cd2d83e0",
+   "n": 4,
+   "name": "Club 333"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "d238f3f5-0fa1-4de0-b75c-f8dd3e9d662d",
+   "last": "1-ce8751de-7d45-4579-a5e8-a06cd4eb3659",
+   "n": 4,
+   "name": "EXODIA"
+  },
+  {
+   "div": "EU Main",
+   "id": "92935b59-0066-4b24-9208-a5f65c165ce3",
+   "last": "1-56b2b568-093a-4967-b79a-7e93ca2fbc75",
+   "n": 4,
+   "name": "ORGLESS"
+  },
+  {
+   "div": "EU Advanced",
+   "id": "96a5ba01-176e-4472-ac22-0e027c9093a7",
+   "last": "1-c07ceedc-e6e1-4e85-9cdd-08e904f0831a",
+   "n": 4,
+   "name": "Phantom Esports Academy"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "16962af4-9fd2-4e12-a654-40b9398384b8",
+   "last": "1-f680126c-07aa-4b64-998b-5b076415a6b1",
+   "n": 4,
+   "name": "Team Skyline"
+  }
+ ],
+ "totw": {
+  "EU Advanced": {
+   "division": "Advanced",
+   "gain": 45.0,
+   "id": "581092cd-3344-4278-b899-7a317d336d71",
+   "l": 4,
+   "matches": 9,
+   "name": "Vitality Academy",
+   "played": 2,
+   "pts": 1599.5,
+   "region": "EU",
+   "w": 5
+  },
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": 46.8,
+   "id": "804309d3-0a13-415a-9edd-052498ec82cf",
+   "l": 4,
+   "matches": 12,
+   "name": "Zenvor Main",
+   "played": 2,
+   "pts": 1360.3,
+   "region": "EU",
+   "w": 8
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 61.0,
+   "id": "e9036f20-8ae8-472b-b3ba-eeafb0337e39",
+   "l": 8,
+   "matches": 12,
+   "name": "HIJACK",
+   "played": 3,
+   "pts": 1360.4,
+   "region": "EU",
+   "w": 4
+  },
+  "NA Advanced": {
+   "division": "Advanced",
+   "gain": 58.2,
+   "id": "acb17a55-f9a7-44e7-ac2f-1da565da409a",
+   "l": 1,
+   "matches": 7,
+   "name": "Desi Boyz",
+   "played": 4,
+   "pts": 1686.0,
+   "region": "NA",
+   "w": 6
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 60.4,
+   "id": "fc73f55c-d694-4a46-98b6-be9b3b78c502",
+   "l": 6,
+   "matches": 12,
+   "name": "Kahoot Squad",
+   "played": 3,
+   "pts": 1274.5,
+   "region": "NA",
+   "w": 6
+  },
+  "NA Main": {
+   "division": "Main",
+   "gain": 57.5,
+   "id": "0cb87283-41bb-4462-83c8-3c66716e73f4",
+   "l": 6,
+   "matches": 12,
+   "name": "Exnitas",
+   "played": 3,
+   "pts": 1456.1,
+   "region": "NA",
+   "w": 6
+  }
+ },
+ "upsets": [
+  {
+   "conf": "A",
+   "division": "Main",
+   "id": "1-4472c625-a9bb-4666-af04-fcb8970f096b",
+   "loser": {
+    "id": "9ca5deb9-e332-47d2-9e09-a8c3da974bf9",
+    "name": "Nyrion Esports",
+    "rank": 1
+   },
+   "region": "EU",
+   "score": "13:11",
+   "t": "2026-11-12T20:28:26+00:00",
+   "winner": {
+    "id": "e5b56915-a829-45f7-b237-83f5163db7b6",
+    "name": "MAYAK ARENA",
+    "rank": 32
+   }
+  },
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-c625e32b-52b2-4058-8a8f-e1163de9f606",
+   "loser": {
+    "id": "5e23d9f1-0864-4912-b819-b15bb477a243",
+    "name": "regnum4games",
+    "rank": 1
+   },
+   "region": "EU",
+   "score": "13:9",
+   "t": "2026-11-13T17:55:49+00:00",
+   "winner": {
+    "id": "581092cd-3344-4278-b899-7a317d336d71",
+    "name": "Vitality Academy",
+    "rank": 14
+   }
+  },
+  {
+   "conf": "Central",
+   "division": "Advanced",
+   "id": "1-49edc38f-7b16-44a2-bdf1-2a7b4125a318",
+   "loser": {
+    "id": "28d146c6-17f4-4d97-863d-6ff3aad5e46a",
+    "name": "Feistein",
+    "rank": 4
+   },
+   "region": "NA",
+   "score": "13:10",
+   "t": "2026-11-13T02:20:44+00:00",
+   "winner": {
+    "id": "00f479bc-67d4-440d-8169-5fb62ee1d321",
+    "name": "Hairy Scary Bandits",
+    "rank": 10
+   }
+  }
+ ],
+ "wow": {
+  "guilds": [],
+  "kills": 0,
+  "raid": "The Venomous Abyss"
+ }
+}
