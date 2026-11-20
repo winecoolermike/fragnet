@@ -1010,3 +1010,4 @@ a.pc:hover{background:#f4f8fb}
 [data-theme=night] .cm-form input,[data-theme=night] .cm-form textarea{background:#14171b;color:var(--text);border-color:#4a525c}
 [data-theme=night] .cm-meta b{color:var(--text)}
 [data-theme=night] .cm-msg{color:#e0a28f}
+.cm-only{display:none}.cm-on .cm-only{display:inline}

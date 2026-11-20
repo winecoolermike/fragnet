@@ -607,7 +607,7 @@
     var head = '<div class="pc-meta"><span class="pc-div">' + esc(r.division) + "</span> &middot; " + predWhen(r.t) + (num(r.bo) === 3 ? " &middot; Bo3" : "") + "</div>" +
       '<div class="pc-teams">' + pcTeam(r.a, r.fav === 1) + '<span class="pc-vs">vs</span>' + pcTeam(r.b, r.fav === 2) + "</div>" + pcBar(r) +
       '<div class="pc-pick">Pick: <b>' + esc(fav.name) + "</b> " + r.pct + "%" + '<span class="cm-n" data-m="' + esc(r.id) + '"></span></div>';
-    if (mode === "home") return '<a class="pc pc-home" href="' + href + '">' + head + '<span class="pc-go">Read the preview &amp; comment &raquo;</span></a>';
+    if (mode === "home") return '<a class="pc pc-home" href="' + href + '">' + head + '<span class="pc-go">Read the full preview<span class="cm-only"> &amp; comment</span> &raquo;</span></a>';
     var open = PRED_OPEN === r.id;
     return '<article class="pc" id="pc-' + esc(r.id) + '">' + head +
       '<details class="pc-more" data-m="' + esc(r.id) + '"' + (open ? " open" : "") + '><summary>Read the full preview</summary><div class="pc-body">' + predSections(r) +
@@ -624,7 +624,7 @@
     }
     PRED_OPEN = parts[0] && /^[0-9a-z-]{8,48}$/i.test(parts[0]) ? parts[0] : null;
     var by = x.top_by === "standings" ? "the division table" : "ESB Team Ranking";
-    var intro = '<div class="infobox pred-intro">Deep previews for every upcoming ESEA NA match that involves a <b>top 10 team</b> (by ' + by + ') in Main, Intermediate and Advanced. Tap <b>Read the full preview</b> for form, key players, maps and the reasoning, then tell us what you think in the comments. All times Pacific.</div>';
+    var intro = '<div class="infobox pred-intro">Deep previews for every upcoming ESEA NA match that involves a <b>top 10 team</b> (by ' + by + ') in Main, Intermediate and Advanced. Tap <b>Read the full preview</b> for form, key players, maps and the reasoning<span class="cm-only">, then tell us what you think in the comments</span>. All times Pacific.</div>';
     var html = std("NA Predictions", (x.matches || []).length + " match" + ((x.matches || []).length === 1 ? "" : "es") + " this week", intro);
     var divs = x.divisions || [];
     html += '<nav class="pred-jump" aria-label="Divisions">' + divs.map(function (d) { var n = (x.matches || []).filter(function (r) { return r.division === d.division; }).length; return '<a href="#predictions" data-jump="pd-' + esc(d.division.toLowerCase()) + '">' + esc(d.division) + " <b>" + n + "</b></a>"; }).join("") + "</nav>";
@@ -647,7 +647,7 @@
     var rows = (x.matches || []).slice().sort(function (p, q) { return String(p.t || "").localeCompare(String(q.t || "")); });
     if (!rows.length) return naPicksBox();
     var body = '<div class="pc-list pc-list-home">' + rows.slice(0, 4).map(function (r) { return predCard(r, "home"); }).join("") + "</div>" +
-      '<a class="pred-all" href="#predictions">See all ' + rows.length + " NA prediction" + (rows.length === 1 ? "" : "s") + " &amp; join the discussion &raquo;</a>" +
+      '<a class="pred-all" href="#predictions">See all ' + rows.length + " NA prediction" + (rows.length === 1 ? "" : "s") + "<span class=\"cm-only\"> &amp; join the discussion</span> &raquo;</a>" +
       '<div class="note">Top 10 teams in NA Main, Intermediate and Advanced. ' + esc(x.label || "Experimental estimate based on season results.") + "</div>";
     return std("This Week&rsquo;s NA Picks", '<a href="#predictions">all predictions &raquo;</a>', body, "na-picks");
   }
@@ -689,7 +689,7 @@
     CM[id] = { state: "loading" };
     fetch("/api/comments?m=" + encodeURIComponent(id), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { enabled: false }; }).then(function (j) {
       if (!j || !j.enabled) { CM_ON = false; CM[id] = null; $$(".cm").forEach(function (e) { e.remove(); }); $$(".cm-n").forEach(function (e) { e.remove(); }); return; }
-      CM_ON = true; CM[id] = { state: "ok", count: j.count || 0, items: j.items || [] };
+      CM_ON = true; document.documentElement.classList.add("cm-on"); CM[id] = { state: "ok", count: j.count || 0, items: j.items || [] };
       $$('.cm[data-m="' + id + '"]').forEach(cmRender);
     }).catch(function () { CM_ON = false; CM[id] = null; $$(".cm").forEach(function (e) { e.remove(); }); });
   }
@@ -698,7 +698,7 @@
     var ids = els.map(function (e) { return e.getAttribute("data-m"); }).filter(function (x, i, l) { return l.indexOf(x) === i; }).slice(0, 60);
     fetch("/api/comments?counts=" + ids.map(encodeURIComponent).join(","), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { enabled: false }; }).then(function (j) {
       if (!j || !j.enabled) { CM_ON = false; $$(".cm-n").forEach(function (e) { e.remove(); }); return; }
-      CM_ON = true;
+      CM_ON = true; document.documentElement.classList.add("cm-on");
       $$(".cm-n[data-m]").forEach(function (e) { var n = (j.counts || {})[e.getAttribute("data-m")] || 0; e.textContent = n ? " \u00b7 " + n + " comment" + (n === 1 ? "" : "s") : ""; });
     }).catch(function () { $$(".cm-n").forEach(function (e) { e.remove(); }); });
   }
