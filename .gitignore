@@ -13,3 +13,4 @@ shots/
 tests/
 .banned-terms
 .DS_Store
+.wrangler/

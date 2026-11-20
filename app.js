@@ -560,6 +560,178 @@
     }
     return "";
   }
+  /* ---------- v5.18 Predictions: NA top-10 deep previews (predictions.js from writeups.py) + comments (/api/comments, D1) ---------- */
+  var PR_STATE = "", PR_IDX = null;
+  function predsX() { return window.ESB_PREDS || null; }
+  function loadPreds() {
+    if (PR_STATE || !CFG.preds) return;
+    PR_STATE = "loading";
+    var s = document.createElement("script");
+    function done() { PR_STATE = predsX() ? "ok" : "fail"; PR_IDX = null; var h = curHash(); if (!h || h === "#" || /^#(home|predictions|match\/cs2\/)/.test(h)) { KEEP_SCROLL = true; route(); } }
+    s.src = "predictions.js"; s.onload = done; s.onerror = done;
+    document.body.appendChild(s);
+  }
+  function predRec(id) {
+    var x = predsX(); if (!x) return null;
+    if (!PR_IDX) { PR_IDX = {}; (x.matches || []).forEach(function (r) { PR_IDX[r.id] = r; }); }
+    return PR_IDX[id] || null;
+  }
+  function predWhen(t) {
+    if (!t) return "TBD";
+    var p = ptParts(new Date(t)), h = p.h % 12 || 12;
+    return DAYS[p.wd].slice(0, 3) + " " + MON[p.m] + " " + p.d + " &middot; " + h + ":" + pad(p.mi) + " " + (p.h < 12 ? "AM" : "PM") + " PT";
+  }
+  function pcTeam(t, won) {
+    return '<span class="pc-tm' + (won ? " fav" : "") + '">' + esc(t.name) + (t.esb ? ' <small class="pc-rk" title="place in the division by ESB Team Ranking">#' + num(t.esb) + "</small>" : "") + "</span>";
+  }
+  function pcBar(r) {
+    var pa = r.fav === 1 ? r.pct : 100 - r.pct, pb = 100 - pa;
+    return '<div class="pc-bar" role="img" aria-label="' + esc(r.a.name) + " " + pa + "%, " + esc(r.b.name) + " " + pb + '%"><span class="pc-a' + (r.fav === 1 ? " on" : "") + '" style="width:' + pa + '%"></span><span class="pc-b' + (r.fav === 2 ? " on" : "") + '" style="width:' + pb + '%"></span></div>' +
+      '<div class="pc-pcts"><span>' + pa + "%</span><span>" + pb + "%</span></div>";
+  }
+  function predSections(r) {
+    return (r.sections || []).map(function (s) {
+      var h = '<section class="ps ps-' + esc(s.k) + '"><h3>' + esc(s.h) + "</h3>";
+      (s.form || []).forEach(function (f) {
+        h += '<div class="ps-form"><div class="ps-ft"><b>' + esc(f.team) + "</b> <span class=\"dim\">" + esc(f.sum) + '</span></div><ul class="ps-games">' + (f.g || []).map(function (g) {
+          return '<li><span class="fq ' + (g.r === "W" ? "w" : "l") + '">' + esc(g.r) + "</span> " + esc(g.score) + " vs " + esc(g.opp) + (g.ff ? ' <span class="dim">(forfeit)</span>' : "") + (g.date ? ' <span class="dim">' + esc(g.date) + "</span>" : "") + "</li>";
+        }).join("") + "</ul></div>";
+      });
+      (s.p || []).forEach(function (p) { h += "<p>" + esc(p) + "</p>"; });
+      if (s.note) h += '<p class="ps-note">' + esc(s.note) + "</p>";
+      return h + "</section>";
+    }).join("") + '<p class="ps-label"><b>' + esc(((predsX() || {}).label) || "Experimental estimate based on season results.") + "</b></p>";
+  }
+  function predCard(r, mode) {   // mode: "page" (expandable full write-up + comments) | "home" (compact link)
+    var fav = r.fav === 2 ? r.b : r.a, href = "#predictions/" + encodeURIComponent(r.id), mh = "#match/cs2/" + encodeURIComponent(r.id);
+    var head = '<div class="pc-meta"><span class="pc-div">' + esc(r.division) + "</span> &middot; " + predWhen(r.t) + (num(r.bo) === 3 ? " &middot; Bo3" : "") + "</div>" +
+      '<div class="pc-teams">' + pcTeam(r.a, r.fav === 1) + '<span class="pc-vs">vs</span>' + pcTeam(r.b, r.fav === 2) + "</div>" + pcBar(r) +
+      '<div class="pc-pick">Pick: <b>' + esc(fav.name) + "</b> " + r.pct + "%" + '<span class="cm-n" data-m="' + esc(r.id) + '"></span></div>';
+    if (mode === "home") return '<a class="pc pc-home" href="' + href + '">' + head + '<span class="pc-go">Read the preview &amp; comment &raquo;</span></a>';
+    var open = PRED_OPEN === r.id;
+    return '<article class="pc" id="pc-' + esc(r.id) + '">' + head +
+      '<details class="pc-more" data-m="' + esc(r.id) + '"' + (open ? " open" : "") + '><summary>Read the full preview</summary><div class="pc-body">' + predSections(r) +
+      '<p class="pc-links"><a href="' + mh + '">Match page &raquo;</a></p>' + commentsSlot(r.id, true) + "</div></details></article>";
+  }
+  var PRED_OPEN = null;
+  function vPredictions(parts) {
+    ensureRank();
+    var x = predsX();
+    setCrumbs([["Predictions"]]);
+    if (!x) {
+      if (CFG.preds && PR_STATE !== "fail") { loadPreds(); return std("NA Predictions", "", '<div class="empty loading">Loading&hellip;</div>'); }
+      return std("NA Predictions", "", '<div class="empty">Predictions are not available right now.</div>');
+    }
+    PRED_OPEN = parts[0] && /^[0-9a-z-]{8,48}$/i.test(parts[0]) ? parts[0] : null;
+    var by = x.top_by === "standings" ? "the division table" : "ESB Team Ranking";
+    var intro = '<div class="infobox pred-intro">Deep previews for every upcoming ESEA NA match that involves a <b>top 10 team</b> (by ' + by + ') in Main, Intermediate and Advanced. Tap <b>Read the full preview</b> for form, key players, maps and the reasoning, then tell us what you think in the comments. All times Pacific.</div>';
+    var html = std("NA Predictions", (x.matches || []).length + " match" + ((x.matches || []).length === 1 ? "" : "es") + " this week", intro);
+    var divs = x.divisions || [];
+    html += '<nav class="pred-jump" aria-label="Divisions">' + divs.map(function (d) { var n = (x.matches || []).filter(function (r) { return r.division === d.division; }).length; return '<a href="#predictions" data-jump="pd-' + esc(d.division.toLowerCase()) + '">' + esc(d.division) + " <b>" + n + "</b></a>"; }).join("") + "</nav>";
+    divs.forEach(function (d) {
+      var rows = (x.matches || []).filter(function (r) { return r.division === d.division; }).sort(function (p, q) { return String(p.t || "").localeCompare(String(q.t || "")); });
+      html += '<h2 class="subhead pred-dh" id="pd-' + esc(d.division.toLowerCase()) + '">NA ' + esc(d.division) + " <small>" + rows.length + " prediction" + (rows.length === 1 ? "" : "s") + "</small></h2>";
+      html += rows.length ? '<div class="pc-list">' + rows.map(function (r) { return predCard(r, "page"); }).join("") + "</div>"
+        : '<div class="empty pred-empty">No upcoming matches for the NA ' + esc(d.division) + " top 10 in the current schedule. New previews appear as soon as the next round is posted.</div>";
+      if ((d.top || []).length) html += '<details class="pred-top"><summary>Who is in the NA ' + esc(d.division) + " top 10</summary><ol>" + d.top.map(function (t) {
+        return "<li>" + (t.id ? '<a href="#team/cs2/' + esc(t.id) + '">' + esc(t.name) + "</a>" : esc(t.name)) + (t.rec ? ' <span class="dim">' + esc(t.rec) + "</span>" : "") + (t.pts != null ? ' <span class="dim">&middot; ' + num(t.pts) + " pts</span>" : "") + "</li>";
+      }).join("") + "</ol></details>";
+    });
+    html += '<div class="note">' + esc(x.label || "Experimental estimate based on season results.") + " The pick comes from the ESB map Elo (<a href=\"#cs2/methodology\">methodology</a>); every other line is taken straight from this season&rsquo;s tracked results. No predicted score or map veto.</div>";
+    return html;
+  }
+  function homePredBox() {
+    if (!CFG.preds) return naPicksBox();
+    var x = predsX();
+    if (!x) { if (PR_STATE !== "fail") { loadPreds(); return std("This Week&rsquo;s NA Picks", "", '<div class="empty loading">Loading&hellip;</div>', "na-picks"); } return naPicksBox(); }
+    var rows = (x.matches || []).slice().sort(function (p, q) { return String(p.t || "").localeCompare(String(q.t || "")); });
+    if (!rows.length) return naPicksBox();
+    var body = '<div class="pc-list pc-list-home">' + rows.slice(0, 4).map(function (r) { return predCard(r, "home"); }).join("") + "</div>" +
+      '<a class="pred-all" href="#predictions">See all ' + rows.length + " NA prediction" + (rows.length === 1 ? "" : "s") + " &amp; join the discussion &raquo;</a>" +
+      '<div class="note">Top 10 teams in NA Main, Intermediate and Advanced. ' + esc(x.label || "Experimental estimate based on season results.") + "</div>";
+    return std("This Week&rsquo;s NA Picks", '<a href="#predictions">all predictions &raquo;</a>', body, "na-picks");
+  }
+  function deepPreviewHtml(m) {
+    var r = m && m.id ? predRec(m.id) : null;
+    if (!r) { if (CFG.preds && !predsX() && PR_STATE !== "fail") loadPreds(); return ""; }
+    return '<h2 class="subhead">Prediction <small>top 10 preview</small></h2><div class="pc pc-match">' +
+      '<div class="pc-teams">' + pcTeam(r.a, r.fav === 1) + '<span class="pc-vs">vs</span>' + pcTeam(r.b, r.fav === 2) + "</div>" + pcBar(r) +
+      '<div class="pc-body">' + predSections(r) + '<p class="pc-links"><a href="#predictions/' + encodeURIComponent(r.id) + '">All NA predictions &raquo;</a></p></div></div>' + commentsSlot(r.id, true);
+  }
+
+  /* comments: name + comment, no sign-in. Hidden entirely when the server has no storage (enabled:false) or is unreachable. */
+  var CM_ON = null, CM = {};
+  function commentsSlot(id, canPost) {
+    if (CM_ON === false || location.protocol !== "https:" && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return "";
+    return '<div class="cm" data-m="' + esc(id) + '"' + (canPost ? "" : ' data-ro="1"') + ' hidden></div>';
+  }
+  function cmTime(t) { var p = ptParts(new Date(t)), h = p.h % 12 || 12; return MON[p.m] + " " + p.d + ", " + h + ":" + pad(p.mi) + " " + (p.h < 12 ? "AM" : "PM") + " PT"; }
+  function cmRender(el) {
+    var id = el.getAttribute("data-m"), st = CM[id], ro = el.hasAttribute("data-ro");
+    if (!st || st.state !== "ok") return;
+    var items = st.items || [];
+    if (ro && !items.length) { el.hidden = true; return; }
+    el.hidden = false;
+    el.innerHTML = '<h3 class="cm-h">Comments <span class="cm-c">(' + num(st.count) + ")</span></h3>" +
+      (ro ? "" : '<form class="cm-form" data-m="' + esc(id) + '" novalidate><label>Name<input name="name" maxlength="30" autocomplete="nickname" required></label>' +
+        '<label>Comment<textarea name="body" maxlength="500" rows="3" required placeholder="Who do you like in this one, and why?"></textarea></label>' +
+        '<label class="cm-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>' +
+        '<div class="cm-row"><button type="submit">Post comment</button><span class="cm-left">500 left</span></div><div class="cm-msg" role="status"></div>' +
+        '<div class="cm-rules">No sign-in. Be respectful; links are not allowed. Comments are public.</div></form>') +
+      (items.length ? '<ul class="cm-list">' + items.map(function (c) { return '<li><div class="cm-meta"><b>' + esc(c.name) + "</b> <span>" + cmTime(c.t) + '</span></div><div class="cm-body">' + esc(c.body) + "</div></li>"; }).join("") + "</ul>"
+        : '<div class="empty cm-none">No comments yet. Be the first.</div>');
+  }
+  function cmLoad(el) {
+    var id = el.getAttribute("data-m");
+    if (CM_ON === false) { el.remove(); return; }
+    if (CM[id] && CM[id].state === "ok") { cmRender(el); return; }
+    if (CM[id] && CM[id].state === "loading") return;
+    CM[id] = { state: "loading" };
+    fetch("/api/comments?m=" + encodeURIComponent(id), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { enabled: false }; }).then(function (j) {
+      if (!j || !j.enabled) { CM_ON = false; CM[id] = null; $$(".cm").forEach(function (e) { e.remove(); }); $$(".cm-n").forEach(function (e) { e.remove(); }); return; }
+      CM_ON = true; CM[id] = { state: "ok", count: j.count || 0, items: j.items || [] };
+      $$('.cm[data-m="' + id + '"]').forEach(cmRender);
+    }).catch(function () { CM_ON = false; CM[id] = null; $$(".cm").forEach(function (e) { e.remove(); }); });
+  }
+  function cmCounts() {
+    var els = $$(".cm-n[data-m]"); if (!els.length || CM_ON === false || location.protocol !== "https:" && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) { els.forEach(function (e) { e.remove(); }); return; }
+    var ids = els.map(function (e) { return e.getAttribute("data-m"); }).filter(function (x, i, l) { return l.indexOf(x) === i; }).slice(0, 60);
+    fetch("/api/comments?counts=" + ids.map(encodeURIComponent).join(","), { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : { enabled: false }; }).then(function (j) {
+      if (!j || !j.enabled) { CM_ON = false; $$(".cm-n").forEach(function (e) { e.remove(); }); return; }
+      CM_ON = true;
+      $$(".cm-n[data-m]").forEach(function (e) { var n = (j.counts || {})[e.getAttribute("data-m")] || 0; e.textContent = n ? " \u00b7 " + n + " comment" + (n === 1 ? "" : "s") : ""; });
+    }).catch(function () { $$(".cm-n").forEach(function (e) { e.remove(); }); });
+  }
+  function cmHydrate() {
+    $$(".cm[data-m]").forEach(function (el) { var d = el.closest("details"); if (!d || d.open) cmLoad(el); });
+    cmCounts();
+    if (PRED_OPEN) { var c = document.getElementById("pc-" + PRED_OPEN); PRED_OPEN = null; if (c && !KEEP_SCROLL) c.scrollIntoView({ block: "start" }); }
+  }
+  document.addEventListener("toggle", function (ev) { var d = ev.target; if (d && d.matches && d.matches("details.pc-more") && d.open) { var el = d.querySelector(".cm[data-m]"); if (el) cmLoad(el); } }, true);
+  document.addEventListener("click", function (ev) { var a = ev.target.closest && ev.target.closest("[data-jump]"); if (!a) return; var t = document.getElementById(a.getAttribute("data-jump")); if (t) { ev.preventDefault(); t.scrollIntoView({ block: "start" }); } });
+  document.addEventListener("input", function (ev) { var t = ev.target; if (t && t.matches && t.matches(".cm-form textarea")) { var f = t.closest("form"), l = f && f.querySelector(".cm-left"); if (l) l.textContent = (500 - t.value.length) + " left"; } });
+  document.addEventListener("submit", function (ev) {
+    var f = ev.target; if (!f || !f.matches || !f.matches(".cm-form")) return;
+    ev.preventDefault();
+    var id = f.getAttribute("data-m"), msg = f.querySelector(".cm-msg"), btn = f.querySelector("button");
+    var name = f.elements.name.value.trim(), body = f.elements.body.value.trim();
+    if (name.length < 2 || name.length > 30) { msg.textContent = "Please add a name (2 to 30 characters)."; return; }
+    if (body.length < 2 || body.length > 500) { msg.textContent = "Please write a comment (up to 500 characters)."; return; }
+    btn.disabled = true; msg.textContent = "Posting\u2026";
+    fetch("/api/comments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ m: id, name: name, body: body, website: f.elements.website.value }) })
+      .then(function (r) { return r.json().catch(function () { return { error: "Could not post right now." }; }); })
+      .then(function (j) {
+        btn.disabled = false;
+        if (!j || j.error || !j.ok) { msg.textContent = (j && j.error) || "Could not post right now."; return; }
+        lsSet("esb-cm-name", name);
+        var st = CM[id] || { state: "ok", count: 0, items: [] };
+        if (j.item) { st.items.unshift(j.item); st.count = (st.count || 0) + 1; }
+        CM[id] = st;
+        $$('.cm[data-m="' + id + '"]').forEach(cmRender);
+        $$('.cm[data-m="' + id + '"] .cm-msg').forEach(function (e) { e.textContent = "Thanks, your comment is posted."; });
+        $$('.cm[data-m="' + id + '"] input[name=name]').forEach(function (e) { e.value = name; });
+      }).catch(function () { btn.disabled = false; msg.textContent = "Could not post right now."; });
+  });
   var RKIDX = null;
   function teamRank(id) {
     var x = rankX(); if (!x) { loadRank(); return null; }
@@ -926,7 +1098,8 @@
     var info = kv([["When", m.t ? fmt(m.t) + " " + relSpan(live ? "live" : "up", m.t, "cs") : "TBD"], ["Division", esc(m.region + " " + m.division) + (m.conf ? " &middot; conference " + esc(m.conf) : "") + (m.round ? " &middot; round " + num(m.round) : "")],
       ["Format", "best of " + num(m.bo || 1)], ["Standing now", rankPre(a) + esc(a.name) + " &middot; " + rankPre(b) + esc(b.name)], ["Match room", ru ? ext(ru, live ? "Follow live on FACEIT" : "Match room on FACEIT") : ""]]);
     setCrumbs([["CS2", "cs2"], ["Matches Today", "cs2/today"], [a.name + " vs " + b.name]]);
-    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) + writeupHtml(m) + predHtml(m) +
+    var deep = deepPreviewHtml(m);
+    return std(esc(a.name) + " vs " + esc(b.name), (live ? '<span class="live-b">LIVE</span> ' : "") + "CS2 &middot; match preview", info) + (deep || writeupHtml(m)) + (deep ? "" : predHtml(m)) +
       '<h2 class="subhead">Map win rates this season <small>maps tracked here; n&lt;2 greyed</small></h2>' + mapTbl +
       '<h2 class="subhead">Form <small>last 5, newest right</small></h2>' + kv([[a.name, lastFive(csForm(a.id))], [b.name, lastFive(csForm(b.id))]]) +
       '<h2 class="subhead">Head to head this season</h2>' + meetingsHtml(h2h, "cs") +
@@ -1750,8 +1923,8 @@
     var wT = [raid ? esc(raid.name) : "", us ? "US #1 <b>" + esc(us.guild) + "</b> " + esc(us.progress) : "", eu ? "EU #1 <b>" + esc(eu.guild) + "</b> " + esc(eu.progress) : ""].filter(Boolean).join(" &middot; ");
     var cards = '<div class="gcards home-gcards">' +
       card("cs2", csT, [["Standings", csHome()], ["Results", "cs2/results"], ["Top Players", "cs2/players"], ["Matches Today", "cs2/today"]]) +
+      homePredBox() +
       naHomeBoard() +
-      naPicksBox() +
       card("valorant", vT, [["Events", "valorant/events"], ["Results", "valorant/results"], ["Top Players", "valorant/players"]]) +
       card("wow", wT, [["US Rankings", "wow/us"], ["EU Rankings", "wow/eu"]]) + "</div>";
     var intro = '<div class="infobox hub-intro">Amateur &amp; semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW Mythic raid race. All times Pacific.</div>';
@@ -2305,7 +2478,8 @@
     var news = '<div class="gn-item" data-gn="news"><a href="#news">News</a></div>';
     var forum = '<div class="gn-item" data-gn="forums"><a href="#forums">Forums</a></div>';
     var about = '<div class="gn-item" data-gn="about"><a href="#about">About</a></div>';
-    $("#gamenav").innerHTML = cs + val + wow + wof + '<div class="gn-sep"></div>' + news + forum + about;
+    var preds = '<div class="gn-item" data-gn="predictions"><a href="#predictions">Predictions</a></div>';
+    $("#gamenav").innerHTML = cs + preds + val + wow + wof + '<div class="gn-sep"></div>' + news + forum + about;
   }
   function renderStatus() {
     if (!$("#data-status")) return;
@@ -2378,7 +2552,7 @@
     var parts = h.split("/");
     return { top: parts[0] || "home", parts: parts.slice(1) };
   }
-  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", "wow-forever": "World of Warcraft: Forever", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status" };
+  var TITLES = { home: "Front Page", cs2: "Counter-Strike 2 :: ESEA League", valorant: "Valorant :: Challengers / Game Changers", wow: "World of Warcraft :: Mythic Raid Progression", "wow-forever": "World of Warcraft: Forever", news: "News", forums: "Forums", roundup: "Weekly Roundups", recruiting: "Recruiting", search: "Search", about: "About", team: "Team", player: "Player", guild: "Guild", match: "Match", status: "Site status", predictions: "NA Predictions" };
   function route() {
     var r = parseHash(), html;
     if (r.top === "team" && r.parts[0] === "cs2" && r.parts[1] && !/^[0-9a-f-]{36}$/i.test(r.parts[1])) {   // audit B10: readable slug-id8 team URLs
@@ -2400,6 +2574,7 @@
         case "roundup": html = vRoundup(r.parts); break;
         case "recruiting": html = vRecruiting(); break;
         case "about": html = vAbout(); break;
+        case "predictions": html = vPredictions(r.parts); break;
         case "team": html = r.parts[0] === "val" ? vTeamVal(r.parts.slice(1).join("/")) : vTeamCS(r.parts.slice(1).join("/")); break;
         case "player": html = r.parts[0] === "val" ? vPlayerVal(r.parts.slice(1).join("/")) : vPlayerCS(r.parts.slice(1).join("/")); break;
         case "match": html = r.parts[0] === "val" ? vMatchVal(r.parts.slice(1).join("/")) : vMatchCS(r.parts.slice(1).join("/")); break;
@@ -2421,6 +2596,7 @@
     }
     if ((r.top === "team" || r.top === "player" || r.top === "match") && html.indexOf('class="miss"') < 0 && html.indexOf('class="empty loading"') < 0) html += (r.top === "team" && r.parts[0] === "cs2" ? rankLine(r.parts[1]) : "") + (r.top === "player" && r.parts[0] === "cs2" ? ratingLine(r.parts[1]) : "") + (r.top === "team" ? teamExtraBox(r.parts) : "") + commentsBox(r.top + "/" + r.parts.join("/"));
     $("#view").innerHTML = html;
+    try { cmHydrate(); } catch (e) {}
     document.documentElement.classList.toggle("on-home", r.top === "home");
     document.body.classList.toggle("on-home", r.top === "home");
     try { renderSideNa(); } catch (e) {}

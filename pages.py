@@ -103,8 +103,39 @@ def table(head, rows, cls="tbl"):
 PLAYER_CARD_MIN_ROUNDS = 50
 PREMIER_BODY = '<div class="infobox"><b>Premier</b> is Riot&rsquo;s official in-game team competition for VALORANT: the amateur and semi-pro ladder below the Challengers leagues. Teams enroll for each Stage, play weekly matches on set evenings, and the best teams in each division qualify for a playoff tournament. The top divisions (Contender and Invite) are the road toward Challengers League.</div><h2 class="subhead">Divisions <small>entry level first</small></h2><div class="rankbox"><table class="tbl kv prem-div"><tbody><tr><th scope="row">Open 1&ndash;5</th><td>Entry level. Win your division&rsquo;s playoff bracket to be promoted next Stage.</td></tr><tr><th scope="row">Intermediate 1&ndash;5</th><td>Promotion by winning the playoff bracket.</td></tr><tr><th scope="row">Advanced 1&ndash;5</th><td>Promotion by winning the playoff bracket.</td></tr><tr><th scope="row">Elite 1&ndash;5</th><td>Highest regular division. Promotion by winning the playoff bracket.</td></tr><tr><th scope="row">Contender</th><td>Special division with its own rules; part of the path to Challengers League.</td></tr><tr><th scope="row">Invite</th><td>Top of Premier; the last step before Challengers League.</td></tr></tbody></table></div><div class="note">A new team gets a provisional division from the Competitive MMR of its top five players; it locks in after the first match of a Stage. Teams are not demoted for results, but roster or skill changes can place them lower next Stage.</div><h2 class="subhead">Zones <small>Americas first</small></h2><div class="rankbox"><table class="tbl kv prem-zone"><tbody><tr><th scope="row">Americas: North America</th><td>US East, US Central and US West zones, named after Riot&rsquo;s North American server areas. Some zones have more than one server pod (for example Central vs. Texas); you&rsquo;re recommended the pods with the lowest latency.</td></tr><tr><th scope="row">Americas: Latin America and Brazil</th><td>Their own zones.</td></tr><tr><th scope="row">EMEA</th><td>Europe, the Middle East and Africa zones.</td></tr><tr><th scope="row">Pacific</th><td>Asia-Pacific zones.</td></tr></tbody></table></div><div class="note">The team owner picks a zone when enrolling each Stage. Weekly matches are usually around 7&ndash;9 pm local time for the zone. The exact zone list is shown in the game at enrollment and can change between Stages.</div><h2 class="subhead">Premier Score and standings</h2><div class="rankbox"><table class="tbl kv"><tbody><tr><th scope="row">Premier Score</th><td>100 points for a weekly match win, 25 for a loss; tournament matches give no points. In Open through Elite, the score decides who qualifies for playoffs.</td></tr><tr><th scope="row">Ties</th><td>Playoff result first, then Premier Score, then total matches played, then round differential.</td></tr><tr><th scope="row">Where standings live</th><td>Only in the VALORANT game client: <b>Premier &rsaquo; Standings</b>. You can switch zones and divisions there with the drop-down menus.</td></tr></tbody></table></div><div class="empty">Esports Scoreboard doesn&rsquo;t show Premier standings or results: Riot doesn&rsquo;t publish them through a public data feed, and we don&rsquo;t copy them from other sites. Check your Team Hub in the game for live standings.</div><h2 class="subhead">Official Riot pages</h2>'
 PREMIER_LINKS = [('https://playvalorant.com/en-us/news/game-updates/premier-launch-faq/', 'Premier launch FAQ (playvalorant.com)'), ('https://support-valorant.riotgames.com/hc/en-us/articles/42083133112339-Premier-Divisions', 'Premier Divisions (Riot Support)'), ('https://support-valorant.riotgames.com/hc/en-us/articles/42089892246035-Premier-Team-Hub-Score', 'Premier Team Hub & Score (Riot Support)')]
-SECTION_NAMES = {"cs2": "CS2", "valorant": "Valorant", "wow": "WoW Retail", "wow-forever": "WoW Forever", "news": "News",
+SECTION_NAMES = {"predictions": "Predictions", "cs2": "CS2", "valorant": "Valorant", "wow": "WoW Retail", "wow-forever": "WoW Forever", "news": "News",
                  "roundup": "Weekly Roundups", "forums": "Forums", "about": "About", "search": "Search", "recruiting": "Recruiting"}
+
+
+def deep_static(rec):
+    """v5.18 static twin of app.js predSections: one deep prediction (writeups.py predictions.json), all text escaped."""
+    out = []
+    for sec in rec.get("sections") or []:
+        h = f'<section class="ps ps-{e(sec.get("k"))}"><h3>{e(sec.get("h"))}</h3>'
+        for f in sec.get("form") or []:
+            h += f'<div class="ps-form"><div class="ps-ft"><b>{e(f.get("team"))}</b> <span class="dim">{e(f.get("sum"))}</span></div><ul class="ps-games">'
+            h += "".join(f'<li><span class="fq {"w" if g.get("r") == "W" else "l"}">{e(g.get("r"))}</span> {e(g.get("score"))} vs {e(g.get("opp"))}'
+                         + (' <span class="dim">(forfeit)</span>' if g.get("ff") else "") + (f' <span class="dim">{e(g.get("date"))}</span>' if g.get("date") else "") + "</li>"
+                         for g in f.get("g") or [])
+            h += "</ul></div>"
+        h += "".join(f"<p>{e(x)}</p>" for x in sec.get("p") or [])
+        if sec.get("note"):
+            h += f'<p class="ps-note">{e(sec["note"])}</p>'
+        out.append(h + "</section>")
+    return "".join(out) + f'<p class="ps-label"><b>{e(rec.get("label") or "Experimental estimate based on season results.")}</b></p>'
+
+
+def deep_card_static(rec):
+    a, b = rec.get("a") or {}, rec.get("b") or {}
+    fav = b if rec.get("fav") == 2 else a
+    pa = rec["pct"] if rec.get("fav") == 1 else 100 - rec["pct"]
+    def tm(t, on):
+        return f'<span class="pc-tm{" fav" if on else ""}">{e(t.get("name"))}' + (f' <small class="pc-rk">#{int(t["esb"])}</small>' if t.get("esb") else "") + "</span>"
+    return (f'<div class="pc-meta"><span class="pc-div">{e(rec.get("division"))}</span> &middot; {e(rec.get("when"))}</div>'
+            f'<div class="pc-teams">{tm(a, rec.get("fav") == 1)}<span class="pc-vs">vs</span>{tm(b, rec.get("fav") == 2)}</div>'
+            f'<div class="pc-bar"><span class="pc-a{" on" if rec.get("fav") == 1 else ""}" style="width:{pa}%"></span><span class="pc-b{" on" if rec.get("fav") == 2 else ""}" style="width:{100 - pa}%"></span></div>'
+            f'<div class="pc-pcts"><span>{pa}%</span><span>{100 - pa}%</span></div>'
+            f'<div class="pc-pick">Pick: <b>{e(fav.get("name"))}</b> {int(rec["pct"])}%</div>')
 
 
 class Site:
@@ -373,6 +404,7 @@ class Site:
         # Upcoming NA Main / Intermediate / Advanced: static preview page with the auto-written blurb.
         # No OG images (keeps the share-image step short). EU upcoming is left to the hash preview.
         wu = load(os.path.join(self.dist, "writeups.json")) or {}
+        deep_all = load(os.path.join(self.dist, "predictions.json")) or {}
         have = {p["route"] for p in self.pages}
         for m in self.up:
             if m.get("region") != "NA" or m.get("division") not in ("Main", "Intermediate", "Advanced"):
@@ -388,6 +420,10 @@ class Site:
             text = rec.get("text") if isinstance(rec, dict) else rec
             writeup = (('<h2 class="subhead">Match preview <small>auto-written from season stats</small></h2>'
                         f'<div class="writeup">{e(text)}</div>') if text else "")
+            deep = next((r for r in (deep_all.get("matches") or []) if r.get("id") == mid), None)
+            if deep:
+                writeup = ('<h2 class="subhead">Prediction <small>top 10 preview</small></h2>'
+                           f'<div class="pc pc-match">{deep_card_static(deep)}<div class="pc-body">{deep_static(deep)}<p class="pc-links">{ilink("predictions", "All NA predictions")}</p></div></div>')
             when = e(pt(m.get("t"))) or "TBD"
             info = kv([("When", when + " PT"),
                        ("Division", ilink("cs2/" + slug(dn), dn) + (f' &middot; conference {e(m.get("conf"))}' if m.get("conf") else "") + (f' &middot; round {int(num(m.get("round")))}' if m.get("round") else "")),
@@ -405,6 +441,23 @@ class Site:
                   "url": self.site + "match/cs2/" + mid + "/"}
             self.add("match/cs2/" + mid, f"{t1.get('name')} vs {t2.get('name')} :: ESEA match preview", desc, body, kind="match", ld=ld,
                      lastmod=m.get("t"), crumbs=[("CS2", "cs2"), (dn, "cs2/" + slug(dn)), ("Matches Today", "cs2/today")])
+
+    def build_preds(self):
+        """v5.18 /predictions/: NA top-10 deep previews (static snapshot; the SPA adds expand/collapse and comments)."""
+        px = load(os.path.join(self.dist, "predictions.json")) or {}
+        ms = px.get("matches") or []
+        body = std("NA Predictions", f"{len(ms)} match{'es' if len(ms) != 1 else ''} this week",
+                   '<div class="infobox pred-intro">Deep previews for every upcoming ESEA NA match that involves a top 10 team in Main, Intermediate and Advanced. All times Pacific.</div>')
+        for dv in px.get("divisions") or []:
+            rows = [r for r in ms if r.get("division") == dv.get("division")]
+            body += f'<h2 class="subhead pred-dh">NA {e(dv.get("division"))} <small>{len(rows)} prediction{"s" if len(rows) != 1 else ""}</small></h2>'
+            if rows:
+                body += '<div class="pc-list">' + "".join(f'<article class="pc">{deep_card_static(r)}<div class="pc-body">{deep_static(r)}<p class="pc-links">{ilink("match/cs2/" + r["id"], "Match page")}</p></div></article>' for r in rows if SAFE_SEG.match(str(r.get("id") or ""))) + "</div>"
+            else:
+                body += f'<div class="empty pred-empty">No upcoming matches for the NA {e(dv.get("division"))} top 10 in the current schedule.</div>'
+        body += f'<div class="note">{e(px.get("label") or "Experimental estimate based on season results.")} No predicted score or map veto.</div>'
+        self.add("predictions", "NA CS2 Predictions :: Esports Scoreboard",
+                 "Experimental win estimates and deep previews for upcoming ESEA NA Main, Intermediate and Advanced matches involving top 10 teams.", body)
 
     # Nov 13: "Related" boxes (static snapshot twin of app.js relatedTeamCS / relatedPlayerCS / relatedMatchCS)
     def next_match(self, tid):
@@ -836,6 +889,7 @@ def build(dist, site, og_cache, do_og=True):
     s.build_cs()
     s.build_val()
     s.build_rest()
+    s.build_preds()
     s.build_roundups()
     s.build_v6()
     path_map(s)

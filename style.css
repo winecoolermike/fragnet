@@ -916,3 +916,97 @@ a.wp-chip:hover{text-decoration:underline}
 /* auto-written NA match preview (build-time templates from season stats) */
 .writeup{margin:0 0 8px;padding:8px 10px;border:1px solid var(--tline);border-top:none;background:#FFFCF2;font:13px/1.5 var(--list);color:#000}
 [data-theme=night] .writeup{background:#252A32;color:var(--text);border-color:var(--tline)}
+
+/* v5.18 Predictions: NA top-10 deep previews + comments (readable sizes, calm colors) */
+.pred-intro{font-size:14px;line-height:1.5}
+.pred-jump{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pred-jump a{display:inline-block;padding:7px 12px;border:1px solid var(--tline);background:var(--alt);font:bold 13px var(--ui);color:var(--navy);border-radius:3px}
+.pred-jump a b{color:var(--rust)}
+.subhead.pred-dh{font-size:15px;margin-top:14px}
+.pc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;margin:6px 0 10px;align-items:start}
+.pc-list-home{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));padding:8px}
+.pc{display:block;text-align:left;border:1px solid var(--tline);border-left:4px solid #3f6f96;background:var(--white);padding:10px 12px;font:14px/1.45 var(--list);color:#1c232b;border-radius:3px}
+a.pc,a.pc:visited,a.pc:hover{color:#1c232b;text-decoration:none}
+a.pc:hover{background:#f4f8fb}
+.pc-meta{font:12.5px var(--ui);color:#5b6470;margin-bottom:6px}
+.pc-div{font-weight:bold;color:var(--rust);text-transform:uppercase;letter-spacing:.03em}
+.pc-teams{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font:bold 16px/1.3 var(--head);margin-bottom:6px}
+.pc-tm{flex:1 1 0;min-width:0;overflow-wrap:anywhere}
+.pc-tm + .pc-vs + .pc-tm{text-align:right}
+.pc-pcts span + span{text-align:right}
+.pc-tm.fav{color:var(--navy)}
+.pc-rk{font:normal 11.5px var(--ui);color:#6b7480}
+.pc-vs{flex:0 0 auto;font:normal 12px var(--ui);color:#7a838e}
+.pc-bar{display:flex;height:14px;border:1px solid #9aa5b1;background:#e3e7ec;border-radius:2px;overflow:hidden}
+.pc-a,.pc-b{background:#b7c2cd}.pc-a.on,.pc-b.on{background:#3f6f96}
+.pc-pcts{display:flex;justify-content:space-between;font:bold 13px var(--ui);color:#3b4651;margin-top:3px}
+.pc-pick{margin-top:6px;font-size:15px}
+.pc-pick b{color:var(--navy)}
+.cm-n{font:12.5px var(--ui);color:#5b6470}
+.pc-go{display:block;margin-top:8px;font:bold 13px var(--ui);color:var(--link)}
+.pred-all{display:block;margin:0 8px 8px;padding:11px 12px;text-align:center;border:1px solid #8a6a2f;background:#f6ecd6;font:bold 14px var(--ui);color:#4a3510;border-radius:3px}
+.pred-all:hover{background:#efe0bf;text-decoration:none;color:#4a3510}
+.pc-more{margin-top:8px;border-top:1px dotted var(--dotted);padding-top:6px}
+.pc-more > summary{cursor:pointer;font:bold 14px var(--ui);color:var(--link);padding:6px 0;list-style:none}
+.pc-more > summary::-webkit-details-marker{display:none}
+.pc-more > summary::before{content:"\25B8  "}
+.pc-more[open] > summary::before{content:"\25BE  "}
+.pc-body{font:14.5px/1.55 var(--list)}
+.ps{margin:10px 0 0}
+.ps h3{margin:0 0 4px;font:bold 14px var(--head);color:var(--rust);text-transform:uppercase;letter-spacing:.04em}
+.ps p{margin:0 0 6px}
+.ps-note,.ps-label{font-size:12.5px;color:#5b6470}
+.ps-label b{color:var(--rust)}
+.ps-form{margin:0 0 8px}
+.ps-games{list-style:none;margin:4px 0 0;padding:0}
+.ps-games li{padding:2px 0;font-size:14px}
+.ps-games .fq{display:inline-block;width:18px;text-align:center}
+.pc-links{margin:8px 0 0;font:bold 13px var(--ui)}
+.pc-match{margin-bottom:8px}
+.pred-empty{font-size:14px;padding:10px}
+.pred-top{margin:4px 0 12px;font:14px var(--list)}
+.pred-top summary{cursor:pointer;font:bold 13px var(--ui);color:var(--link);padding:4px 0}
+.pred-top ol{margin:4px 0 0 22px;padding:0}.pred-top li{padding:2px 0}
+/* comments */
+.cm{margin:12px 0 4px;padding-top:8px;border-top:1px solid var(--tline)}
+.cm-h{margin:0 0 6px;font:bold 15px var(--head);color:var(--navy)}
+.cm-c{font-weight:normal;color:#5b6470}
+.cm-form label{display:block;font:bold 13px var(--ui);margin:6px 0 2px;color:#3b4651}
+.cm-form input,.cm-form textarea{display:block;width:100%;box-sizing:border-box;margin-top:3px;font:16px/1.4 var(--list);padding:8px;border:1px solid #9aa5b1;background:#fff;color:#111;border-radius:3px}
+.cm-form textarea{resize:vertical;min-height:72px}
+.cm-hp{position:absolute!important;left:-9999px;width:1px;height:1px;overflow:hidden}
+.cm-row{display:flex;align-items:center;gap:10px;margin-top:8px}
+.cm-form button{font:bold 14px var(--ui);padding:10px 16px;min-height:42px;border:1px solid #2f5677;background:#3f6f96;color:#fff;border-radius:3px;cursor:pointer}
+.cm-form button[disabled]{opacity:.6}
+.cm-left,.cm-rules{font:12px var(--ui);color:#6b7480}
+.cm-rules{margin-top:4px}
+.cm-msg{font:bold 13px var(--ui);color:var(--rust);margin-top:6px;min-height:1em}
+.cm-list{list-style:none;margin:10px 0 0;padding:0}
+.cm-list li{padding:8px 0;border-top:1px dotted var(--dotted)}
+.cm-meta{font:12.5px var(--ui);color:#5b6470}.cm-meta b{color:#1c232b;font-size:14px}
+.cm-body{white-space:pre-wrap;overflow-wrap:anywhere;font:14.5px/1.5 var(--list);margin-top:2px}
+.cm-none{font-size:14px}
+@media (min-width:901px){
+  .home-gcards{grid-template-areas:"cs2 val wow" "picks picks picks" "res res res"}
+}
+@media (max-width:600px){
+  .pc-list,.pc-list-home{grid-template-columns:1fr}
+  .pc{padding:12px}
+  .pc-teams{font-size:17px}
+  .pc-body{font-size:15.5px}
+  .pc-pick{font-size:16px}
+  .ps-games li{font-size:15px}
+  .pred-jump a{flex:1 1 auto;text-align:center;font-size:14px;padding:9px 6px}
+}
+[data-theme=night] .pc,[data-theme=night] a.pc{background:#1F242B;color:var(--text);border-color:#3a4048;border-left-color:#5d8fbb}
+[data-theme=night] a.pc:hover{background:#252b33}
+[data-theme=night] .pc-meta,[data-theme=night] .pc-rk,[data-theme=night] .pc-vs,[data-theme=night] .cm-n,[data-theme=night] .ps-note,[data-theme=night] .ps-label,[data-theme=night] .cm-c,[data-theme=night] .cm-meta,[data-theme=night] .cm-left,[data-theme=night] .cm-rules{color:var(--muted)}
+[data-theme=night] .pc-tm.fav,[data-theme=night] .pc-pick b,[data-theme=night] .cm-h{color:#9cc7ee}
+[data-theme=night] .pc-div,[data-theme=night] .ps h3,[data-theme=night] .ps-label b,[data-theme=night] .pred-jump a b{color:#e0a28f}
+[data-theme=night] .pc-bar{border-color:#59636f;background:#2a3038}[data-theme=night] .pc-a,[data-theme=night] .pc-b{background:#46505b}[data-theme=night] .pc-a.on,[data-theme=night] .pc-b.on{background:#5d8fbb}
+[data-theme=night] .pc-pcts,[data-theme=night] .cm-form label{color:var(--text)}
+[data-theme=night] .pred-all{background:#2b2418;border-color:#6b5426;color:#f0d9a8}
+[data-theme=night] .pred-jump a{background:#222831;color:#9cc7ee}
+[data-theme=night] .cm-form input,[data-theme=night] .cm-form textarea{background:#14171b;color:var(--text);border-color:#4a525c}
+[data-theme=night] .cm-meta b{color:var(--text)}
+[data-theme=night] .cm-msg{color:#e0a28f}
