@@ -582,8 +582,14 @@ class Site:
                      '<div class="empty wf-stand">Standings are not available yet. There is no public live-data source for WoW Forever guild or raid standings here. When one is published, it will appear on this page.</div>'
                      '<div class="note">Retail Mythic raid rankings stay on the ' + ilink("wow", "WoW Retail") + ' page.</div>'
                      '<h2 class="subhead">Headlines</h2>' + wf_head))
-        self.add("about", "About :: Esports Scoreboard", "About Esports Scoreboard, an independent fan-made tracker for ESEA League CS2, Valorant Challengers and the WoW Mythic raid race.",
-                 std("About Esports Scoreboard", "independent fan project", '<div class="infobox">An independent fan project tracking ESEA League CS2, Valorant Challengers / Game Changers and the WoW Mythic raid race. Data from FACEIT, vlr.gg and Raider.IO; every team, player and guild links to its source. Not affiliated with FACEIT, ESEA, Valve, Riot Games or Blizzard.</div>'))
+        self.add("about", "About :: Esports Scoreboard", "About Esports Scoreboard, an independent fan-made tracker for amateur and semi-pro CS2 leagues, Valorant, WoW Retail and WoW Forever, and esports news.",
+                 std("About Esports Scoreboard", "independent fan project",
+                     '<div class="infobox">Esports Scoreboard is an independent, fan-made tracker for amateur and semi-pro esports: Counter-Strike 2 amateur and semi-pro leagues, Valorant, the World of Warcraft Retail Mythic raid race, World of Warcraft: Forever, and esports headlines.</div>'
+                     '<h2 class="subhead">Updates and times</h2>'
+                     '<div class="about-p">The site is updated every 30 minutes. All dates and times on Esports Scoreboard are shown in Pacific Time (PT: PDT in summer, PST in winter).</div>'
+                     '<h2 class="subhead">Forums</h2>'
+                     '<div class="about-p">Forums are coming soon. Posting opens once shared accounts and moderation are in place.</div>'
+                     '<div class="about-p disclaimer">Esports Scoreboard is an independent fan project. It is not affiliated with, endorsed by, or sponsored by any game publisher, league operator, or other company whose names or trademarks appear on the site. Counter-Strike, Valorant, World of Warcraft and all other trademarks, game names and logos belong to their respective owners.</div>'))
         self.add("search", "Search :: Esports Scoreboard", "Search teams, players, guilds and headlines on Esports Scoreboard.",
                  std("Search", "teams, players, guilds", '<div class="infobox">Search needs JavaScript. Browse: ' + ilink("cs2", "CS2 standings") + " &middot; " + ilink("valorant", "Valorant") + " &middot; " + ilink("wow", "WoW Retail") + " &middot; " + ilink("wow-forever", "WoW Forever") + "</div>"))
 

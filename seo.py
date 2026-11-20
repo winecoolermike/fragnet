@@ -29,7 +29,7 @@ def na_first(items, key=lambda x: x.get("region")):
 
 def home_ld(site):
     org = {"@context": "https://schema.org", "@type": "Organization", "@id": site + "#org", "name": NAME, "url": site,
-           "logo": site + "icon-512.png", "description": "Independent fan-made tracker for amateur and semi-pro esports: ESEA League CS2, Valorant Challengers and the WoW raid race."}
+           "logo": site + "icon-512.png", "description": "Independent fan-made tracker for amateur and semi-pro esports: CS2 leagues, Valorant, WoW Retail and WoW Forever."}
     web = {"@context": "https://schema.org", "@type": "WebSite", "@id": site + "#website", "name": NAME, "url": site, "inLanguage": "en-US",
            "publisher": {"@id": site + "#org"},
            "potentialAction": {"@type": "SearchAction", "target": {"@type": "EntryPoint", "urlTemplate": site + "?q={search_term_string}"},
@@ -115,12 +115,12 @@ def api_and_llms(s, dist, site, pred=None, path_map=None):
         with open(fp, "w", encoding="utf-8") as fh:
             json.dump(obj, fh, ensure_ascii=False, separators=(",", ":"))
 
-    head = (f"# {NAME}\n\n> {NAME} ({site}) is an independent, fan-made tracker for amateur and semi-pro esports: ESEA League "
-            f"Counter-Strike 2 standings, results, rosters and player stats ({season}, North America first, then Europe), Valorant "
-            f"Challengers / Game Changers results, a Valorant Premier explainer, and the World of Warcraft Retail Mythic raid race, with a "
-            f"separate WoW Forever page. Data refreshes about every 30 minutes from public sources (FACEIT, vlr.gg, Raider.IO). "
+    head = (f"# {NAME}\n\n> {NAME} ({site}) is an independent, fan-made tracker for amateur and semi-pro esports: "
+            f"Counter-Strike 2 standings, results, rosters and player stats (North America first, then Europe), Valorant "
+            f"results, a Valorant Premier explainer, and the World of Warcraft Retail Mythic raid race, with a "
+            f"separate WoW Forever page. Data refreshes about every 30 minutes. "
             f"Data refreshed {_pt(fetched)}.\n\n"
-            "Not affiliated with FACEIT, ESEA, Valve, Riot Games or Blizzard. Win probabilities on ESEA NA Main match previews are an "
+            "Win probabilities on NA match previews are an "
             "experimental Elo model estimate\u2014not a guarantee or betting advice.\n\n"
             "## Machine-readable data\n\n"
             f"- [API index (JSON)]({site}api/index.json)\n- [CS2 standings, every division (JSON)]({site}api/cs2/standings.json)\n"
