@@ -1,0 +1,262 @@
+{
+ "cs_matches": 677,
+ "cs_with_scoreboards": 228,
+ "current": false,
+ "end": "2026-11-23T08:00:00+00:00",
+ "fraggers": [
+  {
+   "deaths": 51,
+   "div": "NA Advanced",
+   "kills": 78,
+   "maps": 4,
+   "match": "1-a88f719b-0ae9-429a-bb8a-62eee3ab1096",
+   "nick": "Grizzleey",
+   "team": "Marsborne",
+   "team_id": "8121d96b-2094-4bf7-970d-22765b8b4779"
+  },
+  {
+   "deaths": 47,
+   "div": "NA Intermediate",
+   "kills": 61,
+   "maps": 2,
+   "match": "1-e3e6ea12-a37b-42b6-9200-6fa74a075ad9",
+   "nick": "Panda1__",
+   "team": "Casual Mature Gamers",
+   "team_id": "e0237b37-8759-4309-bbc8-5d9d10bf37b6"
+  },
+  {
+   "deaths": 37,
+   "div": "NA Main",
+   "kills": 57,
+   "maps": 2,
+   "match": "1-cb097085-f5e5-434c-8d9c-3ee9153dc9f1",
+   "nick": "Hunterzone",
+   "team": "OnlyFans",
+   "team_id": "4a21e366-941d-4ab3-9af6-116c6f35ce85"
+  },
+  {
+   "deaths": 63,
+   "div": "EU Advanced",
+   "kills": 77,
+   "maps": 3,
+   "match": "1-7db1c6f1-b9a3-4798-8082-dd6dd798c212",
+   "nick": "s1s1s1_",
+   "team": "Banda chuya LFO",
+   "team_id": "3f0342b6-3241-4295-ba8e-7dfe45388335"
+  },
+  {
+   "deaths": 40,
+   "div": "EU Intermediate",
+   "kills": 51,
+   "maps": 2,
+   "match": "1-bd8ce621-2781-4831-9194-870a0fd2bcfd",
+   "nick": "zYtokk",
+   "team": "singular",
+   "team_id": "a4d6810c-8ac5-4dcd-8dda-5947d3b2e9da"
+  },
+  {
+   "deaths": 53,
+   "div": "EU Main",
+   "kills": 81,
+   "maps": 3,
+   "match": "1-75d555b9-97cf-45c5-a91f-c32e96c13958",
+   "nick": "Tevsii-",
+   "team": "MyHUD",
+   "team_id": "311b0c6d-96b2-46af-8f47-8742eba05458"
+  }
+ ],
+ "id": "2026-w47",
+ "label": "Nov 16 - Nov 22, 2026",
+ "potw": {
+  "EU Advanced": {
+   "best": "1-f6ce8d44-62f3-440a-94ad-96b48642d7f4",
+   "d": 25,
+   "div": "EU Advanced",
+   "k": 43,
+   "maps": 2,
+   "nick": "h21f",
+   "rating": 1.43,
+   "rounds": 39,
+   "team": "B8 Academy",
+   "team_id": "f3b3ace1-84f1-448c-bc88-e222e3d3f085"
+  },
+  "EU Intermediate": {
+   "best": "1-d885f047-4e87-4b8c-b307-83a97e2bbe64",
+   "d": 19,
+   "div": "EU Intermediate",
+   "k": 43,
+   "maps": 2,
+   "nick": "Karakz",
+   "rating": 1.53,
+   "rounds": 37,
+   "team": "LoaThE",
+   "team_id": "65fc1155-092a-4968-9485-5495bd7f62d9"
+  },
+  "EU Main": {
+   "best": "1-403650ff-abb8-494d-abbb-0afcac2eb1c5",
+   "d": 20,
+   "div": "EU Main",
+   "k": 43,
+   "maps": 2,
+   "nick": "neverl0ck",
+   "rating": 1.57,
+   "rounds": 38,
+   "team": "Hybrid Theory",
+   "team_id": "3f16216f-cfa0-48e3-bcf0-42068ff39193"
+  },
+  "NA Advanced": {
+   "best": "1-b456193f-7feb-42f1-93e7-c12d2b0b5279",
+   "d": 13,
+   "div": "NA Advanced",
+   "k": 52,
+   "maps": 3,
+   "nick": "roca",
+   "rating": 1.94,
+   "rounds": 43,
+   "team": "North Forge",
+   "team_id": "fb61b498-0b5d-482f-ae52-da4af6aa97e4"
+  },
+  "NA Intermediate": {
+   "best": "1-cc5773c7-e3f9-4584-bf0b-ccfe348d7d20",
+   "d": 13,
+   "div": "NA Intermediate",
+   "k": 32,
+   "maps": 2,
+   "nick": "Cooper",
+   "rating": 1.52,
+   "rounds": 31,
+   "team": "Swole Patrol",
+   "team_id": "c2ee5f3e-09a6-4466-8876-a5a9533255e0"
+  },
+  "NA Main": {
+   "best": "1-97390fcc-44f1-48e3-a9d7-96900c4029b9",
+   "d": 23,
+   "div": "NA Main",
+   "k": 51,
+   "maps": 3,
+   "nick": "1mprovee2",
+   "rating": 1.54,
+   "rounds": 55,
+   "team": "feet67",
+   "team_id": "c3782764-92da-4a9e-b46b-8af05a0efa37"
+  }
+ },
+ "start": "2026-11-16T08:00:00+00:00",
+ "streaks": [
+  {
+   "div": "EU Advanced",
+   "id": "f3b3ace1-84f1-448c-bc88-e222e3d3f085",
+   "last": "1-88ee39e8-216d-4fc3-a314-df5abd463eef",
+   "n": 4,
+   "name": "B8 Academy"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "2e54c309-0627-46c0-ab1a-77650a2b9a90",
+   "last": "1-faf65fb8-c861-4123-a6f2-67b9a3ad06db",
+   "n": 4,
+   "name": "CLUB 333"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "30dd56ee-d645-4cd7-a7ca-e2ce5b7eddd8",
+   "last": "1-16a4f9f3-2aaa-4251-a70f-cea04cd188f1",
+   "n": 4,
+   "name": "House Platypus ESC"
+  },
+  {
+   "div": "EU Advanced",
+   "id": "934a2bd0-fa66-4c02-ac92-00f742e7ec55",
+   "last": "1-dc414182-2c66-4812-b46d-5ee201a5ad35",
+   "n": 4,
+   "name": "Jumbo team"
+  },
+  {
+   "div": "NA Advanced",
+   "id": "8121d96b-2094-4bf7-970d-22765b8b4779",
+   "last": "1-f47e2746-1bb6-4df4-a19b-04e4c6276fc7",
+   "n": 4,
+   "name": "Marsborne"
+  }
+ ],
+ "totw": {
+  "EU Advanced": {
+   "division": "Advanced",
+   "gain": 83.7,
+   "id": "51aa82a4-7ac4-49f2-8b88-f710dc0de1d6",
+   "l": 4,
+   "matches": 11,
+   "name": "OldBoys",
+   "played": 4,
+   "pts": 1629.2,
+   "region": "EU",
+   "w": 7
+  },
+  "EU Intermediate": {
+   "division": "Intermediate",
+   "gain": 68.5,
+   "id": "bdc870bc-c386-4488-9084-6df1ff584794",
+   "l": 4,
+   "matches": 14,
+   "name": "72tango",
+   "played": 4,
+   "pts": 1424.4,
+   "region": "EU",
+   "w": 10
+  },
+  "EU Main": {
+   "division": "Main",
+   "gain": 76.8,
+   "id": "311b0c6d-96b2-46af-8f47-8742eba05458",
+   "l": 4,
+   "matches": 14,
+   "name": "MyHUD",
+   "played": 4,
+   "pts": 1557.5,
+   "region": "EU",
+   "w": 10
+  },
+  "NA Advanced": {
+   "division": "Advanced",
+   "gain": 88.4,
+   "id": "8121d96b-2094-4bf7-970d-22765b8b4779",
+   "l": 3,
+   "matches": 14,
+   "name": "Marsborne",
+   "played": 4,
+   "pts": 1712.4,
+   "region": "NA",
+   "w": 11
+  },
+  "NA Intermediate": {
+   "division": "Intermediate",
+   "gain": 57.0,
+   "id": "45f6072b-ce78-480e-86f7-0b701025aee9",
+   "l": 5,
+   "matches": 14,
+   "name": "ODIN",
+   "played": 3,
+   "pts": 1342.0,
+   "region": "NA",
+   "w": 9
+  },
+  "NA Main": {
+   "division": "Main",
+   "gain": 61.4,
+   "id": "e7f802f2-96fa-4389-8287-affd27a43ce1",
+   "l": 5,
+   "matches": 14,
+   "name": "The Homies",
+   "played": 3,
+   "pts": 1528.7,
+   "region": "NA",
+   "w": 9
+  }
+ },
+ "upsets": [],
+ "wow": {
+  "guilds": [],
+  "kills": 0,
+  "raid": "The Venomous Abyss"
+ }
+}
