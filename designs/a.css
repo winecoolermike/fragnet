@@ -1,0 +1,96 @@
+/* ===== Direction A: "Scoreline" - modern sports-scores app (cards, big type, bottom tab bar on phones) ===== */
+:root{
+  --dz-bg:#F2F4F7; --dz-surface:#FFFFFF; --dz-surface2:#F5F7FA; --dz-ink:#101828; --dz-muted:#5D6B7E; --dz-line:#E4E8EE; --dz-line2:#CBD3DE;
+  --dz-accent:#2E5BBA; --dz-accent-soft:#E9EFFA; --dz-link:#2650A8; --dz-hl:#B4532A;
+  --dz-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --dz-r:16px; --dz-r-sm:10px; --dz-max:1320px; --dz-gap:18px;
+}
+[data-theme=night]{
+  --dz-bg:#0E1217; --dz-surface:#161B22; --dz-surface2:#1C232C; --dz-ink:#E8EDF3; --dz-muted:#94A1B2; --dz-line:#252D38; --dz-line2:#36414F;
+  --dz-accent:#6E9BEA; --dz-accent-ink:#0E1217; --dz-accent-soft:#1D2A40; --dz-link:#8FB3F0; --dz-hl:#E39A73;
+  --dz-win:#5CC487; --dz-loss:#F08A7E; --dz-win-soft:#16291F; --dz-loss-soft:#2E1B1A;
+  --dz-hdr-bg:#161B22; --dz-shadow:none; color-scheme:dark;
+}
+:root{--dz-pad:max(16px,calc((100% - var(--dz-max))/2 + 18px))}
+/* header: one clean white bar, pill navigation */
+#banner{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:16px;padding:12px var(--dz-pad) 8px;border-bottom:0}
+.logo{display:flex;align-items:center;gap:10px;padding:0}
+.logo::before{content:"";flex:none;width:34px;height:34px;border-radius:10px;background:var(--dz-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 16V9M10 16V6M14 16v-4M18 16V8'/%3E%3C/svg%3E") center/22px no-repeat}
+.logo-main{font:800 19px/1 var(--dz-body);letter-spacing:-.02em;color:var(--dz-ink);text-transform:none;max-width:none}
+.logo-net{color:var(--dz-accent)}
+.logo-sub{display:none}
+.searchbox{flex:0 1 420px;margin-left:auto;display:flex;align-items:center;gap:10px}
+.sb-row{flex:1}
+.sb-upd{display:none}
+#theme-tg{position:static;margin:0;height:36px;padding:0 12px}
+#secnav{position:sticky;top:58px;z-index:39;padding:0 var(--dz-pad);border-bottom:1px solid var(--dz-line)}
+#secnav .menu{padding:4px 0 10px;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#secnav .menu a{line-height:36px;padding:0 16px;border-radius:999px;font-weight:600;white-space:nowrap}
+#secnav .menu a:hover{background:var(--dz-surface2)}
+#secnav .menu a.on{background:var(--dz-ink);color:var(--dz-surface)}
+#secnav .lg{display:inline}#secnav .sh{display:none}
+#mesh{grid-template-columns:minmax(0,1fr) 320px;padding-top:24px}
+#pane-right{position:sticky;top:130px;align-self:start}
+
+/* home: picks + scores first, then the game cards */
+.rt-home #pane-middle > #view > .std:first-child .std-header h1{font-size:32px}
+.rt-home .hub-intro{background:transparent;border:0;box-shadow:none;padding:0 2px;color:var(--dz-muted);font-size:16px}
+.feat-wf.compact{padding:12px 16px;gap:6px 14px;margin:0 0 var(--dz-gap)}
+.home-gcards{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"picks picks picks" "res res res" "cs2 val wow"}
+.home-gcards > .g-cs2{grid-area:cs2}.home-gcards > .g-valorant{grid-area:val}.home-gcards > .g-wow{grid-area:wow}
+.home-gcards > #today-board{grid-area:res;margin:0}
+.home-gcards > #na-picks{grid-area:picks;margin:0}
+#na-picks,#today-board,#home-spot{background:var(--dz-surface);border:1px solid var(--dz-line);border-radius:var(--dz-r);padding:18px;box-shadow:var(--dz-shadow)}
+#na-picks .std-header h2,#today-board .std-header h2,#home-spot .std-header h2{font-size:20px}
+#na-picks .pc,#na-picks a.pc{box-shadow:none;background:var(--dz-surface2);border-color:transparent}
+#na-picks a.pc:hover{border-color:var(--dz-line2)}
+#today-board .rankbox,#home-spot .rankbox{box-shadow:none}
+#home-spot .infobox{border:0;padding:0 2px;background:transparent;color:var(--dz-muted)}
+.gc-head{padding-top:18px}
+.gcard.g-cs2 .gc-head::before,.gcard.g-valorant .gc-head::before,.gcard.g-wow .gc-head::before{content:"";display:block;width:28px;height:4px;border-radius:4px;background:#C9762E;margin-bottom:12px}
+.gcard.g-valorant .gc-head::before{background:#C2504A}.gcard.g-wow .gc-head::before{background:#3E73B8}
+
+/* predictions: big matchup cards */
+.pc-teams{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.pc-pcts{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.pc-bar{height:10px}
+.pc-pick{font-size:16px;margin-top:10px}
+.pc-match .pc-teams{font-size:26px}
+.pc-match .pc-pcts{font-size:28px}
+.pc-match{padding:22px}
+.ps{background:var(--dz-surface2);border-radius:var(--dz-r-sm);padding:14px 16px;margin:12px 0 0}
+.ps p:last-child{margin-bottom:0}
+
+@media (min-width:1500px){#mesh{grid-template-columns:minmax(0,1fr) 340px}}
+@media (max-width:1100px){#mesh{grid-template-columns:minmax(0,1fr)}#pane-right{position:static}}
+@media (max-width:900px){.home-gcards{grid-template-columns:1fr;grid-template-areas:"picks" "res" "cs2" "val" "wow"}}
+
+/* phone: compact top bar, section pills off, bottom tab bar */
+@media (max-width:600px){
+  #banner{flex-wrap:wrap;gap:10px;padding:10px 14px;position:sticky}
+  .logo{padding:0;flex:1}
+  .logo::before{width:30px;height:30px;border-radius:9px;background-size:19px}
+  .logo-main{font-size:18px;max-width:none}
+  .searchbox{flex:0 0 auto;margin:0;padding:0;display:contents}
+  #hsearch .sb-row{display:none;order:3;flex-basis:100%}
+  .rt-search #hsearch .sb-row,.rt-home #hsearch .sb-row{display:flex}
+  .searchbox input{height:44px;font-size:16px}
+  .searchbox button{height:44px}
+  #theme-tg{position:static;order:2;height:34px;padding:0 12px;font-size:12px}
+  #secnav{display:none}
+  #mesh{padding:14px 12px 96px}
+  .rt-home #pane-middle > #view > .std:first-child .std-header h1{font-size:26px}
+  .pc-teams{font-size:19px}
+  .pc-match .pc-teams{font-size:22px}
+  #na-picks,#today-board,#home-spot{padding:14px;border-radius:14px}
+  .sectabs{top:0}
+  #footer{padding-bottom:110px}
+  #dz-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;background:color-mix(in srgb,var(--dz-surface) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--dz-line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  #dz-tabbar a,#dz-tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;background:none;border:0;color:var(--dz-muted);font:600 11px var(--dz-body);text-decoration:none;cursor:pointer;min-height:48px;justify-content:center}
+  #dz-tabbar svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  #dz-tabbar .on{color:var(--dz-accent)}
+  #dz-more{position:fixed;inset:0;z-index:55;background:rgba(10,15,25,.35);display:flex;align-items:flex-end}
+  .dz-more-in{width:100%;background:var(--dz-surface);border-radius:20px 20px 0 0;padding:14px 14px 96px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .dz-more-h{grid-column:1/-1;color:var(--dz-muted);font:700 12px var(--dz-body);letter-spacing:.06em;text-transform:uppercase;padding:4px 4px 6px}
+  .dz-more-in a{display:block;padding:14px;border-radius:12px;background:var(--dz-surface2);color:var(--dz-ink);font:600 15px var(--dz-body);text-decoration:none}
+}

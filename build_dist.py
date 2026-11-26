@@ -56,6 +56,11 @@ def build():
         if any(fnmatch.fnmatch(f, p) for p in FONT_PATTERNS):
             shutil.copy2(os.path.join(HERE, "fonts", f), os.path.join(DIST, "fonts", f))
     add_counter()
+    sys.path.insert(0, os.path.join(HERE, "designs"))
+    import apply as design_layer   # redesign preview (ESB_DESIGN=a|b|c); no-op when unset
+    d = design_layer.apply(DIST)
+    if d:
+        print(f"[build] design preview: {d} ({design_layer.NAMES[d]})")
 
 
 def counter_snippet(code):

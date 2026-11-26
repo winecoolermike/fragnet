@@ -1,0 +1,163 @@
+/* ===== Direction C: "Matchday" - editorial esports magazine: serif headlines, predictions as the cover story ===== */
+:root{
+  --dz-bg:#F7F4EE; --dz-surface:#FFFDF9; --dz-surface2:#F1ECE3; --dz-ink:#1F1B16; --dz-muted:#6E665B; --dz-line:#E2DBCF; --dz-line2:#CFC6B7;
+  --dz-accent:#9A4A2E; --dz-accent-ink:#FFFFFF; --dz-accent-soft:#F3E4DC; --dz-link:#2C5878; --dz-hl:#9A4A2E;
+  --dz-win:#2E7346; --dz-loss:#A8402F; --dz-win-soft:#E4F0E6; --dz-loss-soft:#F6E3DF;
+  --dz-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --dz-head:"Fraunces",Georgia,"Times New Roman",serif; --dz-serif:"Fraunces",Georgia,serif;
+  --dz-r:4px; --dz-r-sm:3px; --dz-shadow:none; --dz-max:1240px; --dz-hdr-bg:var(--dz-bg); --dz-gap:20px;
+}
+[data-theme=night]{
+  --dz-bg:#191714; --dz-surface:#201D19; --dz-surface2:#2A2621; --dz-ink:#EDE7DD; --dz-muted:#A69D8F; --dz-line:#36312A; --dz-line2:#4A443B;
+  --dz-accent:#D88B68; --dz-accent-ink:#191714; --dz-accent-soft:#3A2A21; --dz-link:#93BCD8; --dz-hl:#D88B68;
+  --dz-win:#7CC496; --dz-loss:#EB9A86; --dz-win-soft:#1C2A20; --dz-loss-soft:#33211C; color-scheme:dark;
+}
+:root{--dz-pad:max(16px,calc((100% - var(--dz-max))/2 + 20px))}
+/* masthead */
+#utilbar{display:flex;justify-content:center;height:auto;background:transparent;border:0;padding:12px var(--dz-pad) 0}
+#utilbar .menu{display:none}
+#utilbar .date{margin:0;color:var(--dz-muted);font:500 12px var(--dz-body);letter-spacing:.14em;text-transform:uppercase}
+#banner{position:relative;display:block;text-align:center;padding:8px var(--dz-pad) 14px;background:transparent}
+.logo{display:inline-block;padding:0}
+.logo-main{font-size:0;letter-spacing:0;max-width:none;color:var(--dz-ink)}
+.logo-main::after{content:"Esports Scoreboard";font:800 54px/1.05 var(--dz-serif);letter-spacing:-.025em;color:var(--dz-ink)}
+.logo-sub{display:block;margin-top:6px;font-size:0;letter-spacing:0;text-transform:none;border:0;padding:0}
+.logo-sub::after{content:"Amateur & semi-pro esports, told straight";color:var(--dz-muted);font:italic 500 16px var(--dz-serif)}
+.searchbox{position:absolute;right:var(--dz-pad);top:24px;width:260px}
+.searchbox input{border-radius:2px;background:var(--dz-surface);height:38px;font-size:14px}
+.searchbox button{border-radius:2px;height:38px;background:var(--dz-ink);color:var(--dz-bg)}
+.sb-upd{display:none}
+#theme-tg{position:absolute;top:44px;right:0;left:auto;bottom:auto;margin:0;border:0;padding:0;background:none;color:var(--dz-muted);font:600 11px var(--dz-body);letter-spacing:.08em;text-transform:uppercase}
+#secnav{margin:0 var(--dz-pad);border-top:1px solid var(--dz-ink);border-bottom:3px double var(--dz-ink);background:transparent;padding:0}
+#secnav .menu{justify-content:center;gap:0 6px;padding:0}
+#secnav .menu a{font:600 13px/44px var(--dz-body);letter-spacing:.12em;text-transform:uppercase;color:var(--dz-ink);padding:0 12px}
+#secnav .menu a.on{color:var(--dz-accent);box-shadow:inset 0 -3px 0 var(--dz-accent)}
+#secnav .lg{display:inline}#secnav .sh{display:none}
+#mesh{max-width:var(--dz-max);grid-template-columns:minmax(0,1fr) 290px;gap:40px;padding:28px 20px}
+#pane-right{border-left:1px solid var(--dz-line)!important;padding-left:28px!important}
+.sidebox{background:transparent;border:0;border-radius:0;box-shadow:none}
+.side-header{font:800 22px/1.1 var(--dz-serif);letter-spacing:-.01em;text-transform:none;padding:0 0 12px;border-bottom:2px solid var(--dz-ink)}
+.side-header::after{content:"";display:block}
+.side-menu li{padding:12px 0;font-size:15px}
+.side-menu li a{font-family:var(--dz-serif);font-weight:500;font-size:16px;line-height:1.35}
+.side-footer{border-top:1px solid var(--dz-line)}
+.sf-btn{padding:12px 0;font:600 12px var(--dz-body);letter-spacing:.1em;text-transform:uppercase;color:var(--dz-accent)!important}
+/* sections */
+.std-header{border-bottom:2px solid var(--dz-ink);padding:0 0 10px;margin-bottom:16px}
+.std-header h1{font:800 40px/1.08 var(--dz-serif);letter-spacing:-.025em}
+.std-header h2{font:800 28px/1.1 var(--dz-serif);letter-spacing:-.02em}
+.std-header .meta{font:500 12px var(--dz-body);letter-spacing:.08em;text-transform:uppercase}
+.subhead{font:700 22px/1.2 var(--dz-serif);border-bottom:1px solid var(--dz-line);padding-bottom:8px}
+.infobox{background:transparent;border:0;border-left:3px solid var(--dz-line2);border-radius:0;padding:2px 0 2px 14px;font:15px/1.55 var(--dz-body);color:var(--dz-ink)}
+.infobox.hub-intro,.infobox.pred-intro{border-left-color:var(--dz-accent);font:italic 500 18px/1.5 var(--dz-serif)}
+.infobox b{font-style:normal}
+.crumbs{font:600 12px var(--dz-body);letter-spacing:.1em;text-transform:uppercase}
+.rankbox,.newsbox,.listbox,.sr-list,.forum-table{border:0;border-top:2px solid var(--dz-ink);border-radius:0;background:transparent;box-shadow:none}
+.tbl thead th{background:transparent;color:var(--dz-ink);font:700 11px var(--dz-body);letter-spacing:.1em;border-bottom:1px solid var(--dz-ink)}
+.tbl td{border-bottom:1px solid var(--dz-line)}
+.tbl tbody tr:hover td{background:var(--dz-surface2)}
+.seg{border-radius:2px;background:transparent;border:1px solid var(--dz-ink);padding:0}
+.seg a,.seg a:first-of-type,.seg a:last-child{border-radius:0;font:600 13px/34px var(--dz-body);letter-spacing:.06em;text-transform:uppercase;color:var(--dz-ink)}
+.seg a.on{background:var(--dz-ink);color:var(--dz-bg);box-shadow:none}
+.sectabs{border-bottom:1px solid var(--dz-ink)}
+.sectabs a{font:600 13px/44px var(--dz-body);letter-spacing:.1em;text-transform:uppercase}
+.sectabs a.on{border-bottom-color:var(--dz-accent);color:var(--dz-accent)}
+.toolbar a,.navbar a,.day-strip .day,.pin,.pick-tab,.pred-jump a,.tb-fold summary,.pager a,.pager span.act,.feat-wf-btn,.gbtn{border-radius:2px}
+.toolbar a.on,.navbar a.on,.day-strip .day.on,.pin.on,.pick-tab.on,.pager span.act{background:var(--dz-ink);color:var(--dz-bg);border-color:var(--dz-ink)}
+.tile{border:0;border-top:2px solid var(--dz-ink);border-radius:0;background:transparent;box-shadow:none;padding:10px 2px}
+.tile b{font:800 30px/1.05 var(--dz-serif)}
+.mhead{border:0;border-top:2px solid var(--dz-ink);border-bottom:1px solid var(--dz-line);border-radius:0;background:transparent}
+.mhead .ms,.mhead .mt{font-family:var(--dz-serif)}
+/* home: the picks are the cover story */
+.rt-home #view > .std:first-child .std-header{display:none}
+.rt-home .hub-intro{margin:0 0 18px}
+.feat-wf,.feat-wf.compact{background:var(--dz-surface2);border:0;border-radius:0;box-shadow:none;padding:14px 18px}
+.feat-wf-kicker{color:var(--dz-accent);letter-spacing:.14em}
+.feat-wf-title{font:700 20px/1.2 var(--dz-serif)}
+.home-gcards{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"picks picks picks" "cs2 val wow" "res res res";gap:28px 28px}
+.home-gcards > #na-picks{grid-area:picks;margin:0}.home-gcards > .g-cs2{grid-area:cs2}.home-gcards > .g-valorant{grid-area:val}.home-gcards > .g-wow{grid-area:wow}.home-gcards > #today-board{grid-area:res;margin:0}
+#na-picks .std-header{border-bottom:0;border-top:6px solid var(--dz-ink);padding-top:12px;margin-bottom:6px}
+#na-picks .std-header h2{font-size:44px;letter-spacing:-.03em}
+#na-picks .std-header h2::before{content:"Cover story";display:block;font:700 12px var(--dz-body);letter-spacing:.16em;text-transform:uppercase;color:var(--dz-accent);margin-bottom:8px}
+.pc-list-home{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 32px}
+.pc-list > .pc,.pc-match{background:transparent;border:0;border-top:1px solid var(--dz-line2);border-radius:0;box-shadow:none;padding:18px 0}
+.pc-list > a.pc:hover{background:transparent}
+.pc-list > a.pc:hover .pc-teams{color:var(--dz-accent)}
+.pc-list-home > .pc:first-child{grid-column:1/-1;border-top:1px solid var(--dz-ink);padding:22px 0 26px}
+.pc-list-home > .pc:first-child .pc-teams{font-size:40px;line-height:1.05}
+.pc-list-home > .pc:first-child .pc-pcts{font-size:28px}
+.pc-list-home > .pc:first-child .pc-bar{height:8px}
+.pc-teams{font:700 24px/1.15 var(--dz-serif);letter-spacing:-.015em}
+.pc-tm.fav{color:var(--dz-ink)}
+.pc-rk{font:500 13px var(--dz-body)}
+.pc-vs{font:italic 500 16px var(--dz-serif)}
+.pc-div{letter-spacing:.14em}
+.pc-bar{height:5px;border-radius:0}
+.pc-a.on,.pc-b.on{background:var(--dz-accent)}
+.pc-pcts{font:700 18px var(--dz-serif)}
+.pc-pick{font:italic 500 18px var(--dz-serif)}
+.pc-pick b{font-style:normal;color:var(--dz-accent)}
+.pc-go{font:600 12px var(--dz-body);letter-spacing:.12em;text-transform:uppercase;color:var(--dz-accent)}
+.pred-all{background:var(--dz-ink);color:var(--dz-bg);border-radius:2px;letter-spacing:.06em}
+.pred-all:hover{background:var(--dz-ink);color:var(--dz-bg)}
+.gcard,.gcard.g-valorant,.gcard.g-wow{background:transparent;border:0;border-top:2px solid var(--dz-ink);border-radius:0;box-shadow:none}
+.gc-head{padding:12px 0 4px}
+.gc-name{font:800 26px/1.1 var(--dz-serif)}
+.gc-sub{color:var(--dz-accent);letter-spacing:.12em}
+.gc-teaser{padding:6px 0 12px;font-size:15px}
+.gc-btns{padding:0 0 4px}
+.gbtn{background:transparent;border:1px solid var(--dz-line2)}
+#today-board,#home-spot{border-top:0}
+/* the full write-up reads like an article */
+.pc-match{border-top:2px solid var(--dz-ink);padding-top:20px}
+.pc-match .pc-teams{font-size:38px;line-height:1.05}
+.pc-match .pc-pcts{font-size:26px}
+.pc-body{font:18px/1.7 var(--dz-serif);max-width:44em}
+.ps{margin:22px 0 0}
+.ps h3{font:700 12px var(--dz-body);letter-spacing:.16em;color:var(--dz-accent);border-top:1px solid var(--dz-line);padding-top:12px}
+.ps-pick p:first-of-type::first-letter{float:left;font:800 58px/.82 var(--dz-serif);margin:6px 8px 0 0;color:var(--dz-accent)}
+.ps-games li{font:16px/1.6 var(--dz-body)}
+.ps-note,.ps-label{font:13px/1.5 var(--dz-body)}
+.pred-jump a{font-family:var(--dz-body)}
+#footer{border-top:3px double var(--dz-ink)}
+#footer .menu{justify-content:center}
+.foot-note{text-align:center}
+@media (max-width:1100px){
+  .searchbox{position:static;width:auto;max-width:520px;margin:14px auto 0}
+  #theme-tg{position:static;margin:10px auto 0}
+  #mesh{grid-template-columns:minmax(0,1fr);gap:24px}
+  #pane-right{border-left:0!important;padding-left:0!important}
+}
+@media (max-width:900px){.home-gcards{grid-template-columns:1fr;grid-template-areas:"picks" "res" "cs2" "val" "wow"}.pc-list-home{grid-template-columns:1fr}}
+@media (max-width:600px){
+  #utilbar{padding-top:10px}
+  #utilbar .date{font-size:10.5px}
+  #banner{padding:4px 14px 10px}
+  .logo-main::after{font-size:34px}
+  .logo-sub{margin-top:4px}
+  .logo-sub::after{font-size:14px}
+  .searchbox{position:static;display:block;margin:0;max-width:none;width:auto}
+  #hsearch .sb-row{display:none;margin-top:12px}
+  .rt-search #hsearch .sb-row,.rt-home #hsearch .sb-row{display:flex}
+  .searchbox input,.searchbox button{height:44px;font-size:16px}
+  #theme-tg{position:absolute;top:-21px;left:auto;right:14px;margin:0;padding:0;font-size:10.5px}
+  #banner{position:relative}
+  #secnav{display:none}
+  #mesh{padding:18px 14px 100px;border-top:3px double var(--dz-ink);margin:0 14px;padding-left:0;padding-right:0}
+  .std-header h1{font-size:32px}
+  #na-picks .std-header h2{font-size:34px}
+  .pc-list-home > .pc:first-child .pc-teams{font-size:25px}
+  .pc-tm{overflow-wrap:break-word}
+  .pc-teams{font-size:20px}
+  .pc-match .pc-teams{font-size:28px}
+  .pc-body{font-size:17.5px}
+  .infobox.hub-intro,.infobox.pred-intro{font-size:17px}
+  #footer{padding-bottom:110px}
+  #dz-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--dz-bg);border-top:1px solid var(--dz-ink);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  #dz-tabbar a,#dz-tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;background:none;border:0;color:var(--dz-muted);font:600 10.5px var(--dz-body);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;cursor:pointer;min-height:48px;justify-content:center}
+  #dz-tabbar svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  #dz-tabbar .on{color:var(--dz-accent)}
+  #dz-more{position:fixed;inset:0;z-index:55;background:rgba(25,20,15,.35);display:flex;align-items:flex-end}
+  .dz-more-in{width:100%;background:var(--dz-bg);border-top:3px double var(--dz-ink);padding:16px 18px 96px}
+  .dz-more-h{font:700 12px var(--dz-body);letter-spacing:.16em;text-transform:uppercase;color:var(--dz-accent);padding-bottom:6px}
+  .dz-more-in a{display:block;padding:14px 0;border-bottom:1px solid var(--dz-line);color:var(--dz-ink);font:700 22px var(--dz-serif);text-decoration:none}
+}

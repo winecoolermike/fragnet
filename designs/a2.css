@@ -1,0 +1,209 @@
+/* ===== Direction A2: "Scoreline 2" - A with an esports identity: navy + frag-orange brand, game colors,
+   hero picks, initial badges, sticky table headers, calmer Night ===== */
+:root{
+  --dz-bg:#F3F5F8; --dz-surface:#FFFFFF; --dz-surface2:#F4F6F9; --dz-ink:#111A2B; --dz-muted:#5A677B; --dz-line:#E2E7EE; --dz-line2:#C9D2DE;
+  --dz-accent:#1F3F6E; --dz-accent-ink:#FFFFFF; --dz-accent-soft:#E7EDF6; --dz-link:#24508F; --dz-hl:#D46A2E; --dz-brand:#E07436;
+  --dz-cs:#D97A2B; --dz-val:#CF4F4A; --dz-wow:#3B76C2; --dz-wf:#7A63B5;
+  --dz-hero:#16243A; --dz-hero2:#1E3050; --dz-hero-ink:#F2F5FA; --dz-hero-muted:#A9B6CA; --dz-hero-line:#2C4060;
+  --dz-r:14px; --dz-r-sm:10px; --dz-max:1280px; --dz-gap:20px;
+  --dz-shadow:0 1px 2px rgba(17,26,43,.05),0 2px 8px rgba(17,26,43,.05);
+  --dz-hdr-h:62px; --dz-nav-h:52px;
+}
+[data-theme=night]{
+  --dz-bg:#0C121C; --dz-surface:#131B28; --dz-surface2:#18222F; --dz-ink:#E5EBF3; --dz-muted:#93A0B3; --dz-line:#212C3B; --dz-line2:#314053;
+  --dz-accent:#8DB0E8; --dz-accent-ink:#0C121C; --dz-accent-soft:#1A2639; --dz-link:#93B6EE; --dz-hl:#EE9562; --dz-brand:#EE9562;
+  --dz-cs:#E39552; --dz-val:#E27470; --dz-wow:#6D9BDA; --dz-wf:#9C88D2;
+  --dz-hero:#101A2A; --dz-hero2:#172438; --dz-hero-ink:#EEF2F8; --dz-hero-muted:#93A3BA; --dz-hero-line:#26354B;
+  --dz-win:#62C08A; --dz-loss:#EE8C80; --dz-win-soft:#14271C; --dz-loss-soft:#2B1B1B;
+  --dz-hdr-bg:#101823; --dz-shadow:none; color-scheme:dark;
+}
+body{font-size:15px;line-height:1.55}
+/* ---------- brand header ---------- */
+#banner{height:var(--dz-hdr-h);padding-top:0;padding-bottom:0;gap:18px;box-shadow:none}
+.logo{gap:11px}
+.logo::before{width:36px;height:36px;border-radius:10px;background:var(--dz-hero) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke-linecap='round'%3E%3Cpath d='M6 17V11M10 17V7M14 17v-5' stroke='white' stroke-width='2.4'/%3E%3Cpath d='M18 17V9' stroke='%23E07436' stroke-width='2.4'/%3E%3C/svg%3E") center/22px no-repeat;box-shadow:inset 0 -3px 0 var(--dz-brand)}
+.logo-main{font-size:0;letter-spacing:0;line-height:1}
+.logo-main::before{content:"Esports";font:italic 800 21px/1 var(--dz-body);letter-spacing:-.03em;color:var(--dz-ink)}
+.logo-net{font-size:0}
+.logo-net::before{content:"Scoreboard";font:italic 800 21px/1 var(--dz-body);letter-spacing:-.03em;color:var(--dz-brand);margin-left:5px}
+.searchbox input{background:var(--dz-surface2);border-color:var(--dz-line)}
+.searchbox button{background:var(--dz-accent)}
+#theme-tg{border-color:var(--dz-line)}
+#secnav{top:var(--dz-hdr-h);height:var(--dz-nav-h)}
+#secnav .menu{padding:6px 0 8px}
+#secnav .menu a{line-height:36px;padding:0 15px;font-size:14.5px}
+#secnav .menu a.on{background:var(--dz-accent);color:var(--dz-accent-ink)}
+#secnav .menu a[data-nav=cs2]::before,#secnav .menu a[data-nav=valorant]::before,#secnav .menu a[data-nav=wow]::before,#secnav .menu a[data-nav=wow-forever]::before,#secnav .menu a[data-nav=predictions]::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--dz-cs)}
+#secnav .menu a[data-nav=valorant]::before{background:var(--dz-val)}
+#secnav .menu a[data-nav=wow]::before{background:var(--dz-wow)}
+#secnav .menu a[data-nav=wow-forever]::before{background:var(--dz-wf)}
+#secnav .menu a[data-nav=predictions]::before{background:var(--dz-brand);border-radius:2px;transform:rotate(45deg)}
+#pane-right{top:calc(var(--dz-hdr-h) + var(--dz-nav-h) + 20px)}
+#mesh{padding-top:26px}
+/* ---------- type scale ---------- */
+.std-header h1{font-size:30px;font-weight:800;letter-spacing:-.025em}
+.std-header h2{font-size:19px;font-weight:750;letter-spacing:-.015em}
+.subhead{font-size:17px;margin:28px 2px 12px}
+.crumbs{font-size:13px}
+.side-header{font-size:12px;letter-spacing:.08em;color:var(--dz-muted)}
+.side-header::before{content:"";display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--dz-brand);margin-right:8px;vertical-align:-1px}
+/* ---------- home: hero picks, then today, then the games ---------- */
+.rt-home #view{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--dz-gap);grid-template-areas:"intro intro intro" "picks picks picks" "res res res" "feat feat feat" "cs2 val wow" "spot spot spot" "my my my"}
+.rt-home #view > .std:first-child{grid-area:intro;margin-bottom:14px}
+.rt-home #view > .home-gcards{display:contents}
+.rt-home #view > .feat-wf{grid-area:feat}
+.rt-home #view > #home-spot{grid-area:spot}
+.rt-home #view > #my-matches{grid-area:my}
+.rt-home #view #na-picks,.rt-home #view #dz-picks{grid-area:picks;margin:0 0 var(--dz-gap)}
+.rt-home #view #today-board{grid-area:res;margin:0 0 var(--dz-gap)}
+.rt-home #view .g-cs2{grid-area:cs2}.rt-home #view .g-valorant{grid-area:val}.rt-home #view .g-wow{grid-area:wow}
+.rt-home #view .gcard{margin-bottom:var(--dz-gap)}
+.rt-home #view > .std:first-child .std-header{padding-bottom:4px}
+.rt-home #view > .std:first-child .std-header h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rt-home #view > .std:first-child .std-header .meta{margin-left:0;font-size:12.5px}
+.rt-home .hub-intro{font-size:17px;color:var(--dz-ink);font-weight:500;letter-spacing:-.01em}
+/* the hero */
+#na-picks,#dz-picks{border-radius:var(--dz-r);background:linear-gradient(160deg,var(--dz-hero2),var(--dz-hero));border:0;color:var(--dz-hero-ink);padding:22px;position:relative;overflow:hidden}
+#na-picks::after,#dz-picks::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;border:28px solid rgba(224,116,54,.07);pointer-events:none}
+#na-picks .std-header h2,#dz-picks .std-header h2{color:var(--dz-hero-ink);font-size:22px}
+#na-picks .std-header h2::before,#dz-picks .std-header h2::before{content:"NA \00B7  This week";display:block;font:700 11px var(--dz-body);letter-spacing:.14em;text-transform:uppercase;color:var(--dz-brand);margin-bottom:6px}
+#na-picks .std-header .meta a,#dz-picks .std-header .meta a{color:var(--dz-hero-ink);font-weight:600}
+#na-picks .note,#na-picks .note a{color:var(--dz-hero-muted)}
+#na-picks .pc-list-home{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;position:relative;z-index:1}
+#na-picks .pc,#na-picks a.pc{background:rgba(255,255,255,.06);border:1px solid var(--dz-hero-line);color:var(--dz-hero-ink);box-shadow:none}
+#na-picks a.pc:hover{background:rgba(255,255,255,.09);border-color:#3D5578}
+#na-picks .pc-list-home > .pc:first-child{grid-column:1/-1;padding:22px}
+#na-picks .pc-list-home > .pc:first-child .pc-teams{font-size:26px}
+#na-picks .pc-list-home > .pc:first-child .pc-pcts{font-size:30px}
+#na-picks .pc-list-home > .pc:first-child .dz-bd{width:52px;height:52px;font-size:18px;border-radius:14px}
+#na-picks .pc-meta,#na-picks .pc-rk,#na-picks .pc-vs{color:var(--dz-hero-muted)}
+#na-picks .pc-div{color:var(--dz-brand)}
+#na-picks .pc-tm.fav,#na-picks .pc-pcts{color:var(--dz-hero-ink)}
+#na-picks .pc-bar{background:rgba(255,255,255,.12)}
+#na-picks .pc-a,#na-picks .pc-b{background:rgba(255,255,255,.22)}
+#na-picks .pc-a.on,#na-picks .pc-b.on{background:var(--dz-brand)}
+#na-picks .pc-pick b{color:#F6B48C}
+#na-picks .pc-go{color:#F6B48C}
+#na-picks .pred-all{background:var(--dz-brand);color:#fff}
+/* initial badges (design.js) */
+.dz-bd{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;border-radius:12px;background:var(--bd);color:#fff;font:800 14px/1 var(--dz-body);letter-spacing:.02em;font-style:normal;box-shadow:inset 0 -3px 0 rgba(0,0,0,.18)}
+.dz-bd-lg{width:54px;height:54px;font-size:19px;border-radius:15px;margin-right:14px;vertical-align:middle}
+.pc-teams{align-items:flex-start}
+.pc-tm{display:flex;flex-direction:column;gap:8px;align-items:flex-start;overflow-wrap:break-word;word-break:normal;hyphens:auto}
+.pc-tm + .pc-vs + .pc-tm{align-items:flex-end;text-align:right}
+.pc-vs{align-self:center;margin-top:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:11px}
+.std-header h1 .dz-bd{margin-top:-4px}
+/* game identity: colored tops + tags */
+.gcard{border-top:0;position:relative}
+.gcard::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--dz-cs)}
+.gcard.g-valorant::before{background:var(--dz-val)}.gcard.g-wow::before{background:var(--dz-wow)}
+.gcard .gc-head::before{display:none!important}
+.gc-head{padding-top:20px}
+.gc-name::before{content:"CS";display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;margin-right:10px;vertical-align:-5px;background:color-mix(in srgb,var(--dz-cs) 16%,transparent);color:var(--dz-cs);font:800 12px var(--dz-body)}
+.g-valorant .gc-name::before{content:"VAL";background:color-mix(in srgb,var(--dz-val) 16%,transparent);color:var(--dz-val);font-size:10px}
+.g-wow .gc-name::before{content:"WoW";background:color-mix(in srgb,var(--dz-wow) 16%,transparent);color:var(--dz-wow);font-size:10px}
+.gc-sub{margin-top:6px}
+.gtag,.listbox .tag{border-radius:999px;font:700 10.5px var(--dz-body);letter-spacing:.04em;padding:1px 8px;background:color-mix(in srgb,var(--dz-cs) 14%,transparent);color:var(--dz-cs);border:0}
+.g-val .gtag,.listbox .tag.val{background:color-mix(in srgb,var(--dz-val) 14%,transparent);color:var(--dz-val)}
+.listbox .tag.wow{background:color-mix(in srgb,var(--dz-wow) 14%,transparent);color:var(--dz-wow)}
+.feat-wf,.feat-wf.compact{border-left:4px solid var(--dz-wf)}
+.feat-wf-kicker{color:var(--dz-wf)}
+/* today board */
+#today-board{padding:20px}
+#today-board .std-header h2::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dz-cs);margin-right:9px;vertical-align:2px}
+.dz-empty-row{background:var(--dz-surface2);border-radius:var(--dz-r-sm);padding:14px 16px;font-size:14.5px;color:var(--dz-ink)}
+.dz-empty-row a{font-weight:600;margin-left:4px}
+/* empty states */
+.dz-empty{display:flex;gap:16px;align-items:flex-start;background:var(--dz-surface);border:1px dashed var(--dz-line2);border-radius:var(--dz-r);padding:20px;margin:0 0 var(--dz-gap);color:var(--dz-ink)}
+.dz-empty-ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--dz-accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E07436' stroke-width='2' stroke-linecap='round'%3E%3Crect x='4' y='5' width='16' height='15' rx='2'/%3E%3Cpath d='M4 10h16M9 3v4M15 3v4'/%3E%3C/svg%3E") center/24px no-repeat}
+.dz-empty-t{font:700 17px/1.3 var(--dz-body);letter-spacing:-.01em;margin-bottom:4px}
+.dz-empty p{margin:0 0 8px;color:var(--dz-muted);font-size:14.5px}
+.dz-empty p b{color:var(--dz-ink)}
+.dz-empty-a{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0!important}
+.dz-empty-a a{font-weight:600}
+#dz-picks .dz-empty{background:rgba(255,255,255,.05);border-color:var(--dz-hero-line);margin:4px 0 0;position:relative;z-index:1}
+#dz-picks .dz-empty-t,#dz-picks .dz-empty p b{color:var(--dz-hero-ink)}
+#dz-picks .dz-empty p{color:var(--dz-hero-muted)}
+#dz-picks .dz-empty-a a{color:#F6B48C}
+#dz-picks .dz-empty-ic{background-color:rgba(224,116,54,.14)}
+.rt-predictions.dz-pred-empty .pred-empty{display:none}
+.rt-predictions.dz-pred-empty .pred-jump{display:none}
+/* ---------- tables: calmer rows, sticky headers ---------- */
+.tbl thead th{font-size:11.5px;letter-spacing:.06em;background:var(--dz-surface2)}
+.tbl td{padding:12px 10px}
+.tbl td.team a{font-weight:650}
+.tbl tr.r1 td.rk span,.tbl tr.r2 td.rk span,.tbl tr.r3 td.rk span{background:var(--dz-accent);color:var(--dz-accent-ink)}
+[data-theme=night] .tbl tr.r1 td.rk span,[data-theme=night] .tbl tr.r2 td.rk span,[data-theme=night] .tbl tr.r3 td.rk span{background:var(--dz-accent-soft);color:var(--dz-accent)}
+@media (min-width:601px){
+  .rankbox{overflow:visible}
+  .tbl thead th{position:sticky;top:calc(var(--dz-hdr-h) + var(--dz-nav-h));z-index:5;box-shadow:0 1px 0 var(--dz-line)}
+  .tbl thead tr th:first-child{border-top-left-radius:var(--dz-r)}
+  .tbl thead tr th:last-child{border-top-right-radius:var(--dz-r)}
+}
+/* ---------- predictions page + match preview ---------- */
+.pc-list > .pc,.pc-match{border-radius:var(--dz-r)}
+.pc-list > .pc{border-top:3px solid var(--dz-brand)}
+.pc-match{padding:24px;border-top:4px solid var(--dz-brand)}
+.pc-match .pc-teams{font-size:24px}
+.pc-match .dz-bd{width:56px;height:56px;font-size:19px;border-radius:16px}
+.pc-match .pc-pcts{font-size:30px}
+.pc-match .pc-bar{height:12px;margin-top:6px}
+.pc-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:6px}
+.pc-body > .ps-pick,.pc-body > .ps-why,.pc-body > .ps-label,.pc-body > .pc-links,.pc-body > .cm{grid-column:1/-1}
+.pc-more .pc-body{grid-template-columns:1fr}
+.ps{margin:0;background:var(--dz-surface2);border:1px solid var(--dz-line);border-radius:var(--dz-r-sm);padding:16px 18px}
+.ps h3{display:flex;align-items:center;gap:8px;color:var(--dz-ink);font:750 13px var(--dz-body);letter-spacing:.06em;margin:0 0 8px}
+.ps h3::before{content:"";flex:none;width:4px;height:14px;border-radius:2px;background:var(--dz-brand)}
+.ps-pick{background:var(--dz-accent-soft);border-color:transparent}
+.ps-pick p:first-of-type{font-size:17px;font-weight:600;color:var(--dz-ink)}
+.ps-why{border-left:4px solid var(--dz-brand)}
+.ps p{margin:0 0 8px}
+.ps p:last-child{margin-bottom:0}
+.ps-games li{padding:4px 0;border-bottom:1px solid var(--dz-line)}
+.ps-games li:last-child{border-bottom:0}
+.ps-label,.pc-links{padding:0 2px}
+.pred-jump a{font-size:14px}
+/* ---------- team page ---------- */
+.tiles{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.tile{border-top:3px solid var(--dz-line2)}
+.tile:first-child{border-top-color:var(--dz-brand)}
+/* ---------- Night polish ---------- */
+[data-theme=night] .logo::before{background-color:#1B2A42}
+[data-theme=night] #na-picks,[data-theme=night] #dz-picks{border:1px solid #2A3B57;background:linear-gradient(160deg,#1A2A44,#121D30)}
+[data-theme=night] .gcard,[data-theme=night] .rankbox,[data-theme=night] .sidebox,[data-theme=night] .pc-list > .pc,[data-theme=night] .pc-match{border-color:var(--dz-line)}
+[data-theme=night] .fq.w{background:#2E7D50}[data-theme=night] .fq.l{background:#A5473C}
+[data-theme=night] .dz-bd{box-shadow:inset 0 -3px 0 rgba(0,0,0,.3);filter:saturate(.85) brightness(.95)}
+[data-theme=night] #dz-tabbar{background:color-mix(in srgb,var(--dz-surface) 94%,transparent)}
+/* ---------- phone ---------- */
+@media (max-width:900px){
+  .rt-home #view{grid-template-columns:minmax(0,1fr);grid-template-areas:"intro" "picks" "res" "feat" "cs2" "val" "wow" "spot" "my"}
+  #na-picks .pc-list-home{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  :root{--dz-hdr-h:56px}
+  #banner{height:auto;min-height:var(--dz-hdr-h);padding:9px 14px}
+  .rt-home #banner,.rt-search #banner{padding-bottom:12px}
+  .logo::before{width:32px;height:32px;background-size:20px}
+  .logo-main::before,.logo-net::before{font-size:19px}
+  #mesh{padding:16px 12px 100px}
+  .std-header h1{font-size:25px}
+  .rt-home .hub-intro{font-size:15.5px}
+  #na-picks,#dz-picks{padding:18px 16px;border-radius:16px}
+  #na-picks .pc-list-home > .pc:first-child{padding:18px}
+  #na-picks .pc-list-home > .pc:first-child .pc-teams{font-size:20px}
+  #na-picks .pc-list-home > .pc:first-child .pc-pcts{font-size:26px}
+  .pc-teams{font-size:17px}
+  .dz-bd{width:36px;height:36px;font-size:13px;border-radius:11px}
+  .pc-match{padding:18px}
+  .pc-match .pc-teams{font-size:20px}
+  .pc-match .dz-bd{width:46px;height:46px;font-size:16px}
+  .pc-body{grid-template-columns:1fr}
+  .ps{padding:14px}
+  .dz-bd-lg{width:44px;height:44px;font-size:16px;margin-right:10px}
+  .dz-empty{padding:16px;gap:12px}
+  .sectabs{position:static}
+  .rt-cs2 .rankbox:has(> table.tbl:not(.res)){overflow:visible}
+  .rt-cs2 .rankbox:has(> table.tbl:not(.res)) .tbl td,.rt-cs2 .rankbox:has(> table.tbl:not(.res)) .tbl thead th{padding-left:5px;padding-right:5px}
+  .rt-cs2 .rankbox:has(> table.tbl:not(.res)) .tbl thead th{position:sticky;top:var(--dz-hdr-h);z-index:5;box-shadow:0 1px 0 var(--dz-line)}
+  #today-board{padding:16px}
+}
